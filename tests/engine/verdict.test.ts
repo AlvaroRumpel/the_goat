@@ -5,13 +5,14 @@ import { createRng } from '../../src/engine/rng'
 import { drawPlayer, resolveBuild } from '../../src/engine/draft'
 import { SLOT_ORDER, type DraftPick } from '../../src/engine/types'
 import { simRegularSeason, simPostseason } from '../../src/engine/season'
+import { rollEvents, autoResolve } from '../../src/engine/events'
 import { teamById } from '../../src/data/teams'
 import { makeOffers } from '../../src/engine/offers'
 
 function season(over: Partial<SeasonResult>): SeasonResult {
   return {
     age: 25, teamId: 'okc', finalTeamId: 'okc', games: 78,
-    ppg: 12, rpg: 5, apg: 3, events: [], madePlayoffs: false,
+    ppg: 12, rpg: 5, apg: 3, events: [], choices: [], madePlayoffs: false,
     wonTitle: false, awards: [], ...over,
   }
 }
@@ -80,7 +81,9 @@ describe('computeVerdict', () => {
       for (let age = 19; age <= 36; age++) {
         const team = teamById(offer.teamId)
         const focus = (['scoring', 'defense', 'leadership', 'health'] as const)[rng.int(0, 3)]
-        const regular = simRegularSeason({ build, age, team, profile: offer.profile, focus, rng })
+        const events = rollEvents(rng, focus)
+        const choices = autoResolve(events)
+        const regular = simRegularSeason({ build, age, team, profile: offer.profile, focus, rng, events, choices })
         const finalTeam = regular.tradeOffer && rng.chance(0.5) ? teamById(regular.tradeOffer.teamId) : team
         seasons.push(simPostseason({ build, regular, team: finalTeam, focus, rng }))
         if ((age - 19) % 4 === 3) offer = makeOffers(rng, finalTeam.id)[rng.int(0, 2)]

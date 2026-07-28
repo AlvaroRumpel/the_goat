@@ -43,7 +43,11 @@ export type Focus = 'scoring' | 'defense' | 'leadership' | 'health'
 
 export type Award = 'allstar' | 'mvp' | 'dpoy' | 'scoring' | 'fmvp' | 'ring'
 
-export type GameEventId = 'injury' | 'rivalry' | 'viral' | 'coldstreak'
+export type GameEventId =
+  | 'injury' | 'rivalry' | 'viral' | 'coldstreak'
+  | 'hotstreak' | 'coachchange' | 'playoffspark' | 'lockerroom'
+
+export type EventChoice = 'injuryEarly' | 'injuryFull' | 'lockerFight' | 'lockerCalm'
 
 export interface RegularSeasonResult {
   age: number
@@ -53,6 +57,7 @@ export interface RegularSeasonResult {
   rpg: number
   apg: number
   events: GameEventId[]
+  choices: EventChoice[]
   tradeOffer: Offer | null   // deadline trade; decided before postseason
 }
 

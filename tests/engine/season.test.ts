@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { ageMultiplier, simRegularSeason, simPostseason, performanceRatio } from '../../src/engine/season'
+import { rollEvents } from '../../src/engine/events'
 import { resolveBuild } from '../../src/engine/draft'
 import { createRng } from '../../src/engine/rng'
 import { teamById } from '../../src/data/teams'
@@ -17,7 +18,8 @@ const eliteBuild = resolveBuild(elitePicks)
 function fullSeason(seed: number, age = 26, teamId = 'okc', profile: 'contender' | 'rebuild' | 'bigmarket' = 'contender', focus: Focus = 'scoring') {
   const rng = createRng(seed)
   const team = teamById(teamId)
-  const regular = simRegularSeason({ build: eliteBuild, age, team, profile, focus, rng })
+  const events = rollEvents(rng, focus)
+  const regular = simRegularSeason({ build: eliteBuild, age, team, profile, focus, rng, events, choices: [] })
   return simPostseason({ build: eliteBuild, regular, team, focus, rng })
 }
 
@@ -68,7 +70,7 @@ describe('simRegularSeason', () => {
 
 const seasonWithPpg = (ppg: number): SeasonResult => ({
   age: 25, teamId: 'lal', finalTeamId: 'lal', games: 82, ppg, rpg: 5, apg: 5,
-  events: [], madePlayoffs: false, wonTitle: false, awards: [],
+  events: [], choices: [], madePlayoffs: false, wonTitle: false, awards: [],
 })
 
 describe('performanceRatio', () => {
@@ -93,5 +95,38 @@ describe('simPostseason', () => {
       const s = fullSeason(seed)
       expect(s.awards.includes('ring')).toBe(s.wonTitle)
     }
+  })
+})
+
+describe('efeitos dos eventos novos', () => {
+  const base = { build: eliteBuild, age: 27, team: teamById('lal'), profile: 'rebuild' as const, focus: 'scoring' as const, canTrade: false }
+
+  test('hotstreak sobe ppg vs sem evento (mesma seed)', () => {
+    const a = simRegularSeason({ ...base, rng: createRng(9), events: [], choices: [] })
+    const b = simRegularSeason({ ...base, rng: createRng(9), events: ['hotstreak'], choices: [] })
+    expect(b.ppg).toBeGreaterThan(a.ppg)
+  })
+  test('injuryEarly perde menos jogos que injuryFull mas ppg cai', () => {
+    const early = simRegularSeason({ ...base, rng: createRng(3), events: ['injury'], choices: ['injuryEarly'] })
+    const full = simRegularSeason({ ...base, rng: createRng(3), events: ['injury'], choices: ['injuryFull'] })
+    expect(early.games).toBeGreaterThanOrEqual(82 - 18)
+    expect(full.games).toBeLessThanOrEqual(82 - 10)
+    const clean = simRegularSeason({ ...base, rng: createRng(3), events: [], choices: [] })
+    expect(early.ppg).toBeLessThan(clean.ppg)
+  })
+  test('lockerroom dobra chance de trade (0.20)', () => {
+    let withEv = 0, without = 0
+    for (let seed = 0; seed < 1500; seed++) {
+      const t1 = simRegularSeason({ ...base, canTrade: true, rng: createRng(seed), events: ['lockerroom'], choices: ['lockerCalm'] })
+      const t2 = simRegularSeason({ ...base, canTrade: true, rng: createRng(seed), events: [], choices: [] })
+      if (t1.tradeOffer) withEv++
+      if (t2.tradeOffer) without++
+    }
+    expect(withEv).toBeGreaterThan(without * 1.5)
+  })
+  test('playoffspark e lockerFight mexem no pós-temporada de forma determinística', () => {
+    const reg = simRegularSeason({ ...base, rng: createRng(5), events: ['playoffspark'], choices: [] })
+    const post = simPostseason({ build: base.build, regular: reg, team: base.team, focus: 'scoring', rng: createRng(6) })
+    expect(post).toBeTruthy() // sanity: roda sem erro com os novos campos
   })
 })

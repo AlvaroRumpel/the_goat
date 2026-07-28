@@ -1,4 +1,5 @@
 import { createRng } from './engine/rng'
+import { autoResolve, rollEvents } from './engine/events'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
 import { performanceRatio, simPostseason, simRegularSeason } from './engine/season'
@@ -153,7 +154,9 @@ function reduce(state: GameState, action: Action): GameState {
       const profile = currentOffer.profile
       const canTrade = state.career.seasons.length >= 2
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const regular = simRegularSeason({ build, age: state.age, team, profile, focus: action.focus, rng, canTrade })
+      const events = rollEvents(rng, action.focus, false)
+      const choices = autoResolve(events)
+      const regular = simRegularSeason({ build, age: state.age, team, profile, focus: action.focus, rng, canTrade, events, choices })
 
       if (regular.tradeOffer) {
         return {

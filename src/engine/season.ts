@@ -1,6 +1,5 @@
-import { rollEvents } from './events'
 import { makeOffers } from './offers'
-import type { Build, Focus, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile } from './types'
+import type { Build, EventChoice, Focus, GameEventId, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -14,11 +13,11 @@ export function ageMultiplier(age: number, physical: number): number {
 export function simRegularSeason(input: {
   build: Build; age: number; team: Team; profile: TeamProfile
   focus: Focus; rng: Rng; canTrade?: boolean
+  events: GameEventId[]; choices: EventChoice[]
 }): RegularSeasonResult {
-  const { build, age, team, profile, focus, rng, canTrade = true } = input
+  const { build, age, team, profile, focus, rng, canTrade = true, events, choices } = input
   const m = ageMultiplier(age, build.attributes.physical)
   const eff = (s: keyof Build['attributes']) => build.attributes[s] * m
-  const events = rollEvents(rng, focus)
 
   const scoringRt = 0.35 * eff('three') + 0.30 * eff('finishing') + 0.20 * eff('handles') + 0.15 * eff('clutch')
   let ppg = clamp((scoringRt - 40) * 0.55 + (rng.next() * 3 - 1.5), 4, 38)
@@ -26,6 +25,8 @@ export function simRegularSeason(input: {
   if (profile === 'contender') ppg *= 0.90
   if (focus === 'scoring') ppg += 2
   if (events.includes('coldstreak')) ppg -= 2
+  if (events.includes('hotstreak')) ppg += 2
+  if (choices.includes('injuryEarly')) ppg -= 2
   if (build.archetype === 'SG' || build.archetype === 'SF') ppg += 1
   if (build.archetype === 'C') ppg -= 1
   ppg = clamp(ppg, 4, 38)
@@ -42,15 +43,18 @@ export function simRegularSeason(input: {
   if (build.archetype === 'C') apg -= 1
   apg = clamp(apg, 1, 12)
 
-  const games = 82 - (events.includes('injury') ? rng.int(10, 35) : rng.int(0, 6))
-  const tradeOffer = canTrade && rng.chance(0.10) ? makeOffers(rng, team.id)[rng.int(0, 2)] : null
+  const games = 82 - (events.includes('injury')
+    ? (choices.includes('injuryEarly') ? rng.int(10, 18) : rng.int(10, 35))
+    : rng.int(0, 6))
+  const tradeP = events.includes('lockerroom') ? 0.20 : 0.10
+  const tradeOffer = canTrade && rng.chance(tradeP) ? makeOffers(rng, team.id)[rng.int(0, 2)] : null
 
   return {
     age, teamId: team.id, games,
     ppg: Math.round(ppg * 10) / 10,
     rpg: Math.round(rpg * 10) / 10,
     apg: Math.round(apg * 10) / 10,
-    events, tradeOffer,
+    events, choices, tradeOffer,
   }
 }
 
@@ -70,10 +74,15 @@ export function simPostseason(input: {
   let winPct = clamp((team.strength * 0.55 + overallEff * 0.45 - 35) / 55, 0.15, 0.85)
   if (focus === 'defense') winPct += 0.02
   if (focus === 'leadership') winPct += 0.03
+  if (regular.events.includes('coachchange')) winPct += rng.chance(0.5) ? 0.02 : -0.02
+  if (regular.choices.includes('lockerFight')) winPct -= 0.03
+  if (regular.choices.includes('lockerCalm')) winPct += 0.02
   winPct = clamp(winPct, 0.15, 0.85)
 
-  const effClutch = build.attributes.clutch * m + (regular.events.includes('rivalry') ? 6 : 0)
+  let effClutch = build.attributes.clutch * m + (regular.events.includes('rivalry') ? 6 : 0)
+  if (regular.choices.includes('lockerFight')) effClutch += 6
   const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
+  if (madePlayoffs && regular.events.includes('playoffspark')) effClutch += 8
   const titleProb = madePlayoffs
     ? clamp((winPct - 0.5) * 0.9 + (effClutch - 75) * 0.004, 0.01, 0.45)
     : 0
