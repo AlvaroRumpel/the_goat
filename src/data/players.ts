@@ -17,7 +17,7 @@ export const PLAYERS: Player[] = [
   p('shaq',    'Shaquille O\'Neal',   '2000s', [40, 99, 68, 55, 82, 92, 99, 85]),
   p('duncan',  'Tim Duncan',          '2000s', [52, 92, 78, 60, 94, 92, 86, 90]),
 
-  // demais 16 ids obrigatórios do legends.ts
+  // demais 16 ícones (curadoria própria de ratings)
   p('bird',    'Larry Bird',            '80s',   [95, 85, 90, 78, 72, 82, 65, 93]),
   p('ray',     'Ray Allen',             '2000s', [92, 75, 62, 72, 58, 42, 62, 88]),
   p('nash',    'Steve Nash',            '2000s', [82, 68, 95, 88, 52, 45, 55, 82]),
@@ -61,7 +61,7 @@ export const PLAYERS: Player[] = [
   p('bing',        'Dave Bing',         '60s', [55, 78, 68, 70, 60, 48, 62, 72]),
   p('cwalker',     'Chet Walker',       '60s', [50, 75, 58, 60, 55, 65, 65, 68]),
 
-  // ---- 70s (15, +3 acima em 60s ficam 12; completar aqui) ----
+  // ---- 70s (15) ----
   p('barry',     'Rick Barry',       '70s', [70, 85, 75, 68, 65, 72, 65, 85]),
   p('drj',       'Julius Erving',    '70s', [50, 92, 68, 80, 68, 75, 85, 88]),
   p('frazier',   'Walt Frazier',     '70s', [52, 75, 80, 82, 88, 58, 68, 80]),

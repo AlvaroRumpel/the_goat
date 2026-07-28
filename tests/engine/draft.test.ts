@@ -36,6 +36,7 @@ describe('malusAmount', () => {
   test('escala leve, clamp 1..5', () => {
     expect(malusAmount(99)).toBe(5)
     expect(malusAmount(95)).toBe(4)
+    expect(malusAmount(93)).toBe(4)
     expect(malusAmount(83)).toBe(2)
     expect(malusAmount(77)).toBe(1)
     expect(malusAmount(50)).toBe(1)   // piso 1

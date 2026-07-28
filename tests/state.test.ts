@@ -43,6 +43,10 @@ describe('draft fenomeno', () => {
     s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
     expect(s).toBe(before)
   })
+  test('DRAFT_STEAL fora de attrDraft é no-op', () => {
+    const s = initialState('pt')
+    expect(gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })).toBe(s)
+  })
   test('DRAFT_REROLL troca o jogador uma vez; segunda é no-op', () => {
     let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 4 })
     const first = s.currentPlayerId

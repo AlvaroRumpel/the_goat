@@ -111,7 +111,7 @@ function reduce(state: GameState, action: Action): GameState {
     }
 
     case 'DRAFT_STEAL': {
-      if (state.picks.some(pk => pk.slot === action.slot)) return state
+      if (state.phase !== 'attrDraft' || state.picks.some(pk => pk.slot === action.slot)) return state
       const picks = [...state.picks, { playerId: state.currentPlayerId!, slot: action.slot }]
       if (picks.length >= 8) {
         // DraftDone lê state.build assim que a fase vira, então computa aqui.
@@ -240,6 +240,7 @@ export function saveState(s: GameState): void {
 export function loadState(): GameState | null {
   try {
     if (typeof localStorage === 'undefined') return null
+    localStorage.removeItem('thegoat:v1')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)

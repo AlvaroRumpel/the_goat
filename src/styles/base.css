@@ -143,6 +143,11 @@ button {
   color: var(--danger);
   font-weight: 700;
 }
+.btn--ghost {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--dim);
+}
 
 /* cards */
 .card {
