@@ -89,7 +89,7 @@ export function simPostseason(input: {
   const wonTitle = rng.chance(titleProb)
 
   const awards: SeasonResult['awards'] = []
-  if (regular.ppg >= 18 || regular.apg >= 8 || regular.rpg >= 11) awards.push('allstar')
+  if (regular.ppg >= 19 || regular.apg >= 8 || regular.rpg >= 11) awards.push('allstar')
   if (regular.ppg >= 26 && rng.chance(0.5)) awards.push('scoring')
   if (regular.ppg >= 23 && winPct >= 0.6 && rng.chance(0.25)) awards.push('mvp')
   if (build.attributes.defense * m >= 90 && rng.chance(0.15)) awards.push('dpoy')
