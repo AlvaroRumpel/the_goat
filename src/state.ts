@@ -106,11 +106,15 @@ function reduce(state: GameState, action: Action): GameState {
 
     case 'PICK_LEGEND': {
       const picks = [...state.picks, action.legend]
+      const done = picks.length >= 8
       return {
         ...state,
         picks,
         draftRound: picks.length,
-        phase: picks.length >= 8 ? 'draftDone' : 'attrDraft',
+        // DraftDone (rendered as soon as phase flips) reads state.build, so it
+        // must be computed here rather than waiting for CONFIRM_BUILD.
+        build: done ? resolveDraft(picks) : state.build,
+        phase: done ? 'draftDone' : 'attrDraft',
       }
     }
 
