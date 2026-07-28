@@ -93,5 +93,8 @@
   "share.button": "Compartilhar",
   "share.copied": "Copiado!",
   "share.again": "Jogar de novo",
-  "share.text": "Minha carreira no The GOAT: {tier} — {rings} anéis, {mvps} MVPs, {points} pontos. Consegue ser o GOAT?"
+  "share.text": "Minha carreira no The GOAT: {tier} — {rings} anéis, {mvps} MVPs, {points} pontos. Consegue ser o GOAT?",
+  "share.card.kicker": "THE GOAT · CARREIRA COMPLETA",
+  "share.card.seasons": "{n} temporadas · {allstars}× All-Star",
+  "share.card.hook": "Consegue ser o GOAT?"
 }

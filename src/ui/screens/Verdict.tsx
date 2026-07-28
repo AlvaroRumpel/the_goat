@@ -1,8 +1,9 @@
-import type { Dispatch } from 'react'
+import { useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { computeVerdict } from '../../engine/verdict'
 import type { Award } from '../../engine/types'
+import { drawShareCard, shareText } from '../share'
 
 interface Props {
   state: GameState
@@ -13,7 +14,40 @@ const AWARDS: Award[] = ['allstar', 'mvp', 'dpoy', 'scoring', 'fmvp', 'ring']
 
 export function Verdict({ state, dispatch }: Props) {
   const lang = state.lang
-  const { totals, counts, tier, score } = computeVerdict(state.career)
+  const verdict = computeVerdict(state.career)
+  const { totals, counts, tier, score } = verdict
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const build = state.build
+    if (!canvas || !build) return
+    document.fonts.ready.then(() => drawShareCard(canvas, verdict, build, lang))
+  }, [lang, state.build, verdict])
+
+  async function handleShare() {
+    const text = shareText(lang, verdict)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard unavailable — native share below is the fallback
+    }
+    if (navigator.share) {
+      try {
+        const canvas = canvasRef.current
+        const blob = canvas && await new Promise<Blob | null>(resolve => canvas.toBlob(resolve))
+        if (blob) {
+          const file = new File([blob], 'the-goat.png', { type: 'image/png' })
+          await navigator.share({ text, files: [file] })
+        }
+      } catch {
+        // user cancelled or share unsupported for files — clipboard already covers it
+      }
+    }
+  }
 
   return (
     <div className="screen">
@@ -54,9 +88,16 @@ export function Verdict({ state, dispatch }: Props) {
           ))}
         </div>
 
-        {/* Share is a placeholder — Task 14 wires the actual share action. */}
-        <button type="button" className="btn btn--gold" style={{ width: '100%', opacity: 0.6 }} disabled>
-          {t(lang, 'share.button')}
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: '100%', maxWidth: 280, aspectRatio: '1080 / 1350',
+            border: '1px solid var(--border-gold)', borderRadius: 8,
+          }}
+        />
+
+        <button type="button" className="btn btn--gold" style={{ width: '100%' }} onClick={handleShare}>
+          {t(lang, copied ? 'share.copied' : 'share.button')}
         </button>
         <button type="button" className="btn" style={{ width: '100%' }} onClick={() => dispatch({ type: 'RESET' })}>
           {t(lang, 'share.again')}
