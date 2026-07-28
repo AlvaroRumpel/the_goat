@@ -18,6 +18,17 @@ export interface Legend {
 
 export interface Matchup { slot: SlotId; a: Legend; b: Legend }
 
+export type Era = '50s' | '60s' | '70s' | '80s' | '90s' | '2000s' | '2010s' | '2020s'
+
+export interface Player {
+  id: string
+  name: string
+  era: Era
+  attrs: Record<SlotId, number>   // 40..99
+}
+
+export interface DraftPick { playerId: string; slot: SlotId }
+
 export type Archetype = 'PG' | 'SG' | 'SF' | 'PF' | 'C'
 
 export interface Build {
