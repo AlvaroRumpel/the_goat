@@ -1,0 +1,235 @@
+import { createRng } from './engine/rng'
+import { drawMatchups, resolveDraft } from './engine/draft'
+import { draftPickNumber, makeOffers } from './engine/offers'
+import { simPostseason, simRegularSeason } from './engine/season'
+import { teamById } from './data/teams'
+import type { Lang } from './i18n'
+import type {
+  Build, Career, Focus, Legend, Matchup, Offer, RegularSeasonResult, Rng, SeasonResult, TeamProfile,
+} from './engine/types'
+
+export type Phase =
+  | 'home' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
+  | 'seasonResult' | 'tradeDecision' | 'freeAgency' | 'retireDecision' | 'verdict'
+
+export interface GameState {
+  phase: Phase
+  lang: Lang
+  seed: number
+  rngCalls: number           // replay counter — see persistence note
+  matchups: Matchup[]        // set at draft start
+  draftRound: number         // 0..7
+  picks: Legend[]
+  build: Build | null
+  pickNumber: number | null
+  offers: Offer[]            // current 3 offers (nba draft or FA)
+  currentOffer: Offer | null // accepted offer (team + profile)
+  contractYearsLeft: number
+  age: number
+  pendingRegular: RegularSeasonResult | null  // set when trade offered mid-sim
+  pendingFocus: Focus | null // focus from PLAY_SEASON, needed to resolve postseason after a trade decision
+  career: Career
+}
+
+export type Action =
+  | { type: 'SET_LANG'; lang: Lang }
+  | { type: 'NEW_GAME'; seed: number }
+  | { type: 'PICK_LEGEND'; legend: Legend }
+  | { type: 'CONFIRM_BUILD' }        // draftDone → nbaDraft (computes pickNumber + offers)
+  | { type: 'CHOOSE_OFFER'; offer: Offer }
+  | { type: 'PLAY_SEASON'; focus: Focus }
+  | { type: 'TRADE_DECISION'; accept: boolean }
+  | { type: 'ADVANCE' }              // from seasonResult → next phase (FA / retire / preseason)
+  | { type: 'RETIRE_DECISION'; retire: boolean }
+  | { type: 'RESET' }
+
+const STORAGE_KEY = 'thegoat:v1'
+
+function makeCountedRng(seed: number, skip: number): { rng: Rng; calls: () => number } {
+  const inner = createRng(seed)
+  let n = 0
+  const next = () => { n++; return inner.next() }
+  const rng: Rng = {
+    next,
+    int: (min, max) => min + Math.floor(next() * (max - min + 1)),
+    pick: (arr) => arr[Math.floor(next() * arr.length)],
+    chance: (p) => next() < p,
+  }
+  for (let i = 0; i < skip; i++) next()
+  return { rng, calls: () => n }
+}
+
+function applyFame(career: Career, season: SeasonResult, profile: TeamProfile): Career {
+  let fame = career.fame
+  if (season.events.includes('viral')) fame += 10
+  if (profile === 'bigmarket') fame += 2
+  return { seasons: [...career.seasons, season], fame }
+}
+
+export function initialState(lang: Lang = 'pt'): GameState {
+  return {
+    phase: 'home',
+    lang,
+    seed: 0,
+    rngCalls: 0,
+    matchups: [],
+    draftRound: 0,
+    picks: [],
+    build: null,
+    pickNumber: null,
+    offers: [],
+    currentOffer: null,
+    contractYearsLeft: 0,
+    age: 0,
+    pendingRegular: null,
+    pendingFocus: null,
+    career: { seasons: [], fame: 0 },
+  }
+}
+
+function reduce(state: GameState, action: Action): GameState {
+  switch (action.type) {
+    case 'SET_LANG':
+      return { ...state, lang: action.lang }
+
+    case 'NEW_GAME': {
+      const { rng, calls } = makeCountedRng(action.seed, 0)
+      const matchups = drawMatchups(rng)
+      return {
+        ...initialState(state.lang),
+        seed: action.seed,
+        rngCalls: calls(),
+        matchups,
+        phase: 'attrDraft',
+      }
+    }
+
+    case 'PICK_LEGEND': {
+      const picks = [...state.picks, action.legend]
+      return {
+        ...state,
+        picks,
+        draftRound: picks.length,
+        phase: picks.length >= 8 ? 'draftDone' : 'attrDraft',
+      }
+    }
+
+    case 'CONFIRM_BUILD': {
+      const build = resolveDraft(state.picks)
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const pickNumber = draftPickNumber(build.overall, rng)
+      const offers = makeOffers(rng)
+      return { ...state, build, pickNumber, offers, age: 19, phase: 'nbaDraft', rngCalls: calls() }
+    }
+
+    case 'CHOOSE_OFFER':
+      return { ...state, currentOffer: action.offer, contractYearsLeft: 4, phase: 'preseason' }
+
+    case 'PLAY_SEASON': {
+      const currentOffer = state.currentOffer!
+      const build = state.build!
+      const team = teamById(currentOffer.teamId)
+      const profile = currentOffer.profile
+      const canTrade = state.career.seasons.length >= 2
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const regular = simRegularSeason({ build, age: state.age, team, profile, focus: action.focus, rng, canTrade })
+
+      if (regular.tradeOffer) {
+        return {
+          ...state, phase: 'tradeDecision',
+          pendingRegular: regular, pendingFocus: action.focus, rngCalls: calls(),
+        }
+      }
+
+      const season = simPostseason({ build, regular, team, focus: action.focus, rng })
+      const career = applyFame(state.career, season, profile)
+      return { ...state, phase: 'seasonResult', career, rngCalls: calls() }
+    }
+
+    case 'TRADE_DECISION': {
+      const pendingRegular = state.pendingRegular!
+      const pendingFocus = state.pendingFocus!
+      const tradeOffer = pendingRegular.tradeOffer!
+      const finalOffer = action.accept ? tradeOffer : state.currentOffer!
+      const team = teamById(finalOffer.teamId)
+      const build = state.build!
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const season = simPostseason({ build, regular: pendingRegular, team, focus: pendingFocus, rng })
+      const career = applyFame(state.career, season, finalOffer.profile)
+      return {
+        ...state,
+        phase: 'seasonResult',
+        currentOffer: action.accept ? tradeOffer : state.currentOffer,
+        contractYearsLeft: action.accept ? 4 : state.contractYearsLeft,
+        pendingRegular: null,
+        pendingFocus: null,
+        career,
+        rngCalls: calls(),
+      }
+    }
+
+    case 'ADVANCE': {
+      const age = state.age + 1
+      const contractYearsLeft = state.contractYearsLeft - 1
+
+      if (age > 40) return { ...state, age, contractYearsLeft, phase: 'verdict' }
+
+      if (contractYearsLeft === 0) {
+        const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+        const offers = makeOffers(rng, state.currentOffer?.teamId)
+        return { ...state, age, contractYearsLeft, phase: 'freeAgency', offers, rngCalls: calls() }
+      }
+
+      if (age >= 31) return { ...state, age, contractYearsLeft, phase: 'retireDecision' }
+
+      return { ...state, age, contractYearsLeft, phase: 'preseason' }
+    }
+
+    case 'RETIRE_DECISION':
+      return { ...state, phase: action.retire ? 'verdict' : 'preseason' }
+
+    case 'RESET':
+      throw new Error('RESET handled in gameReducer')
+  }
+}
+
+export function gameReducer(state: GameState, action: Action): GameState {
+  if (action.type === 'RESET') {
+    clearStorage()
+    return initialState(state.lang)
+  }
+  const next = reduce(state, action)
+  saveState(next)
+  return next
+}
+
+export function saveState(s: GameState): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+  } catch {
+    // storage unavailable/full — best-effort persistence only
+  }
+}
+
+export function loadState(): GameState | null {
+  try {
+    if (typeof localStorage === 'undefined') return null
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed.phase !== 'string' || typeof parsed.seed !== 'number') return null
+    return parsed as GameState
+  } catch {
+    return null
+  }
+}
+
+function clearStorage(): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
