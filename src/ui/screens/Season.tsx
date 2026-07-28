@@ -3,6 +3,7 @@ import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
 import { performanceRatio } from '../../engine/season'
+import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus } from '../../engine/types'
 import { OfferCard } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
@@ -13,7 +14,7 @@ interface Props {
 }
 
 const FOCUSES: Focus[] = ['scoring', 'defense', 'leadership', 'health']
-const BAD_EVENTS = new Set(['injury', 'coldstreak'])
+const BAD_EVENTS = new Set(['injury', 'coldstreak', 'lockerroom'])
 const HIGHLIGHT_AWARDS = new Set(['ring', 'fmvp', 'mvp'])
 
 export function Season(props: Props) {
@@ -167,7 +168,7 @@ function TradeDecision({ state, dispatch }: Props) {
 
 function EventDecision({ state, dispatch }: Props) {
   const lang = state.lang
-  const ev = state.pendingEvents!.find(e => e === 'injury' || e === 'lockerroom')!
+  const ev = state.pendingEvents!.find(e => INTERACTIVE_EVENTS.includes(e))!
   return (
     <div className="screen">
       <div className="grain" />
@@ -189,6 +190,8 @@ function EventDecision({ state, dispatch }: Props) {
 
 function FreeAgency({ state, dispatch }: Props) {
   const lang = state.lang
+  const ratio = performanceRatio(state.career.seasons)
+  const heavyDecline = ratio !== null && ratio < 0.55
 
   return (
     <div className="screen">
@@ -213,7 +216,7 @@ function FreeAgency({ state, dispatch }: Props) {
           ))}
         </div>
 
-        {state.age >= 31 && (
+        {(state.age >= 31 || heavyDecline) && (
           <button type="button" className="btn btn--danger" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: true })}>
             {t(lang, 'retire.stop')}
           </button>

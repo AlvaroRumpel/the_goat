@@ -280,6 +280,9 @@ export function loadState(): GameState | null {
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed.phase !== 'string' || typeof parsed.seed !== 'number') return null
+    if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
+    parsed.injuryProne = parsed.injuryProne ?? false
+    parsed.pendingEvents = parsed.pendingEvents ?? null
     return parsed as GameState
   } catch {
     return null

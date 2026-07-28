@@ -139,6 +139,29 @@ describe('gameReducer', () => {
     localStorage.setItem('thegoat:v2', '{broken')
     expect(loadState()).toBeNull()
   })
+  test('loadState normaliza save legado sem injuryProne/pendingEvents e com pendingRegular sem choices', () => {
+    let s = playToBuild()
+    s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+    const legacy: Record<string, unknown> = {
+      ...s,
+      phase: 'tradeDecision',
+      pendingRegular: {
+        age: s.age, teamId: s.currentOffer!.teamId, games: 82, ppg: 20, rpg: 5, apg: 5,
+        events: [], tradeOffer: { teamId: s.currentOffer!.teamId, profile: s.currentOffer!.profile },
+        // choices field missing on purpose — mimics a pre-release save shape
+      },
+      pendingFocus: 'scoring',
+    }
+    delete legacy.injuryProne
+    delete legacy.pendingEvents
+    localStorage.setItem('thegoat:v2', JSON.stringify(legacy))
+
+    const loaded = loadState()!
+    expect(loaded.pendingRegular!.choices).toEqual([])
+    expect(loaded.injuryProne).toBe(false)
+    expect(loaded.pendingEvents).toBeNull()
+    expect(() => gameReducer(loaded, { type: 'TRADE_DECISION', accept: false })).not.toThrow()
+  })
 })
 
 describe('eventDecision', () => {
