@@ -65,6 +65,12 @@ describe('computeVerdict', () => {
     expect(v.tier).toBe('legend')
   })
 
+  test('roy e mip pontuam no score', () => {
+    const with_ = computeVerdict({ seasons: [season({ awards: ['roy', 'mip'] })], fame: 0 })
+    const without = computeVerdict({ seasons: [season()], fame: 0 })
+    expect(with_.score - without.score).toBe(30)
+  })
+
   test('calibration: full random careers — goat rate < 2%, not all peladeiro', () => {
     const tiers: Record<string, number> = {}
     for (let seed = 0; seed < 300; seed++) {

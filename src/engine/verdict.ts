@@ -1,6 +1,6 @@
 import type { Award, Career, Tier, Verdict } from './types'
 
-const AWARDS: Award[] = ['allstar', 'mvp', 'dpoy', 'scoring', 'fmvp', 'ring']
+const AWARDS: Award[] = ['allstar', 'mvp', 'dpoy', 'scoring', 'fmvp', 'ring', 'roy', 'mip']
 
 export function computeVerdict(career: Career): Verdict {
   const counts = Object.fromEntries(AWARDS.map(a => [a, 0])) as Record<Award, number>
@@ -18,7 +18,7 @@ export function computeVerdict(career: Career): Verdict {
 
   const score = Math.round(
     counts.ring * 120 + counts.fmvp * 60 + counts.mvp * 80 + counts.dpoy * 25 +
-    counts.scoring * 20 + counts.allstar * 15 +
+    counts.scoring * 20 + counts.allstar * 15 + counts.roy * 20 + counts.mip * 10 +
     points / 400 + peakPpg * 2 + loyalty + career.fame * 0.5,
   )
   const totals = {
