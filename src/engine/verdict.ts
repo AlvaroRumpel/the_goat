@@ -37,7 +37,7 @@ export function computeVerdict(career: Career): Verdict {
   // Iconic gate: a high score alone doesn't make a GOAT. Needs Jordan-style
   // dominance (rings + MVPs) or LeBron-style longevity (totals + rings).
   if (tier === 'goat') {
-    const jordanPath = counts.ring >= 5 && counts.mvp >= 3
+    const jordanPath = counts.ring >= 5 && counts.mvp >= 4
     const lebronPath = totals.points >= 38000 && counts.ring >= 4
     if (!jordanPath && !lebronPath) tier = 'legend'
   }
