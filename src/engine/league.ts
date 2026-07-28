@@ -1,6 +1,6 @@
 import { ageMultiplier } from './season'
 import { TEAMS } from '../data/teams'
-import type { Conf, LeaguePlayer, LeagueState, LeagueTag, NpcLine, PlayoffRun, Rng, TeamStanding } from './types'
+import type { Award, Conf, LeaguePlayer, LeagueState, LeagueTag, NpcLine, PlayoffRun, RaceAward, RaceEntry, AwardRace, Rng, TeamStanding } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -103,4 +103,63 @@ export function simNpcLines(league: LeagueState, rng: Rng): NpcLine[] {
     const apg = clamp((eff - 60) * 0.22 + (has('playmaker') ? 3 : 0) + (p.pos === 'PG' ? 2.5 : 0) + (rng.next() * 2 - 1), 0.3, 12)
     return { playerId: p.id, ppg: Math.round(ppg * 10) / 10, rpg: Math.round(rpg * 10) / 10, apg: Math.round(apg * 10) / 10 }
   })
+}
+
+export interface PlayerAwardInput {
+  ppg: number; rpg: number; apg: number
+  teamWinPct: number
+  defRating: number        // build.attributes.defense * ageMultiplier
+  rookie: boolean          // primeira temporada
+  prevPpg: number | null
+}
+
+// Referência de calibração: no modelo antigo (pré-liga) o jogador levava MVP com
+// ppg>=23 && winPct>=0.6 && chance(0.25), e DPOY com defense*m>=90 && chance(0.15).
+// As constantes abaixo devem reproduzir frequências parecidas (harness Task 10).
+export function simAwards(input: {
+  league: LeagueState; lines: NpcLine[]; standings: TeamStanding[]
+  player: PlayerAwardInput; playerName: string; rng: Rng
+}): { races: AwardRace[]; winners: Record<RaceAward, string | null>; playerAwards: Award[] } {
+  const { league, lines, standings, player, playerName, rng } = input
+  const winPctOf = new Map(standings.map(s => [s.teamId, s.wins / 82]))
+  const lineOf = new Map(lines.map(l => [l.playerId, l]))
+
+  const mvpScore = (l: NpcLine, teamId: string) =>
+    l.ppg + 1.4 * l.apg + 1.1 * l.rpg + ((winPctOf.get(teamId) ?? 0.5) - 0.5) * 30
+  const entries = (award: RaceAward, list: RaceEntry[]): AwardRace => {
+    // jitter já embutido em value; sem rng no sort
+    const top = [...list].sort((a, b) => b.value - a.value).slice(0, 5)
+    return { award, top }
+  }
+
+  const mvpList: RaceEntry[] = league.players.map(p => ({
+    id: p.id, name: p.name, value: mvpScore(lineOf.get(p.id)!, p.teamId),
+  }))
+  mvpList.push({ id: 'you', name: playerName, value: player.ppg + 1.4 * player.apg + 1.1 * player.rpg + (player.teamWinPct - 0.5) * 30 })
+
+  const dpoyList: RaceEntry[] = league.players.map(p => ({
+    id: p.id, name: p.name,
+    value: npcEffOvr(p) * (p.tags.includes('defender') ? 1.03 : 0.86) + (rng.next() * 6 - 3),
+  }))
+  dpoyList.push({ id: 'you', name: playerName, value: player.defRating + (rng.next() * 6 - 3) })
+
+  const royList: RaceEntry[] = league.players.filter(p => p.rookie).map(p => {
+    const l = lineOf.get(p.id)!
+    return { id: p.id, name: p.name, value: l.ppg + l.apg + l.rpg }
+  })
+  if (player.rookie) royList.push({ id: 'you', name: playerName, value: player.ppg + player.apg + player.rpg })
+
+  const mipList: RaceEntry[] = league.players.filter(p => !p.rookie && p.prevPpg !== null).map(p => ({
+    id: p.id, name: p.name, value: lineOf.get(p.id)!.ppg - p.prevPpg!,
+  }))
+  if (!player.rookie && player.prevPpg !== null) {
+    mipList.push({ id: 'you', name: playerName, value: player.ppg - player.prevPpg })
+  }
+
+  const races = [entries('mvp', mvpList), entries('dpoy', dpoyList), entries('roy', royList), entries('mip', mipList)]
+  const winners = Object.fromEntries(
+    races.map(r => [r.award, r.top[0]?.id ?? null]),
+  ) as Record<RaceAward, string | null>
+  const playerAwards = (['mvp', 'dpoy', 'roy', 'mip'] as const).filter(a => winners[a] === 'you')
+  return { races, winners, playerAwards }
 }
