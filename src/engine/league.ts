@@ -1,6 +1,6 @@
 import { ageMultiplier } from './season'
 import { TEAMS } from '../data/teams'
-import type { LeaguePlayer, LeagueState, LeagueTag, NpcLine, Rng, TeamStanding } from './types'
+import type { Conf, LeaguePlayer, LeagueState, LeagueTag, NpcLine, PlayoffRun, Rng, TeamStanding } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -48,6 +48,49 @@ export function simStandings(input: {
     ranked.slice(0, 8).forEach((r, i) => { standings.find(s => s.teamId === r.teamId)!.seed = i + 1 })
   }
   return standings
+}
+
+const ROUND_RUN: PlayoffRun[] = ['r1', 'semi', 'conf', 'finals']
+
+// Constantes calibráveis (Task 10): expoente 1/4 e fator 0.004 ajustam para bater
+// a taxa agregada de título do jogador ≈ playerTitleProb ao longo das 4 rodadas.
+export function simBracket(input: {
+  standings: TeamStanding[]; league: LeagueState
+  playerTeamId: string | null; playerTitleProb: number; rng: Rng
+}): { championTeamId: string; playerRun: PlayoffRun; wonTitle: boolean } {
+  const { standings, league, playerTeamId, playerTitleProb, rng } = input
+  const strengths = new Map(standings.map(s => [s.teamId, rosterStrength(league, s.teamId)]))
+  // p do jogador por série: agregado das 4 rodadas ≈ titleProb, com ajuste leve por adversário
+  const baseP = Math.pow(Math.max(playerTitleProb, 0.0001), 1 / 4)
+  const seriesWin = (a: string, b: string): boolean => {
+    const sA = strengths.get(a)!, sB = strengths.get(b)!
+    if (a === playerTeamId) return rng.chance(clamp(baseP * (1 - (sB - 70) * 0.004), 0.05, 0.95))
+    if (b === playerTeamId) return !rng.chance(clamp(baseP * (1 - (sA - 70) * 0.004), 0.05, 0.95))
+    return rng.chance(clamp(0.5 + (sA - sB) * 0.03, 0.10, 0.90))
+  }
+  const bySeed = (conf: Conf) => {
+    const seeded = standings.filter(s => s.conf === conf && s.seed !== null)
+    return (n: number) => seeded.find(s => s.seed === n)!.teamId
+  }
+  let playerRun: PlayoffRun = playerTeamId ? 'r1' : 'missed'
+  const runRound = (pairs: [string, string][], round: number): string[] =>
+    pairs.map(([a, b]) => {
+      const winner = seriesWin(a, b) ? a : b
+      if (playerTeamId && winner === playerTeamId && round < 3) playerRun = ROUND_RUN[round + 1]
+      return winner
+    })
+  const confChampion = (conf: Conf): string => {
+    const g = bySeed(conf)
+    let alive = runRound([[g(1), g(8)], [g(4), g(5)], [g(3), g(6)], [g(2), g(7)]], 0)
+    alive = runRound([[alive[0], alive[1]], [alive[2], alive[3]]], 1)
+    return runRound([[alive[0], alive[1]]], 2)[0]
+  }
+  const east = confChampion('east')
+  const west = confChampion('west')
+  const championTeamId = seriesWin(east, west) ? east : west
+  const wonTitle = playerTeamId !== null && championTeamId === playerTeamId
+  if (wonTitle) playerRun = 'champion'
+  return { championTeamId, playerRun, wonTitle }
 }
 
 // Constantes calibráveis (Task 10): alvo é top-10 de ppg da liga parecido com NBA real.
