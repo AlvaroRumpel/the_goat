@@ -4,11 +4,11 @@ import type { Build, Focus, RegularSeasonResult, Rng, SeasonResult, Team, TeamPr
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-export function ageMultiplier(age: number): number {
-  if (age < 22) return 0.85
-  if (age < 25) return 0.93
+export function ageMultiplier(age: number, physical: number): number {
+  if (age <= 26) return 0.78 + (age - 19) * (0.22 / 7)
   if (age <= 29) return 1.0
-  return Math.max(0.72, 1.0 - (age - 29) * 0.02)
+  const rate = clamp(0.035 - physical * 0.0002, 0.012, 0.035)
+  return Math.max(0.6, 1.0 - (age - 29) * rate)
 }
 
 export function simRegularSeason(input: {
@@ -16,7 +16,7 @@ export function simRegularSeason(input: {
   focus: Focus; rng: Rng; canTrade?: boolean
 }): RegularSeasonResult {
   const { build, age, team, profile, focus, rng, canTrade = true } = input
-  const m = ageMultiplier(age)
+  const m = ageMultiplier(age, build.attributes.physical)
   const eff = (s: keyof Build['attributes']) => build.attributes[s] * m
   const events = rollEvents(rng, focus)
 
@@ -58,7 +58,7 @@ export function simPostseason(input: {
   build: Build; regular: RegularSeasonResult; team: Team; focus: Focus; rng: Rng
 }): SeasonResult {
   const { build, regular, team, focus, rng } = input
-  const m = ageMultiplier(regular.age)
+  const m = ageMultiplier(regular.age, build.attributes.physical)
   const overallEff = build.overall * m
   let winPct = clamp((team.strength * 0.55 + overallEff * 0.45 - 35) / 55, 0.15, 0.85)
   if (focus === 'defense') winPct += 0.02

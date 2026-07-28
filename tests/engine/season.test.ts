@@ -22,11 +22,19 @@ function fullSeason(seed: number, age = 26, teamId = 'okc', profile: 'contender'
 }
 
 describe('ageMultiplier', () => {
-  test('peak at 25-29, decline after', () => {
-    expect(ageMultiplier(26)).toBe(1.0)
-    expect(ageMultiplier(19)).toBeLessThan(1.0)
-    expect(ageMultiplier(35)).toBeLessThan(ageMultiplier(31))
-    expect(ageMultiplier(40)).toBeGreaterThanOrEqual(0.72)
+  test('rookie fraco, pico 26-29', () => {
+    expect(ageMultiplier(19, 80)).toBeCloseTo(0.78, 2)
+    expect(ageMultiplier(22, 80)).toBeCloseTo(0.78 + 3 * (0.22 / 7), 3)
+    expect(ageMultiplier(26, 80)).toBeCloseTo(1.0, 3)
+    expect(ageMultiplier(29, 80)).toBe(1.0)
+  })
+  test('declínio pós-29 depende do físico', () => {
+    expect(ageMultiplier(30, 99)).toBeCloseTo(1 - (0.035 - 99 * 0.0002), 4)   // ~0.9848
+    expect(ageMultiplier(35, 99)).toBeGreaterThan(ageMultiplier(35, 60))
+    expect(ageMultiplier(30, 0)).toBeCloseTo(1 - 0.035, 4)                     // rate clampada em 0.035
+  })
+  test('piso 0.60', () => {
+    expect(ageMultiplier(60, 40)).toBe(0.6)
   })
 })
 
