@@ -1,6 +1,6 @@
 import { LEGENDS } from '../data/legends'
 import { PLAYERS, playerById } from '../data/players'
-import { SLOT_ORDER, type Archetype, type Build, type DraftPick, type Legend, type Matchup, type Rng, type SlotId } from './types'
+import { SLOT_ORDER, type Archetype, type Build, type DraftPick, type Legend, type Matchup, type Player, type Rng, type SlotId } from './types'
 
 export function drawMatchups(rng: Rng): Matchup[] {
   return SLOT_ORDER.map(slot => {
@@ -29,12 +29,12 @@ export function computeArchetype(attrs: Record<SlotId, number>): Archetype {
   return scores.reduce((best, cur) => (cur[1] > best[1] ? cur : best))[0]
 }
 
-export function drawPlayer(rng: Rng, drawnIds: string[]) {
+export function drawPlayer(rng: Rng, drawnIds: string[]): Player {
   const pool = PLAYERS.filter(pl => !drawnIds.includes(pl.id))
   return rng.pick(pool)
 }
 
-export function weakestSlot(player: any, excluding: SlotId): SlotId {
+export function weakestSlot(player: Player, excluding: SlotId): SlotId {
   const slots = SLOT_ORDER.filter(s => s !== excluding)
   return slots.reduce((worst, s) => player.attrs[s] < player.attrs[worst] ? s : worst, slots[0])
 }
