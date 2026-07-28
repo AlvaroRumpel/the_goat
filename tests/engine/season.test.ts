@@ -155,7 +155,7 @@ describe('efeitos determinísticos do pós-temporada (winPct/effClutch)', () => 
   }
 
   const titleProb = (winPct: number, effClutch: number) =>
-    Math.min(0.45, Math.max(0.01, (winPct - 0.5) * 0.9 + (effClutch - 75) * 0.004))
+    Math.min(0.16, Math.max(0.01, (winPct - 0.5) * 0.22 + (effClutch - 75) * 0.0015))
 
   test('baseline titleProb', () => {
     const { rng, calls } = recordingRng()

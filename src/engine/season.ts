@@ -84,7 +84,7 @@ export function simPostseason(input: {
   const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
   if (madePlayoffs && regular.events.includes('playoffspark')) effClutch += 8
   const titleProb = madePlayoffs
-    ? clamp((winPct - 0.5) * 0.9 + (effClutch - 75) * 0.004, 0.01, 0.45)
+    ? clamp((winPct - 0.5) * 0.22 + (effClutch - 75) * 0.0015, 0.01, 0.16)
     : 0
   const wonTitle = rng.chance(titleProb)
 

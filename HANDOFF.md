@@ -38,6 +38,7 @@ src/
 6. **Sem fotos/logos reais** — nomes ok, imagens são monogramas/ilustração própria.
 7. **Draft fenomeno** (2026-07-28): 1 jogador sorteado/rodada, roubo de atributo livre, reroll 1x, malus = fraqueza do jogador roubado (excluindo slot roubado) com `clamp(round((v−71)/6),1,5)`, piso 40. Save key `thegoat:v2` (v1 descartado). Ver spec `docs/superpowers/specs/2026-07-28-the-goat-design.md` e plano `docs/superpowers/plans/2026-07-28-draft-fenomeno.md`. Ids de jogadores em `players.ts` são contrato do save v2 — renomear/remover id exige bump de save key.
 8. **Carreira viva** (2026-07-28): curva 0.78→1.0 (26–29)→declínio por físico (rate clamp 0.012–0.035), piso 0.60; aposentadoria por queda (ratio <0.75 oferece, <0.55 narrativa, mín. 5 temporadas; idade ≥31 mantida); eventos interativos via fase `eventDecision` (escolha a/b antes do sim); `injuryProne` 1 temporada após volta antecipada. Spec `2026-07-28-carreira-viva-design.md`.
+9. **Rebalance** (2026-07-28): titleProb recalibrado (constantes finais: `clamp((winPct − 0.5) × 0.22 + (effClutch − 75) × 0.0015, 0.01, 0.16)` em `simPostseason`, `src/engine/season.ts`; forma intocada, só constantes), alvos: 83 ovr ≈ mediana 1 anel (p90 3)/legend 2.5% (<10%), 95 ovr legend 68.5% (>20%). `verdict.ts` não precisou mudar (legendRate de 83 já ficou bem abaixo do teto só com titleProb). GOAT gate (1950 + gate icônico) intocado. Trava em `tests/engine/calibration.test.ts`. Spec `2026-07-28-rebalance-humanizacao-design.md`.
 
 ## Comandos
 
@@ -45,6 +46,7 @@ src/
 npm run dev / test / build
 npx tsc -p tsconfig.app.json --noEmit     # typecheck
 node tests/e2e-playthrough.mjs             # playthrough Playwright completo (manual, fora do vitest)
+CALIBRATE=1 npx vitest run tests/engine/calibration.test.ts  # relatório de distribuições (bash)
 npx wrangler pages deploy dist --project-name=the-goat --branch=master
 ```
 
