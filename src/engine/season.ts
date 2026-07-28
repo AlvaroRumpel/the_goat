@@ -10,6 +10,10 @@ export function ageMultiplier(age: number, physical: number): number {
   return Math.max(0.6, 1.0 - (age - 29) * rate)
 }
 
+export function effectiveOverall(overall: number, age: number, physical: number): number {
+  return Math.round(overall * ageMultiplier(age, physical))
+}
+
 export function simRegularSeason(input: {
   build: Build; age: number; team: Team; profile: TeamProfile
   focus: Focus; rng: Rng; canTrade?: boolean
