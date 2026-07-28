@@ -54,7 +54,7 @@ button {
   }
 }
 
-.screen__glow {
+.screen > .screen__glow {
   position: absolute;
   left: 50%;
   top: -140px;
