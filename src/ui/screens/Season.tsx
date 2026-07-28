@@ -2,6 +2,7 @@ import type { Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
+import { performanceRatio } from '../../engine/season'
 import type { Focus } from '../../engine/types'
 import { OfferCard } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
@@ -202,6 +203,8 @@ function FreeAgency({ state, dispatch }: Props) {
 function RetireDecision({ state, dispatch }: Props) {
   const lang = state.lang
   const n = state.career.seasons.length + 1
+  const ratio = performanceRatio(state.career.seasons)
+  const heavyDecline = ratio !== null && ratio < 0.55
 
   return (
     <div className="screen">
@@ -214,7 +217,9 @@ function RetireDecision({ state, dispatch }: Props) {
         </div>
         <div className="display" style={{ fontSize: 30 }}>{t(lang, 'retire.title')}</div>
         <hr className="rule" style={{ width: '80%' }} />
-        <div className="hint">{t(lang, 'retire.desc', { age: state.age })}</div>
+        <div className="hint">
+          {t(lang, heavyDecline ? 'retire.desc.pressure' : 'retire.desc', { age: state.age })}
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

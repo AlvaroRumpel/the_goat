@@ -18,6 +18,14 @@ function playToBuild() {
   return gameReducer(s, { type: 'CONFIRM_BUILD' })
 }
 
+function playToSeasonResult() {
+  let s = playToBuild()
+  s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+  s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+  if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+  return s
+}
+
 describe('draft fenomeno', () => {
   test('NEW_GAME sorteia o primeiro jogador', () => {
     const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 1 })
@@ -125,5 +133,29 @@ describe('gameReducer', () => {
     expect(loadState()).toEqual(s)
     localStorage.setItem('thegoat:v2', '{broken')
     expect(loadState()).toBeNull()
+  })
+})
+
+describe('aposentadoria por queda', () => {
+  test('ADVANCE vai para retireDecision quando ratio < 0.75 com 5+ temporadas, mesmo antes dos 31', () => {
+    let s = playToSeasonResult()
+    s = {
+      ...s,
+      age: 27, contractYearsLeft: 3,
+      career: {
+        ...s.career,
+        seasons: [30, 31, 29, 28, 15].map((ppg, i) => ({
+          ...s.career.seasons[0], ppg, age: 22 + i,
+        })),
+      },
+    }
+    const next = gameReducer(s, { type: 'ADVANCE' })
+    expect(next.phase).toBe('retireDecision')
+  })
+  test('sem declínio e < 31 segue para preseason', () => {
+    let s = playToSeasonResult()
+    s = { ...s, age: 25, contractYearsLeft: 3 }
+    const next = gameReducer(s, { type: 'ADVANCE' })
+    expect(next.phase).toBe('preseason')
   })
 })

@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { ageMultiplier, simRegularSeason, simPostseason } from '../../src/engine/season'
+import { ageMultiplier, simRegularSeason, simPostseason, performanceRatio } from '../../src/engine/season'
 import { resolveBuild } from '../../src/engine/draft'
 import { createRng } from '../../src/engine/rng'
 import { teamById } from '../../src/data/teams'
 import { PLAYERS } from '../../src/data/players'
 import { SLOT_ORDER } from '../../src/engine/types'
-import type { DraftPick, Focus } from '../../src/engine/types'
+import type { DraftPick, Focus, SeasonResult } from '../../src/engine/types'
 
 // build sintético com o melhor jogador por atributo — equivalente ao antigo eliteBuild via LEGENDS
 const elitePicks: DraftPick[] = SLOT_ORDER.map(slot => ({
@@ -63,6 +63,21 @@ describe('simRegularSeason', () => {
       old += fullSeason(seed, 38).ppg
     }
     expect(old).toBeLessThan(prime)
+  })
+})
+
+const seasonWithPpg = (ppg: number): SeasonResult => ({
+  age: 25, teamId: 'lal', finalTeamId: 'lal', games: 82, ppg, rpg: 5, apg: 5,
+  events: [], madePlayoffs: false, wonTitle: false, awards: [],
+})
+
+describe('performanceRatio', () => {
+  test('null com menos de 5 temporadas', () => {
+    expect(performanceRatio([seasonWithPpg(20)])).toBeNull()
+  })
+  test('última / pico', () => {
+    const seasons = [28, 30, 29, 27, 18].map(seasonWithPpg)
+    expect(performanceRatio(seasons)).toBeCloseTo(18 / 30, 4)
   })
 })
 

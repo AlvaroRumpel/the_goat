@@ -80,6 +80,7 @@
   "fa.desc": "Contract's up. Choose your next team.",
   "retire.title": "Keep playing?",
   "retire.desc": "You are {age} years old. Decline threatens your legacy.",
+  "retire.desc.pressure": "You're {age} and the press is speculating about your future. Your numbers have cratered.",
   "retire.continue": "One more season",
   "retire.stop": "Retire",
   "award.allstar": "All-Star",

@@ -1,7 +1,7 @@
 import { createRng } from './engine/rng'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
-import { simPostseason, simRegularSeason } from './engine/season'
+import { performanceRatio, simPostseason, simRegularSeason } from './engine/season'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
@@ -201,7 +201,9 @@ function reduce(state: GameState, action: Action): GameState {
         return { ...state, age, contractYearsLeft, phase: 'freeAgency', offers, rngCalls: calls() }
       }
 
-      if (age >= 31) return { ...state, age, contractYearsLeft, phase: 'retireDecision' }
+      const ratio = performanceRatio(state.career.seasons)
+      const declining = ratio !== null && ratio < 0.75
+      if (age >= 31 || declining) return { ...state, age, contractYearsLeft, phase: 'retireDecision' }
 
       return { ...state, age, contractYearsLeft, phase: 'preseason' }
     }

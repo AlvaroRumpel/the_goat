@@ -54,6 +54,13 @@ export function simRegularSeason(input: {
   }
 }
 
+export function performanceRatio(seasons: SeasonResult[]): number | null {
+  if (seasons.length < 5) return null
+  const last = seasons[seasons.length - 1].ppg
+  const peak = Math.max(...seasons.map(s => s.ppg))
+  return peak > 0 ? last / peak : null
+}
+
 export function simPostseason(input: {
   build: Build; regular: RegularSeasonResult; team: Team; focus: Focus; rng: Rng
 }): SeasonResult {
