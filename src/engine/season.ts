@@ -99,5 +99,6 @@ export function simPostseason(input: {
   }
 
   const { tradeOffer: _drop, ...rest } = regular
-  return { ...rest, finalTeamId: team.id, madePlayoffs, wonTitle, awards }
+  const playoffRun: SeasonResult['playoffRun'] = wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed'
+  return { ...rest, finalTeamId: team.id, madePlayoffs, wonTitle, awards, seed: null, playoffRun }
 }

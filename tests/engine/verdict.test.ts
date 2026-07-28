@@ -13,7 +13,7 @@ function season(over: Partial<SeasonResult>): SeasonResult {
   return {
     age: 25, teamId: 'okc', finalTeamId: 'okc', games: 78,
     ppg: 12, rpg: 5, apg: 3, events: [], choices: [], madePlayoffs: false,
-    wonTitle: false, awards: [], ...over,
+    wonTitle: false, awards: [], seed: null, playoffRun: 'missed', ...over,
   }
 }
 

@@ -71,6 +71,7 @@ describe('simRegularSeason', () => {
 const seasonWithPpg = (ppg: number): SeasonResult => ({
   age: 25, teamId: 'lal', finalTeamId: 'lal', games: 82, ppg, rpg: 5, apg: 5,
   events: [], choices: [], madePlayoffs: false, wonTitle: false, awards: [],
+  seed: null, playoffRun: 'missed',
 })
 
 describe('performanceRatio', () => {
