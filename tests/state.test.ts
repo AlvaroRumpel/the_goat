@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { gameReducer, initialState, loadState, saveState } from '../src/state'
 import type { GameState } from '../src/state'
+import { createRng } from '../src/engine/rng'
+import { simNpcLines, simStandings } from '../src/engine/league'
 import { SLOT_ORDER } from '../src/engine/types'
 
 // localStorage mock for node env
@@ -136,15 +138,24 @@ describe('gameReducer', () => {
     const s = playToBuild()
     saveState(s)
     expect(loadState()).toEqual(s)
-    localStorage.setItem('thegoat:v2', '{broken')
+    localStorage.setItem('thegoat:v3', '{broken')
+    expect(loadState()).toBeNull()
+  })
+  test('save sem liga completa (v2 e anteriores) é descartado', () => {
+    const s = playToBuild()
+    const { league: _drop, ...noLeague } = s
+    localStorage.setItem('thegoat:v3', JSON.stringify(noLeague))
     expect(loadState()).toBeNull()
   })
   test('loadState normaliza save legado sem injuryProne/pendingEvents e com pendingRegular sem choices', () => {
     let s = playToBuild()
     s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+    const rng = createRng(9)
+    const standings = simStandings({ league: s.league!, playerTeamId: s.currentOffer!.teamId, playerWins: 41, rng })
     const legacy: Record<string, unknown> = {
       ...s,
       phase: 'tradeDecision',
+      pendingLeague: { standings, lines: simNpcLines(s.league!, rng), winPct: 0.5, effClutch: 75 },
       pendingRegular: {
         age: s.age, teamId: s.currentOffer!.teamId, games: 82, ppg: 20, rpg: 5, apg: 5,
         events: [], tradeOffer: { teamId: s.currentOffer!.teamId, profile: s.currentOffer!.profile },
@@ -154,7 +165,7 @@ describe('gameReducer', () => {
     }
     delete legacy.injuryProne
     delete legacy.pendingEvents
-    localStorage.setItem('thegoat:v2', JSON.stringify(legacy))
+    localStorage.setItem('thegoat:v3', JSON.stringify(legacy))
 
     const loaded = loadState()!
     expect(loaded.pendingRegular!.choices).toEqual([])

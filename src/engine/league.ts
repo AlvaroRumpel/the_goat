@@ -99,7 +99,7 @@ export function simNpcLines(league: LeagueState, rng: Rng): NpcLine[] {
   return league.players.map(p => {
     const eff = npcEffOvr(p)
     const has = (tag: LeagueTag) => p.tags.includes(tag)
-    const ppg = clamp((eff - 58) * 0.55 + (has('shooter') ? 2 : 0) + (rng.next() * 4 - 2), 2, 36)
+    const ppg = clamp((eff - 58) * 0.70 + (has('shooter') ? 2 : 0) + (rng.next() * 8 - 4), 2, 36)
     const rpg = clamp((eff - 60) * 0.28 + (has('rebounder') ? 3 : 0) + (p.pos === 'C' ? 2 : p.pos === 'PF' ? 1 : -1) + (rng.next() * 2 - 1), 0.5, 16)
     const apg = clamp((eff - 60) * 0.22 + (has('playmaker') ? 3 : 0) + (p.pos === 'PG' ? 2.5 : 0) + (rng.next() * 2 - 1), 0.3, 12)
     return { playerId: p.id, ppg: Math.round(ppg * 10) / 10, rpg: Math.round(rpg * 10) / 10, apg: Math.round(apg * 10) / 10 }
@@ -140,7 +140,7 @@ export function simAwards(input: {
 
   const dpoyList: RaceEntry[] = league.players.map(p => ({
     id: p.id, name: p.name,
-    value: npcEffOvr(p) * (p.tags.includes('defender') ? 1.03 : 0.86) + (rng.next() * 6 - 3),
+    value: npcEffOvr(p) * (p.tags.includes('defender') ? 1.06 : 0.86) + (rng.next() * 6 - 3),
   }))
   dpoyList.push({ id: 'you', name: playerName, value: player.defRating + (rng.next() * 6 - 3) })
 
@@ -192,7 +192,7 @@ export function advanceOffseason(input: {
     const rookie: LeaguePlayer = {
       id: `f-${league.year}-${draftCount}`,       // fictício: id único por ano+ordem
       name, pos: rng.pick(POS), age: rng.int(19, 22),
-      ovr: 55 + Math.round(30 * r * r),           // skew: maioria 55-70, raros 80+
+      ovr: 55 + Math.round(42 * r * r),           // skew: maioria 55-70, raros 90+
       tags: rng.chance(0.5) ? [rng.pick(TAGS)] : [],
       teamId, rookie: true, prevPpg: null,
     }

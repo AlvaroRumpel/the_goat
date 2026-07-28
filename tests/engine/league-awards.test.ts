@@ -33,10 +33,13 @@ describe('simAwards', () => {
     const { winners } = run(2, { rookie: true, prevPpg: null })
     expect(winners.mip).toBeNull()
   })
+  // linha "monstro" recalibrada na Task 10: com o ppg de NPC na escala real da NBA
+  // (líder ~30), o topo da corrida de MVP fica ~62-64 no composto ppg+1.4apg+1.1rpg.
+  // 33/11/9 em time de 61 vitórias ≈ o que um build 99 entrega no pico.
   test('jogador monstro ganha MVP com frequência; mediano quase nunca', () => {
     let big = 0, mid = 0
     for (let i = 0; i < 200; i++) {
-      if (run(100 + i, { ppg: 31, rpg: 8, apg: 7, teamWinPct: 0.75 }).winners.mvp === 'you') big++
+      if (run(100 + i, { ppg: 33, rpg: 11, apg: 9, teamWinPct: 0.75 }).winners.mvp === 'you') big++
       if (run(100 + i, { ppg: 18, rpg: 5, apg: 4, teamWinPct: 0.55 }).winners.mvp === 'you') mid++
     }
     expect(big / 200).toBeGreaterThan(0.35)

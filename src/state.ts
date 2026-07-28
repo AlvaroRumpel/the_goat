@@ -2,17 +2,25 @@ import { createRng } from './engine/rng'
 import { autoResolve, INTERACTIVE_EVENTS, rollEvents } from './engine/events'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
-import { computeTitleProb, computeWinPct, finishSeason, performanceRatio, simRegularSeason } from './engine/season'
+import {
+  ageMultiplier, computeTitleProb, computeWinPct, finishSeason, performanceRatio, simRegularSeason,
+} from './engine/season'
+import { advanceOffseason, rosterStrength, simAwards, simBracket, simNpcLines, simStandings } from './engine/league'
+import { initLeague } from './data/league'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
-  Build, Career, DraftPick, EventChoice, Focus, GameEventId, Offer, RegularSeasonResult, Rng, SeasonResult, SlotId,
-  TeamProfile,
+  Build, Career, DraftPick, EventChoice, Focus, GameEventId, Headline, LeagueSeasonOutcome, LeagueState, NpcLine,
+  Offer, RaceAward, RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding,
 } from './engine/types'
 
 export type Phase =
   | 'home' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
   | 'seasonResult' | 'tradeDecision' | 'eventDecision' | 'freeAgency' | 'retireDecision' | 'verdict'
+
+export interface LeagueYear { year: number; championTeamId: string; winners: Record<RaceAward, string | null> }
+
+interface PendingLeague { standings: TeamStanding[]; lines: NpcLine[]; winPct: number; effClutch: number }
 
 export interface GameState {
   phase: Phase
@@ -35,6 +43,11 @@ export interface GameState {
   pendingEvents: GameEventId[] | null  // set when an interactive event pauses PLAY_SEASON
   injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
+  league: LeagueState | null
+  seasonOutcome: LeagueSeasonOutcome | null   // temporada corrente (UI: tabela/corridas/cerimônia)
+  leagueHistory: LeagueYear[]
+  headlines: Headline[]      // do último offseason (UI: preseason)
+  pendingLeague: PendingLeague | null   // liga simulada, aguardando decisão de trade
 }
 
 export type Action =
@@ -51,7 +64,7 @@ export type Action =
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'RESET' }
 
-const STORAGE_KEY = 'thegoat:v2'
+const STORAGE_KEY = 'thegoat:v3'
 
 function makeCountedRng(seed: number, skip: number): { rng: Rng; calls: () => number } {
   const inner = createRng(seed)
@@ -96,34 +109,78 @@ export function initialState(lang: Lang = 'pt'): GameState {
     pendingEvents: null,
     injuryProne: false,
     career: { seasons: [], fame: 0 },
+    league: null,
+    seasonOutcome: null,
+    leagueHistory: [],
+    headlines: [],
+    pendingLeague: null,
   }
 }
 
+// Ordem fixa de consumo de rng (replay do save depende dela):
+// simRegularSeason → winPct → standings → lines → [pausa tradeDecision] →
+// concludeSeason: [winPct do time final, só se trocou] → bracket → awards → finishSeason.
 function runSeasonSim(
   state: GameState, focus: Focus, events: GameEventId[], choices: EventChoice[], rng: Rng, calls: () => number,
 ): GameState {
   const currentOffer = state.currentOffer!
   const build = state.build!
   const team = teamById(currentOffer.teamId)
-  const profile = currentOffer.profile
   const canTrade = state.career.seasons.length >= 2
-  const regular = simRegularSeason({ build, age: state.age, team, profile, focus, rng, canTrade, events, choices })
-
-  if (regular.tradeOffer) {
-    return { ...state, phase: 'tradeDecision', pendingRegular: regular, pendingFocus: focus, pendingEvents: null, rngCalls: calls() }
-  }
-  // provisório (sem liga ainda): strength estático do teams.ts; Task 10 troca por rosterStrength
-  const { winPct, effClutch } = computeWinPct({ build, regular, strength: team.strength, focus, rng })
-  const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
-  const clutchAdj = madePlayoffs && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
-  const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
-  const season = finishSeason({
-    regular, finalTeamId: team.id, build, rng, winPct, seed: null,
-    playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
-    extraAwards: [],
+  const regular = simRegularSeason({
+    build, age: state.age, team, profile: currentOffer.profile, focus, rng, canTrade, events, choices,
   })
-  const career = applyFame(state.career, season, profile)
-  return { ...state, phase: 'seasonResult', career, pendingEvents: null, rngCalls: calls() }
+  // força de elenco real (spec §2) — sem o jogador (a fórmula soma overallEff à parte)
+  const { winPct, effClutch } = computeWinPct({ build, regular, strength: rosterStrength(state.league!, team.id), focus, rng })
+  const playerWins = Math.round(winPct * 82)
+  const standings = simStandings({ league: state.league!, playerTeamId: team.id, playerWins, rng })
+  const lines = simNpcLines(state.league!, rng)
+  if (regular.tradeOffer) {
+    return {
+      ...state, phase: 'tradeDecision', pendingRegular: regular, pendingFocus: focus, pendingEvents: null,
+      pendingLeague: { standings, lines, winPct, effClutch }, rngCalls: calls(),
+    }
+  }
+  return concludeSeason(state, regular, currentOffer, focus, { standings, lines, winPct, effClutch }, rng, calls)
+}
+
+function concludeSeason(
+  state: GameState, regular: RegularSeasonResult, finalOffer: Offer, focus: Focus,
+  pending: PendingLeague, rng: Rng, calls: () => number,
+): GameState {
+  const build = state.build!
+  const { standings, lines } = pending
+  // pós-trade o time final difere do simulado na tabela; recomputa winPct do time final (fórmula-contrato)
+  const { winPct, effClutch } =
+    finalOffer.teamId === regular.teamId
+      ? { winPct: pending.winPct, effClutch: pending.effClutch }
+      : computeWinPct({ build, regular, strength: rosterStrength(state.league!, finalOffer.teamId), focus, rng })
+  const seed = standings.find(s => s.teamId === finalOffer.teamId)!.seed
+  const clutchAdj = seed !== null && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
+  const titleProb = seed !== null ? computeTitleProb(winPct, clutchAdj) : 0
+  const bracket = simBracket({
+    standings, league: state.league!, playerTeamId: seed !== null ? finalOffer.teamId : null,
+    playerTitleProb: titleProb, rng,
+  })
+  const m = ageMultiplier(state.age, build.attributes.physical)
+  const prevSeason = state.career.seasons[state.career.seasons.length - 1]
+  const { races, winners, playerAwards } = simAwards({
+    league: state.league!, lines, standings, playerName: '', rng,   // UI traduz id === 'you'; name ignorado
+    player: {
+      ppg: regular.ppg, rpg: regular.rpg, apg: regular.apg, teamWinPct: winPct,
+      defRating: build.attributes.defense * m, rookie: state.career.seasons.length === 0,
+      prevPpg: prevSeason?.ppg ?? null,
+    },
+  })
+  const season = finishSeason({
+    regular, finalTeamId: finalOffer.teamId, build, rng, winPct,
+    seed, playoffRun: bracket.playerRun, wonTitle: bracket.wonTitle, extraAwards: playerAwards,
+  })
+  const career = applyFame(state.career, season, finalOffer.profile)
+  const seasonOutcome: LeagueSeasonOutcome = {
+    standings, lines, races, winners, championTeamId: bracket.championTeamId, playerRun: bracket.playerRun,
+  }
+  return { ...state, phase: 'seasonResult', career, seasonOutcome, pendingEvents: null, pendingLeague: null, rngCalls: calls() }
 }
 
 function reduce(state: GameState, action: Action): GameState {
@@ -140,6 +197,7 @@ function reduce(state: GameState, action: Action): GameState {
         rngCalls: calls(),
         currentPlayerId: first.id,
         drawnIds: [first.id],
+        league: initLeague(),
         phase: 'attrDraft',
       }
     }
@@ -214,48 +272,45 @@ function reduce(state: GameState, action: Action): GameState {
       const pendingFocus = state.pendingFocus!
       const tradeOffer = pendingRegular.tradeOffer!
       const finalOffer = action.accept ? tradeOffer : state.currentOffer!
-      const team = teamById(finalOffer.teamId)
-      const build = state.build!
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const { winPct, effClutch } = computeWinPct({ build, regular: pendingRegular, strength: team.strength, focus: pendingFocus, rng })
-      const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
-      const clutchAdj = madePlayoffs && pendingRegular.events.includes('playoffspark') ? effClutch + 8 : effClutch
-      const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
-      const season = finishSeason({
-        regular: pendingRegular, finalTeamId: team.id, build, rng, winPct, seed: null,
-        playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
-        extraAwards: [],
-      })
-      const career = applyFame(state.career, season, finalOffer.profile)
+      const concluded = concludeSeason(state, pendingRegular, finalOffer, pendingFocus, state.pendingLeague!, rng, calls)
       return {
-        ...state,
-        phase: 'seasonResult',
-        currentOffer: action.accept ? tradeOffer : state.currentOffer,
+        ...concluded,
+        currentOffer: finalOffer,
         contractYearsLeft: action.accept ? 4 : state.contractYearsLeft,
         pendingRegular: null,
         pendingFocus: null,
-        career,
-        rngCalls: calls(),
       }
     }
 
     case 'ADVANCE': {
+      if (state.phase !== 'seasonResult') return state
       const age = state.age + 1
       const contractYearsLeft = state.contractYearsLeft - 1
+      // offseason roda em TODOS os branches (inclusive verdict): a liga sempre avança um ano
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const outcome = state.seasonOutcome!
+      const { league, headlines } = advanceOffseason({
+        league: state.league!, standings: outcome.standings, lines: outcome.lines, rng,
+      })
+      const leagueHistory = [
+        ...state.leagueHistory,
+        { year: state.league!.year, championTeamId: outcome.championTeamId, winners: outcome.winners },
+      ]
+      const base = { ...state, age, contractYearsLeft, league, headlines, leagueHistory, rngCalls: calls() }
 
-      if (age > 40) return { ...state, age, contractYearsLeft, phase: 'verdict' }
+      if (age > 40) return { ...base, phase: 'verdict' }
 
       if (contractYearsLeft === 0) {
-        const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-        const offers = makeOffers(rng, state.currentOffer?.teamId)
-        return { ...state, age, contractYearsLeft, phase: 'freeAgency', offers, rngCalls: calls() }
+        const offers = makeOffers(rng, state.currentOffer?.teamId, outcome.standings)
+        return { ...base, phase: 'freeAgency', offers, rngCalls: calls() }
       }
 
       const ratio = performanceRatio(state.career.seasons)
       const declining = ratio !== null && ratio < 0.75
-      if (age >= 31 || declining) return { ...state, age, contractYearsLeft, phase: 'retireDecision' }
+      if (age >= 31 || declining) return { ...base, phase: 'retireDecision' }
 
-      return { ...state, age, contractYearsLeft, phase: 'preseason' }
+      return { ...base, phase: 'preseason' }
     }
 
     case 'RETIRE_DECISION': {
@@ -293,10 +348,13 @@ export function loadState(): GameState | null {
   try {
     if (typeof localStorage === 'undefined') return null
     localStorage.removeItem('thegoat:v1')
+    localStorage.removeItem('thegoat:v2')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed.phase !== 'string' || typeof parsed.seed !== 'number') return null
+    // save sem liga completa é incompatível com o replay — descarta
+    if (parsed.phase !== 'home' && parsed.league?.players?.length !== 270) return null
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
     parsed.pendingEvents = parsed.pendingEvents ?? null

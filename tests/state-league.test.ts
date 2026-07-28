@@ -1,0 +1,47 @@
+import { describe, expect, test } from 'vitest'
+import { gameReducer, initialState } from '../src/state'
+import type { GameState } from '../src/state'
+
+function playToSeason(seed: number): GameState {
+  let s = gameReducer(initialState(), { type: 'NEW_GAME', seed })
+  const slots = ['three', 'finishing', 'passing', 'handles', 'defense', 'rebounding', 'physical', 'clutch'] as const
+  for (const slot of slots) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
+  s = gameReducer(s, { type: 'CONFIRM_BUILD' })
+  s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+  s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+  if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+  if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+  return s
+}
+
+describe('liga no reducer', () => {
+  test('NEW_GAME inicializa liga', () => {
+    const s = gameReducer(initialState(), { type: 'NEW_GAME', seed: 7 })
+    expect(s.league).not.toBeNull()
+    expect(s.league!.players).toHaveLength(270)
+  })
+  test('temporada produz outcome completo', () => {
+    const s = playToSeason(11)
+    expect(s.phase).toBe('seasonResult')
+    expect(s.seasonOutcome).not.toBeNull()
+    expect(s.seasonOutcome!.standings).toHaveLength(30)
+    expect(s.seasonOutcome!.races).toHaveLength(4)
+    expect(s.seasonOutcome!.championTeamId).toBeTruthy()
+    const season = s.career.seasons[0]
+    expect(season.playoffRun).toBeTruthy()
+    expect(season.madePlayoffs).toBe(season.playoffRun !== 'missed')
+  })
+  test('ADVANCE evolui a liga e guarda história', () => {
+    let s = playToSeason(13)
+    const yearBefore = s.league!.year
+    s = gameReducer(s, { type: 'ADVANCE' })
+    expect(s.league!.year).toBe(yearBefore + 1)
+    expect(s.leagueHistory).toHaveLength(1)
+    expect(s.leagueHistory[0].championTeamId).toBeTruthy()
+  })
+  test('replay determinístico: mesmo seed → mesmo estado', () => {
+    const a = playToSeason(21)
+    const b = playToSeason(21)
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+  })
+})
