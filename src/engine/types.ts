@@ -7,17 +7,6 @@ export const SLOT_ORDER: SlotId[] = [
   'defense', 'rebounding', 'physical', 'clutch',
 ]
 
-export interface Legend {
-  id: string
-  name: string
-  slot: SlotId        // signature attribute offered
-  value: number       // 90..99
-  malusSlot: SlotId   // inherited weakness target (!== slot)
-  malus: number       // 3..10, subtracted at end of draft
-}
-
-export interface Matchup { slot: SlotId; a: Legend; b: Legend }
-
 export type Era = '50s' | '60s' | '70s' | '80s' | '90s' | '2000s' | '2010s' | '2020s'
 
 export interface Player {

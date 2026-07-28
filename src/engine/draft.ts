@@ -1,16 +1,5 @@
-import { LEGENDS } from '../data/legends'
 import { PLAYERS, playerById } from '../data/players'
-import { SLOT_ORDER, type Archetype, type Build, type DraftPick, type Legend, type Matchup, type Player, type Rng, type SlotId } from './types'
-
-export function drawMatchups(rng: Rng): Matchup[] {
-  return SLOT_ORDER.map(slot => {
-    const pool = LEGENDS.filter(l => l.slot === slot)
-    const a = rng.pick(pool)
-    const rest = pool.filter(l => l.id !== a.id)
-    const b = rng.pick(rest)
-    return { slot, a, b }
-  })
-}
+import { SLOT_ORDER, type Archetype, type Build, type DraftPick, type Player, type Rng, type SlotId } from './types'
 
 export function computeOverall(attrs: Record<SlotId, number>): number {
   const sum = SLOT_ORDER.reduce((n, s) => n + attrs[s], 0)
@@ -54,18 +43,6 @@ export function resolveBuild(picks: DraftPick[]): Build {
   return {
     attributes: attrs,
     picks,
-    archetype: computeArchetype(attrs),
-    overall: computeOverall(attrs),
-  }
-}
-
-export function resolveDraft(picks: Legend[]): Build {
-  const attrs = {} as Record<SlotId, number>
-  for (const p of picks) attrs[p.slot] = p.value
-  for (const p of picks) attrs[p.malusSlot] = Math.max(40, attrs[p.malusSlot] - p.malus)
-  return {
-    attributes: attrs,
-    picks: picks.map(p => ({ playerId: p.id, slot: p.slot })),
     archetype: computeArchetype(attrs),
     overall: computeOverall(attrs),
   }

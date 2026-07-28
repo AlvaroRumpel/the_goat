@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest'
 import { computeVerdict } from '../../src/engine/verdict'
 import type { Award, Career, SeasonResult } from '../../src/engine/types'
 import { createRng } from '../../src/engine/rng'
-import { drawMatchups, resolveDraft } from '../../src/engine/draft'
+import { drawPlayer, resolveBuild } from '../../src/engine/draft'
+import { SLOT_ORDER, type DraftPick } from '../../src/engine/types'
 import { simRegularSeason, simPostseason } from '../../src/engine/season'
 import { teamById } from '../../src/data/teams'
 import { makeOffers } from '../../src/engine/offers'
@@ -67,8 +68,13 @@ describe('computeVerdict', () => {
     const tiers: Record<string, number> = {}
     for (let seed = 0; seed < 300; seed++) {
       const rng = createRng(seed)
-      const matchups = drawMatchups(rng)
-      const build = resolveDraft(matchups.map(m => (rng.chance(0.5) ? m.a : m.b)))
+      const drawnIds: string[] = []
+      const picks: DraftPick[] = SLOT_ORDER.map(slot => {
+        const pl = drawPlayer(rng, drawnIds)
+        drawnIds.push(pl.id)
+        return { playerId: pl.id, slot }
+      })
+      const build = resolveBuild(picks)
       let offer = makeOffers(rng)[rng.int(0, 2)]
       const seasons = []
       for (let age = 19; age <= 36; age++) {

@@ -1,14 +1,18 @@
 import { describe, expect, test } from 'vitest'
 import { ageMultiplier, simRegularSeason, simPostseason } from '../../src/engine/season'
-import { resolveDraft } from '../../src/engine/draft'
+import { resolveBuild } from '../../src/engine/draft'
 import { createRng } from '../../src/engine/rng'
 import { teamById } from '../../src/data/teams'
-import { LEGENDS } from '../../src/data/legends'
+import { PLAYERS } from '../../src/data/players'
 import { SLOT_ORDER } from '../../src/engine/types'
-import type { Focus } from '../../src/engine/types'
+import type { DraftPick, Focus } from '../../src/engine/types'
 
-const eliteBuild = resolveDraft(SLOT_ORDER.map(s =>
-  LEGENDS.filter(l => l.slot === s).sort((a, b) => b.value - a.value)[0]))
+// build sintético com o melhor jogador por atributo — equivalente ao antigo eliteBuild via LEGENDS
+const elitePicks: DraftPick[] = SLOT_ORDER.map(slot => ({
+  slot,
+  playerId: PLAYERS.reduce((best, pl) => (pl.attrs[slot] > best.attrs[slot] ? pl : best), PLAYERS[0]).id,
+}))
+const eliteBuild = resolveBuild(elitePicks)
 
 function fullSeason(seed: number, age = 26, teamId = 'okc', profile: 'contender' | 'rebuild' | 'bigmarket' = 'contender', focus: Focus = 'scoring') {
   const rng = createRng(seed)

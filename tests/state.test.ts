@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { gameReducer, initialState, loadState, saveState } from '../src/state'
+import { SLOT_ORDER } from '../src/engine/types'
 
 // localStorage mock for node env
 const store = new Map<string, string>()
@@ -13,17 +14,58 @@ beforeEach(() => store.clear())
 
 function playToBuild() {
   let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 123 })
-  for (let i = 0; i < 8; i++)
-    s = gameReducer(s, { type: 'PICK_LEGEND', legend: s.matchups[i].a })
+  for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
   return gameReducer(s, { type: 'CONFIRM_BUILD' })
 }
 
-describe('gameReducer', () => {
-  test('NEW_GAME → attrDraft with 8 matchups', () => {
+describe('draft fenomeno', () => {
+  test('NEW_GAME sorteia o primeiro jogador', () => {
     const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 1 })
     expect(s.phase).toBe('attrDraft')
-    expect(s.matchups).toHaveLength(8)
+    expect(s.currentPlayerId).toBeTruthy()
+    expect(s.drawnIds).toEqual([s.currentPlayerId])
+    expect(s.rerollUsed).toBe(false)
   })
+  test('DRAFT_STEAL preenche slot e sorteia o próximo; 8º vai para draftDone', () => {
+    let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 2 })
+    const first = s.currentPlayerId
+    s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
+    expect(s.picks).toEqual([{ playerId: first, slot: 'three' }])
+    expect(s.currentPlayerId).not.toBe(first)
+    for (const slot of SLOT_ORDER.slice(1)) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
+    expect(s.phase).toBe('draftDone')
+    expect(s.build).not.toBeNull()
+  })
+  test('DRAFT_STEAL em slot já preenchido é no-op', () => {
+    let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 3 })
+    s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
+    const before = s
+    s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
+    expect(s).toBe(before)
+  })
+  test('DRAFT_REROLL troca o jogador uma vez; segunda é no-op', () => {
+    let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 4 })
+    const first = s.currentPlayerId
+    s = gameReducer(s, { type: 'DRAFT_REROLL' })
+    expect(s.currentPlayerId).not.toBe(first)
+    expect(s.rerollUsed).toBe(true)
+    const after = s
+    s = gameReducer(s, { type: 'DRAFT_REROLL' })
+    expect(s).toBe(after)
+  })
+  test('replay determinístico: mesmo seed + mesmas actions = mesmo estado', () => {
+    const run = () => {
+      let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 42 })
+      s = gameReducer(s, { type: 'DRAFT_REROLL' })
+      for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
+      return s
+    }
+    expect(run().build).toEqual(run().build)
+    expect(run().drawnIds).toEqual(run().drawnIds)
+  })
+})
+
+describe('gameReducer', () => {
   test('8 picks → draftDone → CONFIRM_BUILD → nbaDraft with 3 offers + pick number', () => {
     const s = playToBuild()
     expect(s.phase).toBe('nbaDraft')
@@ -77,7 +119,7 @@ describe('gameReducer', () => {
     const s = playToBuild()
     saveState(s)
     expect(loadState()).toEqual(s)
-    localStorage.setItem('thegoat:v1', '{broken')
+    localStorage.setItem('thegoat:v2', '{broken')
     expect(loadState()).toBeNull()
   })
 })

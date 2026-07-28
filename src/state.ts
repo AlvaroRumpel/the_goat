@@ -1,11 +1,11 @@
 import { createRng } from './engine/rng'
-import { drawMatchups, resolveDraft } from './engine/draft'
+import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
 import { simPostseason, simRegularSeason } from './engine/season'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
-  Build, Career, Focus, Legend, Matchup, Offer, RegularSeasonResult, Rng, SeasonResult, TeamProfile,
+  Build, Career, DraftPick, Focus, Offer, RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile,
 } from './engine/types'
 
 export type Phase =
@@ -17,9 +17,11 @@ export interface GameState {
   lang: Lang
   seed: number
   rngCalls: number           // replay counter — see persistence note
-  matchups: Matchup[]        // set at draft start
+  currentPlayerId: string | null  // player currently up for draft
+  drawnIds: string[]         // players already drawn (no repeats)
+  rerollUsed: boolean        // one extra draw allowed per draft
   draftRound: number         // 0..7
-  picks: Legend[]
+  picks: DraftPick[]
   build: Build | null
   pickNumber: number | null
   offers: Offer[]            // current 3 offers (nba draft or FA)
@@ -34,7 +36,8 @@ export interface GameState {
 export type Action =
   | { type: 'SET_LANG'; lang: Lang }
   | { type: 'NEW_GAME'; seed: number }
-  | { type: 'PICK_LEGEND'; legend: Legend }
+  | { type: 'DRAFT_STEAL'; slot: SlotId }
+  | { type: 'DRAFT_REROLL' }
   | { type: 'CONFIRM_BUILD' }        // draftDone → nbaDraft (computes pickNumber + offers)
   | { type: 'CHOOSE_OFFER'; offer: Offer }
   | { type: 'PLAY_SEASON'; focus: Focus }
@@ -43,7 +46,7 @@ export type Action =
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'RESET' }
 
-const STORAGE_KEY = 'thegoat:v1'
+const STORAGE_KEY = 'thegoat:v2'
 
 function makeCountedRng(seed: number, skip: number): { rng: Rng; calls: () => number } {
   const inner = createRng(seed)
@@ -72,7 +75,9 @@ export function initialState(lang: Lang = 'pt'): GameState {
     lang,
     seed: 0,
     rngCalls: 0,
-    matchups: [],
+    currentPlayerId: null,
+    drawnIds: [],
+    rerollUsed: false,
     draftRound: 0,
     picks: [],
     build: null,
@@ -94,32 +99,44 @@ function reduce(state: GameState, action: Action): GameState {
 
     case 'NEW_GAME': {
       const { rng, calls } = makeCountedRng(action.seed, 0)
-      const matchups = drawMatchups(rng)
+      const first = drawPlayer(rng, [])
       return {
         ...initialState(state.lang),
         seed: action.seed,
         rngCalls: calls(),
-        matchups,
+        currentPlayerId: first.id,
+        drawnIds: [first.id],
         phase: 'attrDraft',
       }
     }
 
-    case 'PICK_LEGEND': {
-      const picks = [...state.picks, action.legend]
-      const done = picks.length >= 8
+    case 'DRAFT_STEAL': {
+      if (state.picks.some(pk => pk.slot === action.slot)) return state
+      const picks = [...state.picks, { playerId: state.currentPlayerId!, slot: action.slot }]
+      if (picks.length >= 8) {
+        // DraftDone lê state.build assim que a fase vira, então computa aqui.
+        return { ...state, picks, draftRound: 8, build: resolveBuild(picks), phase: 'draftDone' }
+      }
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const next = drawPlayer(rng, state.drawnIds)
       return {
-        ...state,
-        picks,
-        draftRound: picks.length,
-        // DraftDone (rendered as soon as phase flips) reads state.build, so it
-        // must be computed here rather than waiting for CONFIRM_BUILD.
-        build: done ? resolveDraft(picks) : state.build,
-        phase: done ? 'draftDone' : 'attrDraft',
+        ...state, picks, draftRound: picks.length,
+        currentPlayerId: next.id, drawnIds: [...state.drawnIds, next.id], rngCalls: calls(),
+      }
+    }
+
+    case 'DRAFT_REROLL': {
+      if (state.rerollUsed || state.phase !== 'attrDraft') return state
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const next = drawPlayer(rng, state.drawnIds)
+      return {
+        ...state, rerollUsed: true,
+        currentPlayerId: next.id, drawnIds: [...state.drawnIds, next.id], rngCalls: calls(),
       }
     }
 
     case 'CONFIRM_BUILD': {
-      const build = resolveDraft(state.picks)
+      const build = resolveBuild(state.picks)
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const pickNumber = draftPickNumber(build.overall, rng)
       const offers = makeOffers(rng)
