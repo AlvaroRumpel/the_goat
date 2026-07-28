@@ -17,13 +17,13 @@ Jogo de carreira de basquete no navegador (inspirado no The Fenomeno). Rouba atr
 src/
 ├── engine/    # TS puro, zero React, testado. RNG injetado (seed) — Math.random proibido.
 │   ├── rng.ts       createRng (mulberry32)
-│   ├── draft.ts     drawMatchups (2 lendas/slot), resolveDraft (malus após bases, piso 40), arquétipo
+│   ├── draft.ts     drawPlayer/weakestSlot/malusAmount/resolveBuild (1 jogador sorteado/rodada, malus = clamp(round((v−71)/6),1,5), piso 40)
 │   ├── offers.ts    draftPickNumber, makeOffers (contender/rebuild/bigmarket)
 │   ├── events.ts    rollEvents (lesão 18%/9% c/ foco saúde, rivalidade, viral, fase fria; máx 2)
 │   ├── season.ts    simRegularSeason + simPostseason (fórmulas = contrato; ver plano Task 8)
 │   └── verdict.ts   score + tiers + GATE icônico do GOAT
-├── data/      legends.ts (24, 3/slot), teams.ts (30), i18n/{pt,en}.json (paridade testada)
-├── state.ts   gameReducer (10 fases), localStorage 'thegoat:v1', RNG replay via rngCalls
+├── data/      players.ts (~200 jogadores, 8 eras), teams.ts (30), i18n/{pt,en}.json (paridade testada)
+├── state.ts   gameReducer (10 fases), localStorage 'thegoat:v2', RNG replay via rngCalls
 ├── styles/    tokens.css + base.css (design "legado dourado" portado do claude-design)
 └── ui/        screens/{Home,AttrDraft,NbaDraft,Season,Verdict} + components + share.ts (canvas card)
 ```
@@ -36,6 +36,7 @@ src/
 4. **Aposentadoria**: fase própria aos 31+ em ano de contrato; botão Aposentar também na Free Agency quando 31+ (fix pós-review).
 5. **Veredito computado na UI** (`computeVerdict(state.career)`), não armazenado.
 6. **Sem fotos/logos reais** — nomes ok, imagens são monogramas/ilustração própria.
+7. **Draft fenomeno** (2026-07-28): 1 jogador sorteado/rodada, roubo de atributo livre, reroll 1x, malus = fraqueza do jogador roubado (excluindo slot roubado) com `clamp(round((v−71)/6),1,5)`, piso 40. Save key `thegoat:v2` (v1 descartado). Ver spec `docs/superpowers/specs/2026-07-28-the-goat-design.md` e plano `docs/superpowers/plans/2026-07-28-draft-fenomeno.md`.
 
 ## Comandos
 

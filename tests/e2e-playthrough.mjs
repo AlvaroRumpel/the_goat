@@ -86,9 +86,10 @@ async function main() {
     // Home has exactly one gold CTA button ("Começar carreira" / "Start career")
     await page.locator('button.btn--gold').click()
 
-    log('draft: 8 picks')
+    log('draft: 8 steals')
     for (let i = 0; i < 8; i++) {
-      await page.locator('.card').first().locator('button').click()
+      await page.locator('button.attr-cell:not(.attr-cell--off)').first().click()
+      await page.locator('button.btn--gold').click()
       await page.waitForTimeout(50)
     }
     await page.screenshot({ path: `${SHOTS_DIR}/02-draft.png` })
