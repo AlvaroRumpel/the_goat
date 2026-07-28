@@ -47,15 +47,23 @@ describe('computeVerdict', () => {
     const v = computeVerdict({ seasons: [season({ ppg: 10, games: 80 })], fame: 0 })
     expect(v.totals.points).toBe(800)
   })
+  test('high score but weak trophies (2 rings, 1 mvp) → legend, not goat', () => {
+    const seasons: SeasonResult[] = []
+    for (let i = 0; i < 20; i++) {
+      const ring = i < 2
+      const awards: Award[] = [
+        'allstar', 'scoring',
+        ...(i === 0 ? ['mvp' as const] : []),
+        ...(ring ? ['ring' as const, 'fmvp' as const] : []),
+      ]
+      seasons.push(season({ age: 19 + i, ppg: 27, games: 80, madePlayoffs: true, wonTitle: ring, awards }))
+    }
+    const v = computeVerdict({ seasons, fame: 1300 })
+    expect(v.score).toBeGreaterThanOrEqual(1950)
+    expect(v.tier).toBe('legend')
+  })
 
-  // NOTE: goat rate bound relaxed from the brief's 0.02 to 0.05 — see task-9-report.md.
-  // Every draftable build in this game is built from legend-tier attributes (91-99 per
-  // slot), so a full 18-season career is inherently elite; the fixed "GOAT career" fixture
-  // above scores exactly 1972 under the contract weights, which caps how high the goat
-  // threshold can go while still classifying that fixture as 'goat'. At that cap, ~3.7% of
-  // random full-length careers still clear it — below 2% is not reachable without either
-  // breaking the fixture test or changing the scoring weights (both out of bounds per task).
-  test('calibration: full random careers — goat rate < 5%, not all peladeiro', () => {
+  test('calibration: full random careers — goat rate < 2%, not all peladeiro', () => {
     const tiers: Record<string, number> = {}
     for (let seed = 0; seed < 300; seed++) {
       const rng = createRng(seed)
@@ -74,7 +82,7 @@ describe('computeVerdict', () => {
       const t = computeVerdict({ seasons, fame: 0 }).tier
       tiers[t] = (tiers[t] ?? 0) + 1
     }
-    expect((tiers.goat ?? 0) / 300).toBeLessThan(0.05)
+    expect((tiers.goat ?? 0) / 300).toBeLessThan(0.02)
     expect(Object.keys(tiers).length).toBeGreaterThanOrEqual(3)
   })
 })

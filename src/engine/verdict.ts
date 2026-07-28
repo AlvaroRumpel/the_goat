@@ -21,8 +21,12 @@ export function computeVerdict(career: Career): Verdict {
     counts.scoring * 20 + counts.allstar * 15 +
     points / 400 + peakPpg * 2 + loyalty + career.fame * 0.5,
   )
+  const totals = {
+    points: Math.round(points), rebounds: Math.round(rebounds),
+    assists: Math.round(assists), seasons: career.seasons.length,
+  }
 
-  const tier: Tier =
+  let tier: Tier =
     score >= 1950 ? 'goat' :
     score >= 950 ? 'legend' :
     score >= 650 ? 'superstar' :
@@ -30,11 +34,13 @@ export function computeVerdict(career: Career): Verdict {
     score >= 220 ? 'starter' :
     score >= 100 ? 'rolePlayer' : 'peladeiro'
 
-  return {
-    score, tier, counts,
-    totals: {
-      points: Math.round(points), rebounds: Math.round(rebounds),
-      assists: Math.round(assists), seasons: career.seasons.length,
-    },
+  // Iconic gate: a high score alone doesn't make a GOAT. Needs Jordan-style
+  // dominance (rings + MVPs) or LeBron-style longevity (totals + rings).
+  if (tier === 'goat') {
+    const jordanPath = counts.ring >= 5 && counts.mvp >= 3
+    const lebronPath = totals.points >= 38000 && counts.ring >= 4
+    if (!jordanPath && !lebronPath) tier = 'legend'
   }
+
+  return { score, tier, counts, totals }
 }
