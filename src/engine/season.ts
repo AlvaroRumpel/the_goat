@@ -20,7 +20,7 @@ export function simRegularSeason(input: {
   const eff = (s: keyof Build['attributes']) => build.attributes[s] * m
 
   const scoringRt = 0.35 * eff('three') + 0.30 * eff('finishing') + 0.20 * eff('handles') + 0.15 * eff('clutch')
-  let ppg = clamp((scoringRt - 40) * 0.55 + (rng.next() * 3 - 1.5), 4, 38)
+  let ppg = clamp((scoringRt - 61) * 0.78 + (rng.next() * 3 - 1.5), 4, 38)
   if (profile === 'rebuild') ppg *= 1.15
   if (profile === 'contender') ppg *= 0.90
   if (focus === 'scoring') ppg += 2
@@ -37,7 +37,7 @@ export function simRegularSeason(input: {
   if (build.archetype === 'PG') rpg -= 1.5
   rpg = clamp(rpg, 2, 16)
 
-  let apg = clamp((0.60 * eff('passing') + 0.40 * eff('handles') - 40) * 0.18, 1, 12)
+  let apg = clamp((0.60 * eff('passing') + 0.40 * eff('handles') - 47) * 0.18, 1, 12)
   if (build.archetype === 'PG') apg += 3
   if (build.archetype === 'SG') apg += 0.5
   if (build.archetype === 'C') apg -= 1
@@ -89,9 +89,9 @@ export function simPostseason(input: {
   const wonTitle = rng.chance(titleProb)
 
   const awards: SeasonResult['awards'] = []
-  if (regular.ppg >= 20 || regular.apg >= 8 || regular.rpg >= 11) awards.push('allstar')
-  if (regular.ppg >= 29 && rng.chance(0.5)) awards.push('scoring')
-  if (regular.ppg >= 26 && winPct >= 0.6 && rng.chance(0.25)) awards.push('mvp')
+  if (regular.ppg >= 18 || regular.apg >= 8 || regular.rpg >= 11) awards.push('allstar')
+  if (regular.ppg >= 26 && rng.chance(0.5)) awards.push('scoring')
+  if (regular.ppg >= 23 && winPct >= 0.6 && rng.chance(0.25)) awards.push('mvp')
   if (build.attributes.defense * m >= 90 && rng.chance(0.15)) awards.push('dpoy')
   if (wonTitle) {
     awards.push('ring')
