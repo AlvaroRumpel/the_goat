@@ -129,6 +129,7 @@ function runSeasonSim(
   const canTrade = state.career.seasons.length >= 2
   const regular = simRegularSeason({
     build, age: state.age, team, profile: currentOffer.profile, focus, rng, canTrade, events, choices,
+    standings: state.seasonOutcome?.standings,   // tabela do ano anterior; ano 1 cai no estático
   })
   // força de elenco real (spec §2) — sem o jogador (a fórmula soma overallEff à parte)
   const { winPct, effClutch } = computeWinPct({ build, regular, strength: rosterStrength(state.league!, team.id), focus, rng })

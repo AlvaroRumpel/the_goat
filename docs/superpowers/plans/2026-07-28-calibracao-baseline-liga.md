@@ -225,3 +225,17 @@ derrubaria anéis em todas as faixas.
   + 4 séries) contra o `chance(titleProb)` solto do modelo antigo. Mais realista.
 - `legendRate` do 99 subiu (0.76 → 0.935): 5.7 MVPs + 1.9 DPOY por carreira somam
   ~510 pontos de score. Tier goat continua trancado.
+
+## Fix round 1 — ROY (2026-07-28)
+
+`ROY_NPC_BOOST = 1.8` em `simAwards` (só na lista de ROY): `npcEffOvr` esmaga rookie de NPC
+(ovr 70 / 20 anos → eff ~57 → ppg no piso), então o jogador levava ROY em 100% das carreiras.
+Topo bruto dos rookies NPC no ano 1 = 7.8 ± 0.76; valor de ROY do jogador na 1ª temporada =
+12.8 (75) / 14.0 (79) / 15.2 (83) / 20.3 (90) / 28.0 (99).
+
+royRate final: 75 = 0.245, 79 = 0.455, 83 = 0.785, 90/95/99 = 1.0 (antes: 1.0 em todas).
+Demais métricas inalteradas (ROY não entra no `verdict`). Lock novo no harness: `royRate(79) < 0.8`.
+
+Também nesta rodada: `simRegularSeason` passa `standings` ao `makeOffers`, então as ofertas de
+trade do deadline usam vitórias da temporada anterior em vez de `Team.strength` estático
+(sem mudança no consumo de rng).

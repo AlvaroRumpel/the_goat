@@ -106,6 +106,11 @@ export function simNpcLines(league: LeagueState, rng: Rng): NpcLine[] {
   })
 }
 
+// npcEffOvr aplica a curva de idade do jogador ao NPC, então rookie de NPC (ovr 70,
+// 20 anos) fica com eff ~57 e ppg no piso — sem isso o jogador ganharia ROY sempre,
+// mesmo com 75 de overall. Constante calibrável (harness: royRate por faixa).
+const ROY_NPC_BOOST = 1.8
+
 export interface PlayerAwardInput {
   ppg: number; rpg: number; apg: number
   teamWinPct: number
@@ -146,7 +151,7 @@ export function simAwards(input: {
 
   const royList: RaceEntry[] = league.players.filter(p => p.rookie).map(p => {
     const l = lineOf.get(p.id)!
-    return { id: p.id, name: p.name, value: l.ppg + l.apg + l.rpg }
+    return { id: p.id, name: p.name, value: (l.ppg + l.apg + l.rpg) * ROY_NPC_BOOST }
   })
   if (player.rookie) royList.push({ id: 'you', name: playerName, value: player.ppg + player.apg + player.rpg })
 

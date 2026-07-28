@@ -140,6 +140,8 @@ describe('calibração de dificuldade (política: até 40, foco scoring)', () =>
     if (process.env.CALIBRATE) console.log('79:', JSON.stringify(d, null, 2))
     expect(d.peakPpg).toBeGreaterThanOrEqual(12)
     expect(d.peakPpg).toBeLessThanOrEqual(19)
+    // ROY não é carimbo: build fraca perde a corrida com frequência (ROY_NPC_BOOST)
+    expect(d.royRate).toBeLessThan(0.8)
   }, 30000)
   test('99 overall: elite pontua como elite', () => {
     const d = distribution(99)

@@ -1,5 +1,5 @@
 import { makeOffers } from './offers'
-import type { Award, Build, EventChoice, Focus, GameEventId, PlayoffRun, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile } from './types'
+import type { Award, Build, EventChoice, Focus, GameEventId, PlayoffRun, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile, TeamStanding } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -18,8 +18,9 @@ export function simRegularSeason(input: {
   build: Build; age: number; team: Team; profile: TeamProfile
   focus: Focus; rng: Rng; canTrade?: boolean
   events: GameEventId[]; choices: EventChoice[]
+  standings?: TeamStanding[]   // tabela da temporada anterior — ofertas do deadline por vitórias
 }): RegularSeasonResult {
-  const { build, age, team, profile, focus, rng, canTrade = true, events, choices } = input
+  const { build, age, team, profile, focus, rng, canTrade = true, events, choices, standings } = input
   const m = ageMultiplier(age, build.attributes.physical)
   const eff = (s: keyof Build['attributes']) => build.attributes[s] * m
 
@@ -51,7 +52,7 @@ export function simRegularSeason(input: {
     ? (choices.includes('injuryEarly') ? rng.int(10, 18) : rng.int(10, 35))
     : rng.int(0, 6))
   const tradeP = events.includes('lockerroom') ? 0.20 : 0.10
-  const tradeOffer = canTrade && rng.chance(tradeP) ? makeOffers(rng, team.id)[rng.int(0, 2)] : null
+  const tradeOffer = canTrade && rng.chance(tradeP) ? makeOffers(rng, team.id, standings)[rng.int(0, 2)] : null
 
   return {
     age, teamId: team.id, games,
