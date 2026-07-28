@@ -106,7 +106,7 @@ async function main() {
     // not by text — this stays language-agnostic across pt/en):
     //   preseason:      4x button.card (focus choices)
     //   freeAgency:     N offers as button.card (N < 4, from makeOffers)
-    //   tradeDecision:  .modal-veil present
+    //   tradeDecision/eventDecision: .modal-veil present
     //   retireDecision: button.btn--danger present
     //   seasonResult:   single button.btn--gold, no button.card
     //   verdict:        none of the above
@@ -117,7 +117,7 @@ async function main() {
       await page.waitForSelector('.card, .modal-veil, button.btn--gold, button.btn--danger', { timeout: 10000 })
 
       if (await page.locator('.modal-veil').count() > 0) {
-        log('tradeDecision: reject')
+        log('modal decision (trade/event): choose safe option')
         // reject = plain "btn" (not btn--gold) inside the modal
         await page.locator('.modal-veil button.btn:not(.btn--gold)').click()
         continue

@@ -19,8 +19,8 @@ src/
 │   ├── rng.ts       createRng (mulberry32)
 │   ├── draft.ts     drawPlayer/weakestSlot/malusAmount/resolveBuild (1 jogador sorteado/rodada, malus = clamp(round((v−71)/6),1,5), piso 40)
 │   ├── offers.ts    draftPickNumber, makeOffers (contender/rebuild/bigmarket)
-│   ├── events.ts    rollEvents (lesão 18%/9% c/ foco saúde, rivalidade, viral, fase fria; máx 2)
-│   ├── season.ts    simRegularSeason + simPostseason (fórmulas = contrato; ver plano Task 8)
+│   ├── events.ts    8 eventos, 2 interativos, máx 2/temporada (lesão 18%/9% c/ foco saúde, rivalidade, viral, fase fria, eventDecision)
+│   ├── season.ts    simRegularSeason + simPostseason; ageMultiplier(age, physical), performanceRatio (fórmulas = contrato)
 │   └── verdict.ts   score + tiers + GATE icônico do GOAT
 ├── data/      players.ts (~200 jogadores, 8 eras), teams.ts (30), i18n/{pt,en}.json (paridade testada)
 ├── state.ts   gameReducer (10 fases), localStorage 'thegoat:v2', RNG replay via rngCalls
@@ -37,6 +37,7 @@ src/
 5. **Veredito computado na UI** (`computeVerdict(state.career)`), não armazenado.
 6. **Sem fotos/logos reais** — nomes ok, imagens são monogramas/ilustração própria.
 7. **Draft fenomeno** (2026-07-28): 1 jogador sorteado/rodada, roubo de atributo livre, reroll 1x, malus = fraqueza do jogador roubado (excluindo slot roubado) com `clamp(round((v−71)/6),1,5)`, piso 40. Save key `thegoat:v2` (v1 descartado). Ver spec `docs/superpowers/specs/2026-07-28-the-goat-design.md` e plano `docs/superpowers/plans/2026-07-28-draft-fenomeno.md`. Ids de jogadores em `players.ts` são contrato do save v2 — renomear/remover id exige bump de save key.
+8. **Carreira viva** (2026-07-28): curva 0.78→1.0 (26–29)→declínio por físico (rate clamp 0.012–0.035), piso 0.60; aposentadoria por queda (ratio <0.75 oferece, <0.55 narrativa, mín. 5 temporadas; idade ≥31 mantida); eventos interativos via fase `eventDecision` (escolha a/b antes do sim); `injuryProne` 1 temporada após volta antecipada. Spec `2026-07-28-carreira-viva-design.md`.
 
 ## Comandos
 
