@@ -1,6 +1,7 @@
 import { ageMultiplier } from './season'
 import { TEAMS } from '../data/teams'
-import type { Award, Conf, LeaguePlayer, LeagueState, LeagueTag, NpcLine, PlayoffRun, RaceAward, RaceEntry, AwardRace, Rng, TeamStanding } from './types'
+import { FICTIONAL_FIRST, FICTIONAL_LAST } from '../data/league'
+import type { Archetype, Award, Conf, Headline, LeaguePlayer, LeagueState, LeagueTag, NpcLine, PlayoffRun, RaceAward, RaceEntry, AwardRace, Rng, TeamStanding } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -162,4 +163,72 @@ export function simAwards(input: {
   ) as Record<RaceAward, string | null>
   const playerAwards = (['mvp', 'dpoy', 'roy', 'mip'] as const).filter(a => winners[a] === 'you')
   return { races, winners, playerAwards }
+}
+
+// Constantes calibráveis (Task 10): bandas de delta por idade, gates de aposentadoria
+// (38+, ovr<58, 35+ chance 0.35) e curva de ovr do rookie (55 + 30r²) ajustam a
+// distribuição de ovr da liga ao longo de temporadas (âncoras: teste de 20 temporadas).
+function ovrDelta(age: number, rng: Rng): number {
+  if (age <= 24) return rng.int(0, 3)
+  if (age <= 28) return rng.int(-1, 1)
+  if (age <= 32) return -rng.int(0, 2)
+  return -rng.int(1, 4)
+}
+
+export function advanceOffseason(input: {
+  league: LeagueState; standings: TeamStanding[]; lines: NpcLine[]; rng: Rng
+}): { league: LeagueState; headlines: Headline[] } {
+  const { league, standings, lines, rng } = input
+  const lineOf = new Map(lines.map(l => [l.playerId, l]))
+  const headlines: Headline[] = []
+  const POS: Archetype[] = ['PG', 'SG', 'SF', 'PF', 'C']
+  const TAGS: LeagueTag[] = ['shooter', 'defender', 'playmaker', 'rebounder']
+  let draftCount = 0
+
+  const makeRookie = (teamId: string): LeaguePlayer => {
+    draftCount++
+    const name = `${rng.pick(FICTIONAL_FIRST)} ${rng.pick(FICTIONAL_LAST)}`
+    const r = rng.next()
+    const rookie: LeaguePlayer = {
+      id: `f-${league.year}-${draftCount}`,       // fictício: id único por ano+ordem
+      name, pos: rng.pick(POS), age: rng.int(19, 22),
+      ovr: 55 + Math.round(30 * r * r),           // skew: maioria 55-70, raros 80+
+      tags: rng.chance(0.5) ? [rng.pick(TAGS)] : [],
+      teamId, rookie: true, prevPpg: null,
+    }
+    headlines.push({ kind: 'draft', playerName: name, teamId })
+    return rookie
+  }
+
+  const players = league.players.map(p => {
+    const aged: LeaguePlayer = {
+      ...p, age: p.age + 1, rookie: false,
+      ovr: clamp(p.ovr + ovrDelta(p.age + 1, rng), 40, 99),
+      prevPpg: lineOf.get(p.id)?.ppg ?? null,
+    }
+    const retires = aged.age >= 38 || aged.ovr < 58 || (aged.age >= 35 && rng.chance(0.35))
+    if (!retires) return aged
+    if (p.ovr >= 80) headlines.push({ kind: 'retire', playerName: p.name, teamId: p.teamId })
+    return makeRookie(p.teamId)
+  })
+
+  // trades: contender (top-10 wins) busca veterano forte de lanterna (bottom-10); troca por jovem
+  const next: LeagueState = { players, year: league.year + 1 }
+  const byWins = [...standings].sort((a, b) => b.wins - a.wins)
+  const contenders = byWins.slice(0, 10).map(s => s.teamId)
+  const sellers = byWins.slice(-10).map(s => s.teamId)
+  const nTrades = rng.int(2, 4)
+  for (let i = 0; i < nTrades; i++) {
+    const buyer = rng.pick(contenders)
+    const seller = rng.pick(sellers.filter(id => id !== buyer))
+    const star = next.players.filter(p => p.teamId === seller && p.age >= 27 && p.ovr >= 74)
+      .sort((a, b) => b.ovr - a.ovr)[0]
+    const young = next.players.filter(p => p.teamId === buyer && p.age <= 25 && Math.abs(p.ovr - (star?.ovr ?? 99)) <= 10)
+      .sort((a, b) => b.ovr - a.ovr)[0]
+    if (!star || !young) continue
+    star.teamId = buyer
+    young.teamId = seller
+    headlines.push({ kind: 'trade', playerName: star.name, fromTeamId: seller, toTeamId: buyer })
+  }
+  return { league: next, headlines }
 }
