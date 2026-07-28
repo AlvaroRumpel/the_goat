@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import { autoResolve, rollEvents } from '../../src/engine/events'
-import { simPostseason, simRegularSeason } from '../../src/engine/season'
+import { ageMultiplier, computeTitleProb, computeWinPct, finishSeason, simRegularSeason } from '../../src/engine/season'
 import { computeVerdict } from '../../src/engine/verdict'
 import { makeOffers } from '../../src/engine/offers'
 import { teamById } from '../../src/data/teams'
-import { SLOT_ORDER, type Build, type Career, type SeasonResult, type SlotId, type Tier } from '../../src/engine/types'
+import { SLOT_ORDER, type Award, type Build, type Career, type SeasonResult, type SlotId, type Tier } from '../../src/engine/types'
 
 function flatBuild(overall: number): Build {
   const attrs = Object.fromEntries(SLOT_ORDER.map(s => [s, overall])) as Record<SlotId, number>
@@ -33,7 +33,21 @@ function simCareer(build: Build, seed: number) {
       build, age, team, profile: offer.profile, focus: 'scoring', rng,
       canTrade: false, events, choices,
     })
-    const season = simPostseason({ build, regular, team, focus: 'scoring', rng })
+    // provisório: composição equivalente ao antigo simPostseason (Task 8 liga o ranking real)
+    const { winPct, effClutch } = computeWinPct({ build, regular, strength: team.strength, focus: 'scoring', rng })
+    const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
+    const clutchAdj = madePlayoffs && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
+    const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
+    // gate antigo de mvp/dpoy — mantém os locks de calibração verdes até a Task 10 ligar o ranking
+    const m = ageMultiplier(age, build.attributes.physical)
+    const extraAwards: Award[] = []
+    if (regular.ppg >= 23 && winPct >= 0.6 && rng.chance(0.25)) extraAwards.push('mvp')
+    if (build.attributes.defense * m >= 90 && rng.chance(0.15)) extraAwards.push('dpoy')
+    const season = finishSeason({
+      regular, finalTeamId: team.id, build, rng, winPct, seed: null,
+      playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
+      extraAwards,
+    })
     career.seasons.push(season)
     if (season.events.includes('viral')) career.fame += 10
     if (offer.profile === 'bigmarket') career.fame += 2

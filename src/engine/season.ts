@@ -1,5 +1,5 @@
 import { makeOffers } from './offers'
-import type { Build, EventChoice, Focus, GameEventId, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile } from './types'
+import type { Award, Build, EventChoice, Focus, GameEventId, PlayoffRun, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -69,13 +69,15 @@ export function performanceRatio(seasons: SeasonResult[]): number | null {
   return peak > 0 ? last / peak : null
 }
 
-export function simPostseason(input: {
-  build: Build; regular: RegularSeasonResult; team: Team; focus: Focus; rng: Rng
-}): SeasonResult {
-  const { build, regular, team, focus, rng } = input
+// strength: vem de rosterStrength(league, teamId) — força de elenco real (spec §2).
+// O jogador NÃO entra no roster passado (a fórmula já soma overallEff * 0.45 à parte).
+export function computeWinPct(input: {
+  build: Build; regular: RegularSeasonResult; strength: number; focus: Focus; rng: Rng
+}): { winPct: number; effClutch: number } {
+  const { build, regular, strength, focus, rng } = input
   const m = ageMultiplier(regular.age, build.attributes.physical)
   const overallEff = build.overall * m
-  let winPct = clamp((team.strength * 0.55 + overallEff * 0.45 - 35) / 55, 0.15, 0.85)
+  let winPct = clamp((strength * 0.55 + overallEff * 0.45 - 35) / 55, 0.15, 0.85)
   if (focus === 'defense') winPct += 0.02
   if (focus === 'leadership') winPct += 0.03
   if (regular.events.includes('coachchange')) winPct += rng.chance(0.5) ? 0.02 : -0.02
@@ -85,24 +87,27 @@ export function simPostseason(input: {
 
   let effClutch = build.attributes.clutch * m + (regular.events.includes('rivalry') ? 6 : 0)
   if (regular.choices.includes('lockerFight')) effClutch += 6
-  const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
-  if (madePlayoffs && regular.events.includes('playoffspark')) effClutch += 8
-  const titleProb = madePlayoffs
-    ? clamp((winPct - 0.5) * 0.22 + (effClutch - 75) * 0.0015, 0.01, 0.16)
-    : 0
-  const wonTitle = rng.chance(titleProb)
+  return { winPct, effClutch }
+}
 
-  const awards: SeasonResult['awards'] = []
+export function computeTitleProb(winPct: number, effClutch: number): number {
+  return clamp((winPct - 0.5) * 0.22 + (effClutch - 75) * 0.0015, 0.01, 0.16)
+}
+
+export function finishSeason(input: {
+  regular: RegularSeasonResult; finalTeamId: string; build: Build; rng: Rng
+  winPct: number; seed: number | null; playoffRun: PlayoffRun; wonTitle: boolean
+  extraAwards: Award[]   // mvp/dpoy/roy/mip vindos do modelo de ranking (Task 8)
+}): SeasonResult {
+  const { regular, finalTeamId, rng, seed, playoffRun, wonTitle, extraAwards } = input
+  const awards: Award[] = []
   if (regular.ppg >= 19 || regular.apg >= 8 || regular.rpg >= 11) awards.push('allstar')
   if (regular.ppg >= 26 && rng.chance(0.5)) awards.push('scoring')
-  if (regular.ppg >= 23 && winPct >= 0.6 && rng.chance(0.25)) awards.push('mvp')
-  if (build.attributes.defense * m >= 90 && rng.chance(0.15)) awards.push('dpoy')
+  awards.push(...extraAwards)
   if (wonTitle) {
     awards.push('ring')
     if (rng.chance(0.7)) awards.push('fmvp')
   }
-
   const { tradeOffer: _drop, ...rest } = regular
-  const playoffRun: SeasonResult['playoffRun'] = wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed'
-  return { ...rest, finalTeamId: team.id, madePlayoffs, wonTitle, awards, seed: null, playoffRun }
+  return { ...rest, finalTeamId, madePlayoffs: playoffRun !== 'missed', wonTitle, seed, playoffRun, awards }
 }

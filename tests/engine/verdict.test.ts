@@ -4,7 +4,7 @@ import type { Award, Career, SeasonResult } from '../../src/engine/types'
 import { createRng } from '../../src/engine/rng'
 import { drawPlayer, resolveBuild } from '../../src/engine/draft'
 import { SLOT_ORDER, type DraftPick } from '../../src/engine/types'
-import { simRegularSeason, simPostseason } from '../../src/engine/season'
+import { simRegularSeason, computeWinPct, computeTitleProb, finishSeason } from '../../src/engine/season'
 import { rollEvents, autoResolve } from '../../src/engine/events'
 import { teamById } from '../../src/data/teams'
 import { makeOffers } from '../../src/engine/offers'
@@ -85,7 +85,16 @@ describe('computeVerdict', () => {
         const choices = autoResolve(events)
         const regular = simRegularSeason({ build, age, team, profile: offer.profile, focus, rng, events, choices })
         const finalTeam = regular.tradeOffer && rng.chance(0.5) ? teamById(regular.tradeOffer.teamId) : team
-        seasons.push(simPostseason({ build, regular, team: finalTeam, focus, rng }))
+        // provisório: composição equivalente ao antigo simPostseason (Task 8 liga o ranking real)
+        const { winPct, effClutch } = computeWinPct({ build, regular, strength: finalTeam.strength, focus, rng })
+        const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
+        const clutchAdj = madePlayoffs && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
+        const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
+        seasons.push(finishSeason({
+          regular, finalTeamId: finalTeam.id, build, rng, winPct, seed: null,
+          playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
+          extraAwards: [],
+        }))
         if ((age - 19) % 4 === 3) offer = makeOffers(rng, finalTeam.id)[rng.int(0, 2)]
       }
       const t = computeVerdict({ seasons, fame: 0 }).tier

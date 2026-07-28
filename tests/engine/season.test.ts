@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest'
-import { ageMultiplier, simRegularSeason, simPostseason, performanceRatio } from '../../src/engine/season'
+import { ageMultiplier, simRegularSeason, computeWinPct, computeTitleProb, finishSeason, performanceRatio } from '../../src/engine/season'
 import { rollEvents } from '../../src/engine/events'
 import { resolveBuild } from '../../src/engine/draft'
 import { createRng } from '../../src/engine/rng'
 import { teamById } from '../../src/data/teams'
 import { PLAYERS } from '../../src/data/players'
 import { SLOT_ORDER } from '../../src/engine/types'
-import type { DraftPick, EventChoice, Focus, GameEventId, RegularSeasonResult, Rng, SeasonResult } from '../../src/engine/types'
+import type { Build, DraftPick, EventChoice, Focus, GameEventId, RegularSeasonResult, Rng, SeasonResult, Team } from '../../src/engine/types'
 
 // build sintético com o melhor jogador por atributo — equivalente ao antigo eliteBuild via LEGENDS
 const elitePicks: DraftPick[] = SLOT_ORDER.map(slot => ({
@@ -15,12 +15,27 @@ const elitePicks: DraftPick[] = SLOT_ORDER.map(slot => ({
 }))
 const eliteBuild = resolveBuild(elitePicks)
 
+// provisório: composição equivalente ao antigo simPostseason (Task 8 liga o ranking real).
+// Mantido aqui só para os testes deste arquivo; a composição "de verdade" vive em state.ts.
+function composePostseason(input: { build: Build; regular: RegularSeasonResult; team: Team; focus: Focus; rng: Rng }): SeasonResult {
+  const { build, regular, team, focus, rng } = input
+  const { winPct, effClutch } = computeWinPct({ build, regular, strength: team.strength, focus, rng })
+  const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
+  const clutchAdj = madePlayoffs && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
+  const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
+  return finishSeason({
+    regular, finalTeamId: team.id, build, rng, winPct, seed: null,
+    playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
+    extraAwards: [],
+  })
+}
+
 function fullSeason(seed: number, age = 26, teamId = 'okc', profile: 'contender' | 'rebuild' | 'bigmarket' = 'contender', focus: Focus = 'scoring') {
   const rng = createRng(seed)
   const team = teamById(teamId)
   const events = rollEvents(rng, focus)
   const regular = simRegularSeason({ build: eliteBuild, age, team, profile, focus, rng, events, choices: [] })
-  return simPostseason({ build: eliteBuild, regular, team, focus, rng })
+  return composePostseason({ build: eliteBuild, regular, team, focus, rng })
 }
 
 describe('ageMultiplier', () => {
@@ -84,7 +99,7 @@ describe('performanceRatio', () => {
   })
 })
 
-describe('simPostseason', () => {
+describe('composePostseason (provisório — winPct/titleProb/finishSeason)', () => {
   test('elite build on contender wins titles sometimes but not always', () => {
     let titles = 0
     for (let seed = 0; seed < 300; seed++) if (fullSeason(seed).wonTitle) titles++
@@ -127,7 +142,7 @@ describe('efeitos dos eventos novos', () => {
   })
   test('playoffspark e lockerFight mexem no pós-temporada de forma determinística', () => {
     const reg = simRegularSeason({ ...base, rng: createRng(5), events: ['playoffspark'], choices: [] })
-    const post = simPostseason({ build: base.build, regular: reg, team: base.team, focus: 'scoring', rng: createRng(6) })
+    const post = composePostseason({ build: base.build, regular: reg, team: base.team, focus: 'scoring', rng: createRng(6) })
     expect(post).toBeTruthy() // sanity: roda sem erro com os novos campos
   })
 })
@@ -160,32 +175,32 @@ describe('efeitos determinísticos do pós-temporada (winPct/effClutch)', () => 
 
   test('baseline titleProb', () => {
     const { rng, calls } = recordingRng()
-    simPostseason({ build: eliteBuild, regular: regularWith([]), team, focus: 'scoring', rng })
+    composePostseason({ build: eliteBuild, regular: regularWith([]), team, focus: 'scoring', rng })
     expect(calls[0]).toBeCloseTo(titleProb(baseWinPct, baseClutch), 6)
   })
 
   test('coachchange: chance(0.5)=true → winPct +0.02', () => {
     const { rng, calls } = recordingRng()
-    simPostseason({ build: eliteBuild, regular: regularWith(['coachchange']), team, focus: 'scoring', rng })
+    composePostseason({ build: eliteBuild, regular: regularWith(['coachchange']), team, focus: 'scoring', rng })
     expect(calls[0]).toBeCloseTo(0.5) // the coachchange coin-flip itself
     expect(calls[1]).toBeCloseTo(titleProb(baseWinPct + 0.02, baseClutch), 6)
   })
 
   test('lockerFight: winPct -0.03, effClutch +6', () => {
     const { rng, calls } = recordingRng()
-    simPostseason({ build: eliteBuild, regular: regularWith([], ['lockerFight']), team, focus: 'scoring', rng })
+    composePostseason({ build: eliteBuild, regular: regularWith([], ['lockerFight']), team, focus: 'scoring', rng })
     expect(calls[0]).toBeCloseTo(titleProb(baseWinPct - 0.03, baseClutch + 6), 6)
   })
 
   test('lockerCalm: winPct +0.02', () => {
     const { rng, calls } = recordingRng()
-    simPostseason({ build: eliteBuild, regular: regularWith([], ['lockerCalm']), team, focus: 'scoring', rng })
+    composePostseason({ build: eliteBuild, regular: regularWith([], ['lockerCalm']), team, focus: 'scoring', rng })
     expect(calls[0]).toBeCloseTo(titleProb(baseWinPct + 0.02, baseClutch), 6)
   })
 
   test('playoffspark: effClutch +8 apenas quando madePlayoffs', () => {
     const { rng, calls } = recordingRng()
-    simPostseason({ build: eliteBuild, regular: regularWith(['playoffspark']), team, focus: 'scoring', rng })
+    composePostseason({ build: eliteBuild, regular: regularWith(['playoffspark']), team, focus: 'scoring', rng })
     expect(calls[0]).toBeCloseTo(titleProb(baseWinPct, baseClutch + 8), 6)
   })
 })

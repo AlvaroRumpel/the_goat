@@ -2,7 +2,7 @@ import { createRng } from './engine/rng'
 import { autoResolve, INTERACTIVE_EVENTS, rollEvents } from './engine/events'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
-import { performanceRatio, simPostseason, simRegularSeason } from './engine/season'
+import { computeTitleProb, computeWinPct, finishSeason, performanceRatio, simRegularSeason } from './engine/season'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
@@ -112,7 +112,16 @@ function runSeasonSim(
   if (regular.tradeOffer) {
     return { ...state, phase: 'tradeDecision', pendingRegular: regular, pendingFocus: focus, pendingEvents: null, rngCalls: calls() }
   }
-  const season = simPostseason({ build, regular, team, focus, rng })
+  // provisório (sem liga ainda): strength estático do teams.ts; Task 10 troca por rosterStrength
+  const { winPct, effClutch } = computeWinPct({ build, regular, strength: team.strength, focus, rng })
+  const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
+  const clutchAdj = madePlayoffs && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
+  const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
+  const season = finishSeason({
+    regular, finalTeamId: team.id, build, rng, winPct, seed: null,
+    playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
+    extraAwards: [],
+  })
   const career = applyFame(state.career, season, profile)
   return { ...state, phase: 'seasonResult', career, pendingEvents: null, rngCalls: calls() }
 }
@@ -208,7 +217,15 @@ function reduce(state: GameState, action: Action): GameState {
       const team = teamById(finalOffer.teamId)
       const build = state.build!
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const season = simPostseason({ build, regular: pendingRegular, team, focus: pendingFocus, rng })
+      const { winPct, effClutch } = computeWinPct({ build, regular: pendingRegular, strength: team.strength, focus: pendingFocus, rng })
+      const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
+      const clutchAdj = madePlayoffs && pendingRegular.events.includes('playoffspark') ? effClutch + 8 : effClutch
+      const wonTitle = madePlayoffs && rng.chance(computeTitleProb(winPct, clutchAdj))
+      const season = finishSeason({
+        regular: pendingRegular, finalTeamId: team.id, build, rng, winPct, seed: null,
+        playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
+        extraAwards: [],
+      })
       const career = applyFame(state.career, season, finalOffer.profile)
       return {
         ...state,
