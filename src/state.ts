@@ -189,8 +189,12 @@ function reduce(state: GameState, action: Action): GameState {
       return { ...state, age, contractYearsLeft, phase: 'preseason' }
     }
 
-    case 'RETIRE_DECISION':
+    case 'RETIRE_DECISION': {
+      // Reachable from 'retireDecision' (continue/stop) and 'freeAgency' (stop only,
+      // when a contract-expiry year lands at age 31+ — see FreeAgency screen).
+      if (!action.retire && state.phase === 'freeAgency') return state
       return { ...state, phase: action.retire ? 'verdict' : 'preseason' }
+    }
 
     case 'RESET':
       throw new Error('RESET handled in gameReducer')

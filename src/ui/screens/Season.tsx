@@ -43,7 +43,7 @@ function Preseason({ state, dispatch }: Props) {
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <div className="kicker kicker--gold">{t(lang, 'season.focus.title')}</div>
+          <div className="kicker kicker--gold">{t(lang, 'season.focus.kicker')}</div>
           <div className="display" style={{ fontSize: 28, marginTop: 8 }}>{t(lang, 'season.focus.title')}</div>
         </div>
 
@@ -188,6 +188,12 @@ function FreeAgency({ state, dispatch }: Props) {
             />
           ))}
         </div>
+
+        {state.age >= 31 && (
+          <button type="button" className="btn btn--danger" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: true })}>
+            {t(lang, 'retire.stop')}
+          </button>
+        )}
       </div>
     </div>
   )

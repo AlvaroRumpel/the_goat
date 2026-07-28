@@ -44,6 +44,7 @@
   "season.title": "Temporada {year}",
   "season.age": "{age} anos",
   "season.focus.title": "Foco da temporada",
+  "season.focus.kicker": "Antes da bola subir",
   "focus.scoring": "Pontuação",
   "focus.scoring.desc": "+2 PPG na temporada",
   "focus.defense": "Defesa",
