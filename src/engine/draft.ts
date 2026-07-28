@@ -1,5 +1,6 @@
 import { LEGENDS } from '../data/legends'
-import { SLOT_ORDER, type Archetype, type Build, type Legend, type Matchup, type Rng, type SlotId } from './types'
+import { PLAYERS, playerById } from '../data/players'
+import { SLOT_ORDER, type Archetype, type Build, type DraftPick, type Legend, type Matchup, type Rng, type SlotId } from './types'
 
 export function drawMatchups(rng: Rng): Matchup[] {
   return SLOT_ORDER.map(slot => {
@@ -28,13 +29,43 @@ export function computeArchetype(attrs: Record<SlotId, number>): Archetype {
   return scores.reduce((best, cur) => (cur[1] > best[1] ? cur : best))[0]
 }
 
+export function drawPlayer(rng: Rng, drawnIds: string[]) {
+  const pool = PLAYERS.filter(pl => !drawnIds.includes(pl.id))
+  return rng.pick(pool)
+}
+
+export function weakestSlot(player: any, excluding: SlotId): SlotId {
+  const slots = SLOT_ORDER.filter(s => s !== excluding)
+  return slots.reduce((worst, s) => player.attrs[s] < player.attrs[worst] ? s : worst, slots[0])
+}
+
+export function malusAmount(value: number): number {
+  return Math.min(5, Math.max(1, Math.round((value - 71) / 6)))
+}
+
+export function resolveBuild(picks: DraftPick[]): Build {
+  const attrs = {} as Record<SlotId, number>
+  for (const pk of picks) attrs[pk.slot] = playerById(pk.playerId).attrs[pk.slot]
+  for (const pk of picks) {
+    const player = playerById(pk.playerId)
+    const target = weakestSlot(player, pk.slot)
+    attrs[target] = Math.max(40, attrs[target] - malusAmount(player.attrs[pk.slot]))
+  }
+  return {
+    attributes: attrs,
+    picks,
+    archetype: computeArchetype(attrs),
+    overall: computeOverall(attrs),
+  }
+}
+
 export function resolveDraft(picks: Legend[]): Build {
   const attrs = {} as Record<SlotId, number>
   for (const p of picks) attrs[p.slot] = p.value
   for (const p of picks) attrs[p.malusSlot] = Math.max(40, attrs[p.malusSlot] - p.malus)
   return {
     attributes: attrs,
-    picks: picks.map(p => p.id),
+    picks: picks.map(p => ({ playerId: p.id, slot: p.slot })),
     archetype: computeArchetype(attrs),
     overall: computeOverall(attrs),
   }

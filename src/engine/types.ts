@@ -33,7 +33,7 @@ export type Archetype = 'PG' | 'SG' | 'SF' | 'PF' | 'C'
 
 export interface Build {
   attributes: Record<SlotId, number>
-  picks: string[]              // legend ids, SLOT_ORDER order
+  picks: DraftPick[]           // player picks with slots
   archetype: Archetype
   overall: number              // 0..99
 }
