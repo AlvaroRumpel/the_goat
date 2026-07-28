@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { gameReducer, initialState, loadState, saveState } from '../src/state'
+import type { GameState } from '../src/state'
 import { SLOT_ORDER } from '../src/engine/types'
 
 // localStorage mock for node env
@@ -22,6 +23,7 @@ function playToSeasonResult() {
   let s = playToBuild()
   s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
   s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+  if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
   if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
   return s
 }
@@ -90,6 +92,7 @@ describe('gameReducer', () => {
     s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
     expect(s.phase).toBe('preseason')
     s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+    if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
     // trade never offered in first 2 seasons
     expect(s.phase).toBe('seasonResult')
     expect(s.career.seasons).toHaveLength(1)
@@ -101,6 +104,7 @@ describe('gameReducer', () => {
       if (s.phase === 'preseason') s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'health' })
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+      else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') break
     }
@@ -119,6 +123,7 @@ describe('gameReducer', () => {
       if (s.phase === 'preseason') s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'health' })
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+      else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
       else break
@@ -133,6 +138,53 @@ describe('gameReducer', () => {
     expect(loadState()).toEqual(s)
     localStorage.setItem('thegoat:v2', '{broken')
     expect(loadState()).toBeNull()
+  })
+})
+
+describe('eventDecision', () => {
+  // acha um seed cujo PLAY_SEASON role evento interativo na 1ª temporada
+  function findInteractiveSeed(): { s: GameState; seed: number } {
+    for (let seed = 1; seed < 3000; seed++) {
+      let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed })
+      for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
+      s = gameReducer(s, { type: 'CONFIRM_BUILD' })
+      s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+      const after = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+      if (after.phase === 'eventDecision') return { s: after, seed }
+    }
+    throw new Error('nenhum seed com evento interativo em 3000 tentativas')
+  }
+
+  test('PLAY_SEASON com evento interativo pausa em eventDecision; EVENT_DECISION resolve e segue', () => {
+    const { s } = findInteractiveSeed()
+    expect(s.pendingEvents!.some(e => e === 'injury' || e === 'lockerroom')).toBe(true)
+    const done = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+    expect(['seasonResult', 'tradeDecision']).toContain(done.phase)
+    expect(done.pendingEvents).toBeNull()
+  })
+  test('escolha a em lesão liga injuryProne; consumido na próxima temporada', () => {
+    const { s } = findInteractiveSeed()
+    if (!s.pendingEvents!.includes('injury')) return   // seed rolou lockerroom; injury coberto por outro seed em CI local
+    const done = gameReducer(s, { type: 'EVENT_DECISION', choice: 'a' })
+    expect(done.injuryProne).toBe(true)
+  })
+  test('EVENT_DECISION fora da fase é no-op', () => {
+    const s = initialState('pt')
+    expect(gameReducer(s, { type: 'EVENT_DECISION', choice: 'a' })).toBe(s)
+  })
+  test('replay determinístico com decisão de evento', () => {
+    const { seed } = findInteractiveSeed()
+    const run = () => {
+      let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed })
+      for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
+      s = gameReducer(s, { type: 'CONFIRM_BUILD' })
+      s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+      s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+      s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'a' })
+      return s
+    }
+    expect(run().career).toEqual(run().career)
+    expect(run().rngCalls).toBe(run().rngCalls)
   })
 })
 

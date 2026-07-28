@@ -21,6 +21,7 @@ export function Season(props: Props) {
     case 'preseason': return <Preseason {...props} />
     case 'seasonResult': return <SeasonResultView {...props} />
     case 'tradeDecision': return <TradeDecision {...props} />
+    case 'eventDecision': return <EventDecision {...props} />
     case 'freeAgency': return <FreeAgency {...props} />
     case 'retireDecision': return <RetireDecision {...props} />
     default: return null
@@ -157,6 +158,28 @@ function TradeDecision({ state, dispatch }: Props) {
           </button>
           <button type="button" className="btn" onClick={() => dispatch({ type: 'TRADE_DECISION', accept: false })}>
             {t(lang, 'trade.reject')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EventDecision({ state, dispatch }: Props) {
+  const lang = state.lang
+  const ev = state.pendingEvents!.find(e => e === 'injury' || e === 'lockerroom')!
+  return (
+    <div className="screen">
+      <div className="grain" />
+      <div className="modal-veil">
+        <div className="card card--gold" style={{ padding: 24, maxWidth: 360, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center' }}>
+          <div className="kicker kicker--gold">{t(lang, `eventdec.${ev}.title`)}</div>
+          <div className="display" style={{ fontSize: 20 }}>{t(lang, `eventdec.${ev}.desc`)}</div>
+          <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'EVENT_DECISION', choice: 'a' })}>
+            {t(lang, `eventdec.${ev}.a`)}
+          </button>
+          <button type="button" className="btn" onClick={() => dispatch({ type: 'EVENT_DECISION', choice: 'b' })}>
+            {t(lang, `eventdec.${ev}.b`)}
           </button>
         </div>
       </div>

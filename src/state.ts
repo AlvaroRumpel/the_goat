@@ -1,17 +1,18 @@
 import { createRng } from './engine/rng'
-import { autoResolve, rollEvents } from './engine/events'
+import { autoResolve, INTERACTIVE_EVENTS, rollEvents } from './engine/events'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
 import { performanceRatio, simPostseason, simRegularSeason } from './engine/season'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
-  Build, Career, DraftPick, Focus, Offer, RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile,
+  Build, Career, DraftPick, EventChoice, Focus, GameEventId, Offer, RegularSeasonResult, Rng, SeasonResult, SlotId,
+  TeamProfile,
 } from './engine/types'
 
 export type Phase =
   | 'home' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
-  | 'seasonResult' | 'tradeDecision' | 'freeAgency' | 'retireDecision' | 'verdict'
+  | 'seasonResult' | 'tradeDecision' | 'eventDecision' | 'freeAgency' | 'retireDecision' | 'verdict'
 
 export interface GameState {
   phase: Phase
@@ -31,6 +32,8 @@ export interface GameState {
   age: number
   pendingRegular: RegularSeasonResult | null  // set when trade offered mid-sim
   pendingFocus: Focus | null // focus from PLAY_SEASON, needed to resolve postseason after a trade decision
+  pendingEvents: GameEventId[] | null  // set when an interactive event pauses PLAY_SEASON
+  injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
 }
 
@@ -43,6 +46,7 @@ export type Action =
   | { type: 'CHOOSE_OFFER'; offer: Offer }
   | { type: 'PLAY_SEASON'; focus: Focus }
   | { type: 'TRADE_DECISION'; accept: boolean }
+  | { type: 'EVENT_DECISION'; choice: 'a' | 'b' }
   | { type: 'ADVANCE' }              // from seasonResult → next phase (FA / retire / preseason)
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'RESET' }
@@ -89,8 +93,28 @@ export function initialState(lang: Lang = 'pt'): GameState {
     age: 0,
     pendingRegular: null,
     pendingFocus: null,
+    pendingEvents: null,
+    injuryProne: false,
     career: { seasons: [], fame: 0 },
   }
+}
+
+function runSeasonSim(
+  state: GameState, focus: Focus, events: GameEventId[], choices: EventChoice[], rng: Rng, calls: () => number,
+): GameState {
+  const currentOffer = state.currentOffer!
+  const build = state.build!
+  const team = teamById(currentOffer.teamId)
+  const profile = currentOffer.profile
+  const canTrade = state.career.seasons.length >= 2
+  const regular = simRegularSeason({ build, age: state.age, team, profile, focus, rng, canTrade, events, choices })
+
+  if (regular.tradeOffer) {
+    return { ...state, phase: 'tradeDecision', pendingRegular: regular, pendingFocus: focus, pendingEvents: null, rngCalls: calls() }
+  }
+  const season = simPostseason({ build, regular, team, focus, rng })
+  const career = applyFame(state.career, season, profile)
+  return { ...state, phase: 'seasonResult', career, pendingEvents: null, rngCalls: calls() }
 }
 
 function reduce(state: GameState, action: Action): GameState {
@@ -148,26 +172,32 @@ function reduce(state: GameState, action: Action): GameState {
       return { ...state, currentOffer: action.offer, contractYearsLeft: 4, phase: 'preseason' }
 
     case 'PLAY_SEASON': {
-      const currentOffer = state.currentOffer!
-      const build = state.build!
-      const team = teamById(currentOffer.teamId)
-      const profile = currentOffer.profile
-      const canTrade = state.career.seasons.length >= 2
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const events = rollEvents(rng, action.focus, false)
-      const choices = autoResolve(events)
-      const regular = simRegularSeason({ build, age: state.age, team, profile, focus: action.focus, rng, canTrade, events, choices })
-
-      if (regular.tradeOffer) {
-        return {
-          ...state, phase: 'tradeDecision',
-          pendingRegular: regular, pendingFocus: action.focus, rngCalls: calls(),
-        }
+      const events = rollEvents(rng, action.focus, state.injuryProne)
+      const consumed = { ...state, injuryProne: false }
+      const interactive = events.find(e => INTERACTIVE_EVENTS.includes(e))
+      if (interactive) {
+        return { ...consumed, phase: 'eventDecision', pendingEvents: events, pendingFocus: action.focus, rngCalls: calls() }
       }
+      return runSeasonSim(consumed, action.focus, events, autoResolve(events), rng, calls)
+    }
 
-      const season = simPostseason({ build, regular, team, focus: action.focus, rng })
-      const career = applyFame(state.career, season, profile)
-      return { ...state, phase: 'seasonResult', career, rngCalls: calls() }
+    case 'EVENT_DECISION': {
+      if (state.phase !== 'eventDecision') return state
+      const events = state.pendingEvents!
+      const focus = state.pendingFocus!
+      const interactive = events.find(e => INTERACTIVE_EVENTS.includes(e))!
+      // evento interativo primário recebe a escolha do usuário; um segundo interativo (raro) resolve seguro
+      const choices = autoResolve(events.filter(e => e !== interactive))
+      let injuryProne = state.injuryProne
+      if (interactive === 'injury') {
+        choices.push(action.choice === 'a' ? 'injuryEarly' : 'injuryFull')
+        if (action.choice === 'a') injuryProne = true
+      } else {
+        choices.push(action.choice === 'a' ? 'lockerFight' : 'lockerCalm')
+      }
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      return runSeasonSim({ ...state, injuryProne, pendingFocus: null }, focus, events, choices, rng, calls)
     }
 
     case 'TRADE_DECISION': {
