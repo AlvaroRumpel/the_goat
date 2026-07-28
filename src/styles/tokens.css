@@ -1,0 +1,22 @@
+/* The GOAT — design tokens (legado dourado, from claude-design project 5a193998) */
+:root {
+  --bg: #0d0b08;
+  --surface: #161209;
+  --surface2: #1e1810;
+  --border: #2a2318;
+  --border-gold: #4a3c1c;
+  --gold: #d4a73c;
+  --gold-hi: #efc75e;
+  --gold-dim: #7a6224;
+  --text: #f1ead8;
+  --dim: #9c9080;
+  --faint: #5c543f;
+  --danger: #c4553b;
+  --danger-border: #6b3325;
+
+  --serif: 'Marcellus', serif;
+  --sans: 'Archivo', sans-serif;
+
+  --radius: 12px;
+  --radius-btn: 8px;
+}
