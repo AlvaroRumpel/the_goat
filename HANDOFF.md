@@ -1,6 +1,6 @@
 # The GOAT — Handoff
 
-**Data:** 2026-07-28 · **Estado:** v1 completa, deployada, master limpo (18 commits), 48/48 testes verdes.
+**Data:** 2026-07-28 · **Estado:** v1 + draft fenomeno + carreira viva, deployado, master limpo, 80/80 testes verdes.
 
 ## O que é
 
@@ -23,7 +23,7 @@ src/
 │   ├── season.ts    simRegularSeason + simPostseason; ageMultiplier(age, physical), performanceRatio (fórmulas = contrato)
 │   └── verdict.ts   score + tiers + GATE icônico do GOAT
 ├── data/      players.ts (~200 jogadores, 8 eras), teams.ts (30), i18n/{pt,en}.json (paridade testada)
-├── state.ts   gameReducer (10 fases), localStorage 'thegoat:v2', RNG replay via rngCalls
+├── state.ts   gameReducer (11 fases, incl. eventDecision), localStorage 'thegoat:v2' (loadState normaliza saves antigos), RNG replay via rngCalls
 ├── styles/    tokens.css + base.css (design "legado dourado" portado do claude-design)
 └── ui/        screens/{Home,AttrDraft,NbaDraft,Season,Verdict} + components + share.ts (canvas card)
 ```
@@ -33,7 +33,7 @@ src/
 1. **GOAT gate** (decisão do dono): tier `goat` = score ≥ 1950 **E** (5+ anéis && 4+ MVPs [Jordan] OU 38k+ pontos && 4+ anéis [LeBron]). Score alto sem troféus → `legend`. Calibrado: 1.33% de 300 carreiras aleatórias (teste `verdict.test.ts` trava < 2%).
 2. **Trade "meio de temporada"** = deadline trade: regular season simula → oferta → decisão → playoffs com time final.
 3. **RNG replay**: reducer persiste `rngCalls`; load recria rng do seed e avança N calls. Engine determinístico por seed — NUNCA consumir rng fora do fluxo contado.
-4. **Aposentadoria**: fase própria aos 31+ em ano de contrato; botão Aposentar também na Free Agency quando 31+ (fix pós-review).
+4. **Aposentadoria**: fase própria quando idade ≥31 OU produção em queda (ver item 8); botão Aposentar na Free Agency quando 31+ ou declínio pesado (ratio < 0.55).
 5. **Veredito computado na UI** (`computeVerdict(state.career)`), não armazenado.
 6. **Sem fotos/logos reais** — nomes ok, imagens são monogramas/ilustração própria.
 7. **Draft fenomeno** (2026-07-28): 1 jogador sorteado/rodada, roubo de atributo livre, reroll 1x, malus = fraqueza do jogador roubado (excluindo slot roubado) com `clamp(round((v−71)/6),1,5)`, piso 40. Save key `thegoat:v2` (v1 descartado). Ver spec `docs/superpowers/specs/2026-07-28-the-goat-design.md` e plano `docs/superpowers/plans/2026-07-28-draft-fenomeno.md`. Ids de jogadores em `players.ts` são contrato do save v2 — renomear/remover id exige bump de save key.
