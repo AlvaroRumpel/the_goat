@@ -11,7 +11,7 @@ import {
 } from './engine/playoffs'
 import type { BracketState } from './engine/playoffs'
 import {
-  applyMoment, autoResolveGame, finishWatchedGame, selectKeyGames, startWatchedGame,
+  applyMoment, autoResolveGame, dagger, expectedAutoDelta, finishWatchedGame, selectKeyGames, startWatchedGame,
 } from './engine/moments'
 import { initLeague } from './data/league'
 import { teamById } from './data/teams'
@@ -183,17 +183,27 @@ export function initialState(lang: Lang = 'pt'): GameState {
 //   applyMoment(6)] por jogo até a série fechar → finishSeason.
 
 // Efeitos dos jogos-chave (FORA das fórmulas-contrato — deltas de state layer, não da
-// forma das fórmulas de season.ts): ±0.01 de winPct por vitória/derrota, ±0.5 de ppg
-// pelo saldo de momentos bem/mal-sucedidos, e desgaste de lesão (games/ppg) por jogo
-// em que algum momento machucou o jogador.
-function keyGameEffects(results: WatchedGameResult[]): { winPctDelta: number; ppgDelta: number; injuredCount: number } {
-  const winPctDelta = results.reduce((n, r) => n + (r.won ? 0.01 : -0.01), 0)
+// forma das fórmulas de season.ts): até ±0.03 de winPct, ±0.5 de ppg e desgaste de
+// lesão (games/ppg) por jogo em que algum momento machucou o jogador.
+//
+// Ambos saem do MESMO swing: o impacto dos momentos MENOS o que a build entregaria
+// jogando no automático (expectedAutoDelta). O que conta é superar a própria
+// expectativa, não existir — um 99 acertar 73% dos momentos é o esperado dele.
+// Medido pelo saldo bruto, toda build forte levava +0.5 ppg e +0.03 de winPct fixos
+// por temporada; isso empurrava a corrida de MVP (decidida por ~3 pontos de margem
+// contra 270 NPCs) e o seed dos playoffs, inflando o topo da distribuição de score.
+// Centrado, E[delta] = 0 em qualquer faixa e a política ousada é que gera o desvio.
+function keyGameEffects(
+  results: WatchedGameResult[], build: Build, age: number,
+): { winPctDelta: number; ppgDelta: number; injuredCount: number } {
   const injuredCount = results.filter(r => r.injured).length
-  const netMoments = results.reduce(
-    (n, r) => n + r.outcomes.filter(o => o.success).length - r.outcomes.filter(o => !o.success).length, 0,
-  )
-  const ppgDelta = clamp(netMoments * 0.1, -0.5, 0.5) - injuredCount
-  return { winPctDelta, ppgDelta, injuredCount }
+  const swing = results.reduce((n, r) => n + r.outcomes.reduce((s, o) => s + o.delta, 0), 0)
+    - results.length * expectedAutoDelta(build, age)
+  return {
+    winPctDelta: clamp(swing * 0.0005, -0.01, 0.01),
+    ppgDelta: clamp(swing * 0.03, -0.5, 0.5) - injuredCount,
+    injuredCount,
+  }
 }
 
 function runSeasonSim(
@@ -207,7 +217,7 @@ function runSeasonSim(
     build, age: state.age, team, profile: currentOffer.profile, focus, rng, canTrade, events, choices,
     standings: state.seasonOutcome?.standings,   // tabela do ano anterior; ano 1 cai no estático
   })
-  const { winPctDelta, ppgDelta, injuredCount } = keyGameEffects(state.keyGameResults)
+  const { winPctDelta, ppgDelta, injuredCount } = keyGameEffects(state.keyGameResults, build, state.age)
   const regular: RegularSeasonResult = {
     ...simmed,
     games: Math.max(40, simmed.games - injuredCount * 10),
@@ -298,10 +308,21 @@ function playoffContext(pp: PendingPlayoffs): WatchedGameContext {
 
 // Abre o próximo jogo de playoffs. Com o jogador lesionado não há decisão: o time
 // joga com PLAYER_OUT_MARGIN de penalidade e o jogo resolve na hora.
+// O jogo tem probabilidade-alvo (startWatchedGame resolve a margem para bater nela):
+// finais = pGame (bo7(pGame) = seriesProb por construção); rounds 0-2 = seriesProb,
+// que junto com o shift centrado deixa E[prob da série] = seriesProb. Assim a taxa de
+// título agregada volta a ≈ computeTitleProb, como no simBracket.
 function openPlayoffGame(state: GameState, pp: PendingPlayoffs, rng: Rng, calls: () => number): GameState {
-  const ourStrength = watchedGameStrength(state, pp.finalOffer.teamId) + (pp.playerOut ? PLAYER_OUT_MARGIN : 0)
-  const oppStrength = rosterStrength(state.league!, pp.opponentTeamId)
-  const pending = startWatchedGame({ context: playoffContext(pp), ourStrength, oppStrength, rng })
+  const finals = pp.bracket.round === 3
+  const pending = startWatchedGame({
+    context: playoffContext(pp),
+    ourStrength: watchedGameStrength(state, pp.finalOffer.teamId),
+    oppStrength: rosterStrength(state.league!, pp.opponentTeamId),
+    targetWinP: finals ? pp.pGame : pp.seriesProb,
+    expectedDelta: expectedAutoDelta(state.build!, state.age),
+    marginBias: pp.playerOut ? PLAYER_OUT_MARGIN : 0,
+    rng,
+  })
   if (!pp.playerOut) {
     return { ...state, phase: 'playoffGame', pendingPlayoffs: pp, pendingGame: pending, rngCalls: calls() }
   }
@@ -334,7 +355,11 @@ function finishPlayoffGame(
   const teamId = pp.finalOffer.teamId
 
   if (pp.bracket.round < 3) {
-    const shifted = clamp(pp.seriesProb + (result.won ? SERIES_SHIFT : -SERIES_SHIFT), 0.05, 0.95)
+    // shift CENTRADO: E[shifted] = seriesProb (P(vencer o pivotal) = seriesProb por
+    // construção da margem-alvo). Vencer o pivotal continua valendo +0.20 em 0.5.
+    const shifted = clamp(
+      pp.seriesProb + 2 * SERIES_SHIFT * ((result.won ? 1 : 0) - pp.seriesProb), 0.05, 0.95,
+    )
     if (rng.chance(shifted)) {
       return enterRound(base, { ...next, bracket: advancePlayer(pp.bracket, teamId, rng) }, rng, calls)
     }
@@ -346,7 +371,12 @@ function finishPlayoffGame(
   const seriesThem = pp.seriesThem + (result.won ? 0 : 1)
   const series = { ...next, seriesUs, seriesThem }
   if (seriesUs === 4) {
-    const iconics: IconicMomentId[] = seriesThem === 0 ? [...series.iconics, 'sweep'] : series.iconics
+    // sweep é do time; o icônico é FECHAR a varrida com uma jogada ousada (mesma regra
+    // do catálogo em moments.ts). Sem isso a política auto ganhava os únicos pontos de
+    // icônico que consegue justamente nas carreiras campeãs — em cima do topo do score.
+    const iconics: IconicMomentId[] = seriesThem === 0 && dagger(result)
+      ? [...series.iconics, 'sweep']
+      : series.iconics
     return finishPostseason(base, { ...series, iconics },
       { championTeamId: teamId, playerRun: 'champion', wonTitle: true }, rng, calls)
   }

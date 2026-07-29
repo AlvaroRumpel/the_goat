@@ -1,8 +1,15 @@
 import { npcSeriesProb, rosterStrength } from './league'
 import type { Conf, LeagueState, Rng, TeamStanding } from './types'
 
-export const SERIES_SHIFT = 0.20   // deslocamento por resultado do jogo pivotal (calibrável)
-export const PLAYER_OUT_MARGIN = -7 // penalidade de baseMargin com jogador lesionado (calibrável)
+// Deslocamento da prob de série pelo resultado do jogo pivotal (rounds 0-2), aplicado
+// CENTRADO em state.ts: seriesProb + 2×SHIFT×(venceu − seriesProb). Em seriesProb = 0.5
+// isso é o ±0.20 clássico, e E[prob deslocada] = seriesProb para qualquer seriesProb —
+// sem isso a série ganhava ~+0.04 de graça (P(vencer o pivotal) ≈ 0.6, medido na Task 7).
+export const SERIES_SHIFT = 0.20
+// Penalidade fixa de baseMargin com o jogador lesionado, aplicada NO baseMargin (era
+// aplicada em ourStrength, valendo só ×0.45). Na janela de ruído de 16 pontos, −5 de
+// margem ≈ −31 p.p. de chance no jogo: derrota provável, não certa.
+export const PLAYER_OUT_MARGIN = -5
 
 // P(vencer best-of-7 | p de vencer um jogo) — forma fechada:
 // Σ_{k=0..3} C(3+k, k) × p^4 × (1−p)^k

@@ -85,6 +85,47 @@ describe('playoffs pausáveis', () => {
     }
     throw new Error('nenhuma final em 40 seeds × 6 anos — calibração ou fluxo quebrado')
   }, 60000)
+  test('round-trip save/load NO MEIO dos playoffs continua idêntico', () => {
+    // pureza do reducer não cobre isso: o save serializa pendingPlayoffs/pendingGame e
+    // o replay recria o rng a partir de (seed, rngCalls). Se algo do estado pausado não
+    // sobreviver ao JSON, a continuação diverge.
+    for (let seed = 300; seed < 340; seed++) {
+      let s = newCareer(seed)
+      for (let y = 0; y < 6; y++) {
+        s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+        if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+        let guard = 0
+        while (s.phase !== 'seasonResult' && guard++ < 80) {
+          // pausa assim que os playoffs estiverem em andamento com um jogo aberto
+          if (s.phase === 'playoffGame' && s.pendingGame && s.pendingPlayoffs) {
+            const reloaded = JSON.parse(JSON.stringify(s)) as GameState
+            expect(reloaded).toEqual(s)
+            const rest = (from: GameState) => {
+              let x = from
+              let g = 0
+              while (x.phase !== 'seasonResult' && g++ < 80) {
+                if (x.phase === 'keyGame' || (x.phase === 'playoffGame' && x.pendingGame)) x = gameReducer(x, { type: 'SKIP_GAME' })
+                else if (x.phase === 'playoffGame') x = gameReducer(x, { type: 'ADVANCE_GAME' })
+                else if (x.phase === 'tradeDecision') x = gameReducer(x, { type: 'TRADE_DECISION', accept: false })
+                else break
+              }
+              return JSON.stringify(x)
+            }
+            expect(rest(reloaded)).toBe(rest(s))
+            return
+          }
+          if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+          else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+          else break
+        }
+        s = gameReducer(s, { type: 'ADVANCE' })
+        if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+        if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
+        if (s.phase === 'verdict') break
+      }
+    }
+    throw new Error('nenhum jogo de playoffs em 40 seeds × 6 anos')
+  }, 60000)
   test('replay determinístico com playoffs', () => {
     const run = () => {
       let s = newCareer(200)

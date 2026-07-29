@@ -28,12 +28,26 @@ const MOMENT_OPTIONS: Record<string, MomentOption[]> = {
   ],
 }
 
-// prob base por risco + impacto por risco (constantes calibráveis)
+// ids de opção são únicos no catálogo inteiro — o outcome guarda só o optionId
+const RISK_OF = new Map<string, MomentRisk>(
+  Object.values(MOMENT_OPTIONS).flat().map(o => [o.id, o.risk]),
+)
+
+// prob base por risco + impacto por risco (constantes calibráveis).
+// bold tem attrW MAIOR que safe: é aposta ruim para build fraca e boa para build de
+// elite (cruzamento em ~86 de atributo efetivo) — é isso que dá "edge" ao jogo ousado.
 const RISK = {
   safe: { base: 0.42, attrW: 0.008, hit: 4, miss: -2 },
-  bold: { base: 0.28, attrW: 0.008, hit: 7, miss: -4 },
+  bold: { base: 0.28, attrW: 0.011, hit: 7, miss: -4 },
   reckless: { base: 0.16, attrW: 0.008, hit: 10, miss: -6 },
 } as const satisfies Record<MomentRisk, { base: number; attrW: number; hit: number; miss: number }>
+
+// Meia-largura do ruído do jogo: baseMargin carrega U(−MARGIN_NOISE, +MARGIN_NOISE).
+// Precisa ser larga o bastante para engolir Σ deltas dos momentos: no modo de
+// probabilidade-alvo, quando (centro + S) sai da janela a probabilidade satura, e a
+// saturação é assimétrica (só a cauda ruim bate no 0) — com ±8 as finais realizavam
+// 0.555/jogo contra alvo 0.543. Com ±12 a saturação some e o alvo é exato.
+export const MARGIN_NOISE = 16
 
 export function makeMoments(context: WatchedGameContext, rng: Rng): Moment[] {
   // 1 call por momento: variação leve do texto (index da variante 0-2)
@@ -49,26 +63,65 @@ export function defaultOption(m: Moment): MomentOption {
   return m.options.find(o => o.risk === 'safe') ?? m.options[0]
 }
 
-export function resolveMoment(
-  build: Build, age: number, option: MomentOption, rng: Rng,
-): { success: boolean; injury: boolean; delta: number } {
+function momentProb(build: Build, age: number, option: MomentOption): number {
   const m = ageMultiplier(age, build.attributes.physical)
   const a1 = build.attributes[option.attr] * m
   const attr = option.attr2 ? 0.6 * a1 + 0.4 * build.attributes[option.attr2] * m : a1
   const cfg = RISK[option.risk]
-  const p = clamp(cfg.base + (attr - 60) * cfg.attrW, 0.05, 0.95)
+  return clamp(cfg.base + (attr - 60) * cfg.attrW, 0.05, 0.95)
+}
+
+// E[Σ deltas do jogo] jogando SEMPRE a opção padrão (safe). Determinístico, sem rng.
+// Serve de correção para jogos com probabilidade-alvo (playoffs): sem ela os momentos
+// injetariam um viés positivo na margem (build forte acerta mais) e a taxa de título
+// realizada estouraria o titleProb — foi exatamente o bug medido na Task 7 (2.02×).
+export function expectedAutoDelta(build: Build, age: number): number {
+  return Object.values(MOMENT_OPTIONS).reduce((n, opts) => {
+    const o = opts.find(x => x.risk === 'safe') ?? opts[0]
+    const cfg = RISK[o.risk]
+    const p = momentProb(build, age, o)
+    return n + p * cfg.hit + (1 - p) * cfg.miss
+  }, 0)
+}
+
+export function resolveMoment(
+  build: Build, age: number, option: MomentOption, rng: Rng,
+): { success: boolean; injury: boolean; delta: number } {
+  const cfg = RISK[option.risk]
+  const p = momentProb(build, age, option)
   const success = rng.chance(p)                          // call 1
   const injuryRoll = rng.next()                          // call 2 — SEMPRE consumido (contrato)
   const injury = option.injuryRisk !== undefined && injuryRoll < option.injuryRisk
   return { success, injury, delta: success ? cfg.hit : cfg.miss }
 }
 
+// Dois modos de margem base (sempre 1 call de rng — contrato de replay intacto):
+//
+// 1) jogo comum (temporada regular): margem = diferença de força × 0.45 + ruído.
+//
+// 2) jogo com probabilidade-alvo (playoffs, targetWinP definido): a força já foi
+//    consumida antes — seriesProb/pGame vêm de computeTitleProb + rosterStrength do
+//    adversário —, então usá-la de novo aqui seria contar duas vezes. Em vez disso a
+//    margem é resolvida ANALITICAMENTE para que P(vitória) = targetWinP:
+//      margin = c + U + S,  U ~ U(−N, +N),  S = Σ deltas dos momentos
+//      won ⟺ round(margin) > 0 ⟺ c + U + S ≥ 0.5
+//      P(won) = (c + E[S] + N − 0.5) / 2N  ⇒  c = 2N·p − N + 0.5 − E[S]
+//    com E[S] = expectedAutoDelta (política padrão). Uma política mais agressiva
+//    desloca S para longe de E[S] — é aí que mora o "edge" do jogo ousado.
+//    A variância de S borra a igualdade só nos extremos (quando c + S sai da janela
+//    de ruído); no miolo P(won) = targetWinP exatamente.
 export function startWatchedGame(input: {
   context: WatchedGameContext; ourStrength: number; oppStrength: number; rng: Rng
+  targetWinP?: number      // playoffs: P(vencer este jogo) desejada
+  expectedDelta?: number   // E[Σ deltas] da política padrão (expectedAutoDelta)
+  marginBias?: number      // penalidade fixa de margem (ex.: PLAYER_OUT_MARGIN)
 }): PendingGame {
-  const { context, ourStrength, oppStrength, rng } = input
-  // 1 call: ruído do jogo; margem base = diferença de força + ruído
-  const baseMargin = (ourStrength - oppStrength) * 0.45 + (rng.next() * 16 - 8)
+  const { context, ourStrength, oppStrength, rng, targetWinP, expectedDelta = 0, marginBias = 0 } = input
+  const center = targetWinP === undefined
+    ? (ourStrength - oppStrength) * 0.45
+    : 2 * MARGIN_NOISE * targetWinP - MARGIN_NOISE + 0.5 - expectedDelta
+  // 1 call: ruído do jogo
+  const baseMargin = center + marginBias + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)
   return { context, moments: makeMoments(context, rng), momentIndex: 0, outcomes: [], baseMargin }
 }
 
@@ -89,14 +142,29 @@ export function autoResolveGame(pending: PendingGame, build: Build, age: number,
   return g
 }
 
+// REGRA DO CATÁLOGO DE ICÔNICOS: jogar seguro nunca vira lenda. Um passe seguro que
+// fecha o jogo por 3 é bom basquete, não um momento eterno — todo icônico exige uma
+// jogada de arremate ousada/temerária bem-sucedida (ou, no caso de comeback/closeout45,
+// o impacto que só o risco entrega). Sem essa regra a política auto carimbava ~12
+// icônicos por carreira e batia o cap de 100 pontos em TODA carreira, dando +100 de
+// score grátis em todas as faixas e estourando o goatRate do 99.
+export function dagger(r: Pick<WatchedGameResult, 'outcomes'>): boolean {
+  const clutch = r.outcomes[2]
+  return clutch?.success === true && RISK_OF.get(clutch.optionId) !== 'safe'
+}
+
 export function finishWatchedGame(pending: PendingGame, build: Build, age: number): WatchedGameResult {
   const { context, outcomes, baseMargin } = pending
   const margin = Math.round(baseMargin + outcomes.reduce((n, o) => n + o.delta, 0))
   const won = margin > 0
   const m = ageMultiplier(age, build.attributes.physical)
   const expPts = clamp((build.overall * m - 50) * 0.6, 6, 34)
+  // pontos por acerto = impacto do RISCO daquela jogada (safe 4 / bold 7 / reckless 10):
+  // três passes seguros não fazem um jogo de 45. Com bônus fixo de 7 o 99 fechava 3/3
+  // em ~39% dos jogos e carimbava closeout45 (18 pts) ~8× por carreira, batendo o cap
+  // de icônicos sozinho — era o que jogava o goatRate do 99 para 0.075.
   const playerPts = Math.round(clamp(
-    expPts + outcomes.filter(o => o.success).length * 7 - outcomes.filter(o => !o.success).length * 2
+    expPts + outcomes.reduce((n, o) => n + (o.success ? RISK[RISK_OF.get(o.optionId)!].hit : -2), 0)
       + baseMargin / 8,
     6, 65,
   ))
@@ -105,7 +173,7 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
   const choke = context.elimination === true && clutchOutcome !== undefined && !clutchOutcome.success && !won
 
   const iconics: IconicMomentId[] = []
-  const clutchWinner = clutchOutcome?.success === true && won && margin <= 4
+  const clutchWinner = dagger({ outcomes }) && won && margin <= 4
   if (clutchWinner && context.kind === 'finals') iconics.push('finalsBuzzer')
   else if (clutchWinner && context.kind === 'playoff' && context.elimination) iconics.push('seriesWinner')
   else if (clutchWinner && context.kind === 'rivalry') iconics.push('rivalWinner')
