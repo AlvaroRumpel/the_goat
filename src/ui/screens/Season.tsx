@@ -201,10 +201,13 @@ function FreeAgency({ state, dispatch }: Props) {
   const offer = state.offers[selected]
   const team = teamById(offer.teamId)
   const build = state.build!
-  const showOvr = state.career.seasons.length >= 2
   const effNow = effectiveOverall(build.overall, state.age, build.attributes.physical)
-  const effPast = showOvr ? effectiveOverall(build.overall, state.age - 2, build.attributes.physical) : 0
-  const [ovrBefore, ovrAfter] = t(lang, 'fa.ovrDrop', { n: effNow, delta: effPast - effNow }).split('↓')
+  const effPast = state.career.seasons.length >= 2
+    ? effectiveOverall(build.overall, state.age - 2, build.attributes.physical)
+    : 0
+  const delta = effPast - effNow
+  const showOvr = state.career.seasons.length >= 2 && delta > 0
+  const [ovrBefore, ovrAfter] = showOvr ? t(lang, 'fa.ovrDrop', { n: effNow, delta }).split('↓') : ['', '']
 
   return (
     <div className="screen">
@@ -228,6 +231,7 @@ function FreeAgency({ state, dispatch }: Props) {
               featured={i === selected}
               onClick={() => setSelected(i)}
               terms={t(lang, 'nbadraft.contractNote')}
+              padding="27px 16px"
             />
           ))}
         </div>

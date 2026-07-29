@@ -8,6 +8,7 @@ interface Props {
   featured: boolean
   onClick: () => void
   terms?: string
+  padding?: string
 }
 
 export function TeamSymbol({ profile, onRed }: { profile: TeamProfile; onRed?: boolean }) {
@@ -27,7 +28,7 @@ export function TeamSymbol({ profile, onRed }: { profile: TeamProfile; onRed?: b
   )
 }
 
-export function OfferCard({ team, profile, lang, featured, onClick, terms }: Props) {
+export function OfferCard({ team, profile, lang, featured, onClick, terms, padding = '20px 16px' }: Props) {
   const dim = featured ? 'var(--on-red-dim)' : 'var(--dim)'
   return (
     <button
@@ -39,7 +40,7 @@ export function OfferCard({ team, profile, lang, featured, onClick, terms }: Pro
         alignItems: 'center',
         gap: 14,
         width: '100%',
-        padding: '20px 16px',
+        padding,
         textAlign: 'left',
         border: featured ? 'none' : '1px solid var(--rule)',
         color: featured ? 'var(--on-red)' : 'var(--ink)',
