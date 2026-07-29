@@ -26,6 +26,7 @@ function playToSeasonResult() {
   s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
   s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
   if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+  while (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
   if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
   return s
 }
@@ -95,6 +96,7 @@ describe('gameReducer', () => {
     expect(s.phase).toBe('preseason')
     s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
     if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+    while (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
     // trade never offered in first 2 seasons
     expect(s.phase).toBe('seasonResult')
     expect(s.career.seasons).toHaveLength(1)
@@ -107,6 +109,7 @@ describe('gameReducer', () => {
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
       else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+      else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') break
     }
@@ -126,6 +129,7 @@ describe('gameReducer', () => {
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
       else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+      else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
       else break
@@ -192,7 +196,9 @@ describe('eventDecision', () => {
   test('PLAY_SEASON com evento interativo pausa em eventDecision; EVENT_DECISION resolve e segue', () => {
     const { s } = findInteractiveSeed()
     expect(s.pendingEvents!.some(e => e === 'injury' || e === 'lockerroom')).toBe(true)
-    const done = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+    let done = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+    expect(done.phase).toBe('keyGame')
+    while (done.phase === 'keyGame') done = gameReducer(done, { type: 'SKIP_GAME' })
     expect(['seasonResult', 'tradeDecision']).toContain(done.phase)
     expect(done.pendingEvents).toBeNull()
   })

@@ -3,20 +3,26 @@ import { autoResolve, INTERACTIVE_EVENTS, rollEvents } from './engine/events'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
 import {
-  ageMultiplier, computeTitleProb, computeWinPct, finishSeason, performanceRatio, simRegularSeason,
+  ageMultiplier, computeTitleProb, computeWinPct, effectiveOverall, finishSeason, performanceRatio, simRegularSeason,
 } from './engine/season'
 import { advanceOffseason, rosterStrength, simAwards, simBracket, simNpcLines, simStandings } from './engine/league'
+import {
+  applyMoment, autoResolveGame, finishWatchedGame, selectKeyGames, startWatchedGame,
+} from './engine/moments'
 import { initLeague } from './data/league'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
-  Build, Career, DraftPick, EventChoice, Focus, GameEventId, Headline, LeagueSeasonOutcome, LeagueState, NpcLine,
-  Offer, RaceAward, RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding,
+  Build, Career, DraftPick, EventChoice, Focus, GameEventId, Headline, KeyGame, LeagueSeasonOutcome, LeagueState,
+  NpcLine, Offer, PendingGame, RaceAward, RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding,
+  WatchedGameResult,
 } from './engine/types'
 
 export type Phase =
   | 'home' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
-  | 'seasonResult' | 'tradeDecision' | 'eventDecision' | 'freeAgency' | 'retireDecision' | 'verdict'
+  | 'seasonResult' | 'tradeDecision' | 'eventDecision' | 'keyGame' | 'freeAgency' | 'retireDecision' | 'verdict'
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export interface LeagueYear { year: number; championTeamId: string; winners: Record<RaceAward, string | null> }
 
@@ -41,6 +47,10 @@ export interface GameState {
   pendingRegular: RegularSeasonResult | null  // set when trade offered mid-sim
   pendingFocus: Focus | null // focus from PLAY_SEASON, needed to resolve postseason after a trade decision
   pendingEvents: GameEventId[] | null  // set when an interactive event pauses PLAY_SEASON
+  pendingChoices: EventChoice[] | null  // resolved event choices, held across the keyGame pause
+  pendingKeyGames: KeyGame[] | null   // remaining key-game queue (current game already popped)
+  pendingGame: PendingGame | null     // key game currently being watched
+  keyGameResults: WatchedGameResult[] // this season's watched games; reset at the start of PLAY_SEASON
   injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
   league: LeagueState | null
@@ -60,6 +70,8 @@ export type Action =
   | { type: 'PLAY_SEASON'; focus: Focus }
   | { type: 'TRADE_DECISION'; accept: boolean }
   | { type: 'EVENT_DECISION'; choice: 'a' | 'b' }
+  | { type: 'DECIDE_MOMENT'; optionId: string }
+  | { type: 'SKIP_GAME' }
   | { type: 'ADVANCE' }              // from seasonResult → next phase (FA / retire / preseason)
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'RESET' }
@@ -107,6 +119,10 @@ export function initialState(lang: Lang = 'pt'): GameState {
     pendingRegular: null,
     pendingFocus: null,
     pendingEvents: null,
+    pendingChoices: null,
+    pendingKeyGames: null,
+    pendingGame: null,
+    keyGameResults: [],
     injuryProne: false,
     career: { seasons: [], fame: 0 },
     league: null,
@@ -118,8 +134,26 @@ export function initialState(lang: Lang = 'pt'): GameState {
 }
 
 // Ordem fixa de consumo de rng (replay do save depende dela):
-// simRegularSeason → winPct → standings → lines → [pausa tradeDecision] →
-// concludeSeason: [winPct do time final, só se trocou] → bracket → awards → finishSeason.
+// PLAY_SEASON: rollEvents → selectKeyGames(3) → startWatchedGame(4) → pausa (fase keyGame).
+// DECIDE_MOMENT/SKIP_GAME: applyMoment(2×N) → [próximo jogo: startWatchedGame(4)] →
+//   pausa de novo, ou (fila vazia) runSeasonSim: simRegularSeason → winPct → standings →
+//   lines → [pausa tradeDecision] → concludeSeason: [winPct do time final, só se trocou]
+//   → bracket → awards → finishSeason.
+
+// Efeitos dos jogos-chave (FORA das fórmulas-contrato — deltas de state layer, não da
+// forma das fórmulas de season.ts): ±0.01 de winPct por vitória/derrota, ±0.5 de ppg
+// pelo saldo de momentos bem/mal-sucedidos, e desgaste de lesão (games/ppg) por jogo
+// em que algum momento machucou o jogador.
+function keyGameEffects(results: WatchedGameResult[]): { winPctDelta: number; ppgDelta: number; injuredCount: number } {
+  const winPctDelta = results.reduce((n, r) => n + (r.won ? 0.01 : -0.01), 0)
+  const injuredCount = results.filter(r => r.injured).length
+  const netMoments = results.reduce(
+    (n, r) => n + r.outcomes.filter(o => o.success).length - r.outcomes.filter(o => !o.success).length, 0,
+  )
+  const ppgDelta = clamp(netMoments * 0.1, -0.5, 0.5) - injuredCount
+  return { winPctDelta, ppgDelta, injuredCount }
+}
+
 function runSeasonSim(
   state: GameState, focus: Focus, events: GameEventId[], choices: EventChoice[], rng: Rng, calls: () => number,
 ): GameState {
@@ -127,12 +161,19 @@ function runSeasonSim(
   const build = state.build!
   const team = teamById(currentOffer.teamId)
   const canTrade = state.career.seasons.length >= 2
-  const regular = simRegularSeason({
+  const simmed = simRegularSeason({
     build, age: state.age, team, profile: currentOffer.profile, focus, rng, canTrade, events, choices,
     standings: state.seasonOutcome?.standings,   // tabela do ano anterior; ano 1 cai no estático
   })
+  const { winPctDelta, ppgDelta, injuredCount } = keyGameEffects(state.keyGameResults)
+  const regular: RegularSeasonResult = {
+    ...simmed,
+    games: Math.max(40, simmed.games - injuredCount * 10),
+    ppg: clamp(Math.round((simmed.ppg + ppgDelta) * 10) / 10, 4, 38),
+  }
   // força de elenco real (spec §2) — sem o jogador (a fórmula soma overallEff à parte)
-  const { winPct, effClutch } = computeWinPct({ build, regular, strength: rosterStrength(state.league!, team.id), focus, rng })
+  const { winPct: rawWinPct, effClutch } = computeWinPct({ build, regular, strength: rosterStrength(state.league!, team.id), focus, rng })
+  const winPct = clamp(rawWinPct + winPctDelta, 0.15, 0.85)
   const playerWins = Math.round(winPct * 82)
   const standings = simStandings({ league: state.league!, playerTeamId: team.id, playerWins, rng })
   const lines = simNpcLines(state.league!, rng)
@@ -183,6 +224,56 @@ function concludeSeason(
     standings, lines, races, winners, championTeamId: bracket.championTeamId, playerRun: bracket.playerRun,
   }
   return { ...state, phase: 'seasonResult', career, seasonOutcome, pendingEvents: null, pendingLeague: null, rngCalls: calls() }
+}
+
+// ourStrength inclui o overall efetivo do jogador (extraOvr) — diferente de
+// runSeasonSim/computeWinPct, aqui não há termo separado somando overallEff.
+function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): PendingGame {
+  const build = state.build!
+  const ourStrength = rosterStrength(
+    state.league!, state.currentOffer!.teamId,
+    effectiveOverall(build.overall, state.age, build.attributes.physical),
+  )
+  const oppStrength = rosterStrength(state.league!, game.opponentTeamId)
+  return startWatchedGame({
+    context: { kind: game.kind, opponentTeamId: game.opponentTeamId }, ourStrength, oppStrength, rng,
+  })
+}
+
+function startKeyGames(
+  state: GameState, focus: Focus, events: GameEventId[], choices: EventChoice[], rng: Rng, calls: () => number,
+): GameState {
+  const games = selectKeyGames({
+    league: state.league!,
+    playerTeamId: state.currentOffer!.teamId,
+    prevStandings: state.seasonOutcome?.standings ?? null,
+    prevChampionTeamId: state.leagueHistory.at(-1)?.championTeamId ?? null,
+    hasRivalryEvent: events.includes('rivalry'),
+    rng,
+  })
+  const [first, ...rest] = games
+  const pendingGame = startWatchedKeyGame(state, first, rng)
+  return {
+    ...state, phase: 'keyGame', pendingKeyGames: rest, pendingGame, keyGameResults: [],
+    pendingFocus: focus, pendingEvents: events, pendingChoices: choices, rngCalls: calls(),
+  }
+}
+
+// Chamado após DECIDE_MOMENT/SKIP_GAME resolverem o jogo corrente até momentIndex 3.
+function advanceKeyGame(state: GameState, pending: PendingGame, rng: Rng, calls: () => number): GameState {
+  if (pending.momentIndex < 3) return { ...state, pendingGame: pending, rngCalls: calls() }
+  const result = finishWatchedGame(pending, state.build!, state.age)
+  const keyGameResults = [...state.keyGameResults, result]
+  const queue = state.pendingKeyGames!
+  if (queue.length === 0) {
+    return runSeasonSim(
+      { ...state, keyGameResults, pendingGame: null, pendingKeyGames: null },
+      state.pendingFocus!, state.pendingEvents!, state.pendingChoices!, rng, calls,
+    )
+  }
+  const [next, ...rest] = queue
+  const pendingGame = startWatchedKeyGame(state, next, rng)
+  return { ...state, phase: 'keyGame', pendingKeyGames: rest, pendingGame, keyGameResults, rngCalls: calls() }
 }
 
 function reduce(state: GameState, action: Action): GameState {
@@ -248,7 +339,7 @@ function reduce(state: GameState, action: Action): GameState {
       if (interactive) {
         return { ...consumed, phase: 'eventDecision', pendingEvents: events, pendingFocus: action.focus, rngCalls: calls() }
       }
-      return runSeasonSim(consumed, action.focus, events, autoResolve(events), rng, calls)
+      return startKeyGames(consumed, action.focus, events, autoResolve(events), rng, calls)
     }
 
     case 'EVENT_DECISION': {
@@ -266,7 +357,24 @@ function reduce(state: GameState, action: Action): GameState {
         choices.push(action.choice === 'a' ? 'lockerFight' : 'lockerCalm')
       }
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      return runSeasonSim({ ...state, injuryProne, pendingFocus: null }, focus, events, choices, rng, calls)
+      return startKeyGames({ ...state, injuryProne }, focus, events, choices, rng, calls)
+    }
+
+    case 'DECIDE_MOMENT': {
+      if (state.phase !== 'keyGame') return state
+      const pending = state.pendingGame!
+      const option = pending.moments[pending.momentIndex].options.find(o => o.id === action.optionId)
+      if (!option) return state
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const next = applyMoment(pending, option, state.build!, state.age, rng)
+      return advanceKeyGame(state, next, rng, calls)
+    }
+
+    case 'SKIP_GAME': {
+      if (state.phase !== 'keyGame') return state
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      const next = autoResolveGame(state.pendingGame!, state.build!, state.age, rng)
+      return advanceKeyGame(state, next, rng, calls)
     }
 
     case 'TRADE_DECISION': {
@@ -361,6 +469,10 @@ export function loadState(): GameState | null {
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
     parsed.pendingEvents = parsed.pendingEvents ?? null
+    parsed.pendingChoices = parsed.pendingChoices ?? null
+    parsed.pendingKeyGames = parsed.pendingKeyGames ?? null
+    parsed.pendingGame = parsed.pendingGame ?? null
+    parsed.keyGameResults = parsed.keyGameResults ?? []
     return parsed as GameState
   } catch {
     return null
