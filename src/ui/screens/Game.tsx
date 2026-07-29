@@ -3,6 +3,7 @@ import type { Action, GameState } from '../../state'
 import { t, type Lang } from '../../i18n'
 import { teamById } from '../../data/teams'
 import type { MomentOption, PendingGame, WatchedGameResult } from '../../engine/types'
+import { CareerBar } from '../components/CareerBar'
 
 interface Props {
   state: GameState
@@ -89,6 +90,7 @@ function MomentPanel({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <GameHeader state={state} />
@@ -132,6 +134,7 @@ function SeriesScreen({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} heavy />
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1, justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
         <div className="kicker kicker--gold">{t(lang, 'game.round.' + pp.bracket.round)}</div>

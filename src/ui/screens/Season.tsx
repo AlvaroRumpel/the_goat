@@ -9,6 +9,7 @@ import type { Focus, Headline } from '../../engine/types'
 import { OfferCard } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
 import { CeremonyPanel, PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
+import { CareerBar } from '../components/CareerBar'
 import { resultScoreText } from './Game'
 
 interface Props {
@@ -55,20 +56,12 @@ function headlineText(lang: Lang, h: Headline): string {
 
 function Preseason({ state, dispatch }: Props) {
   const lang = state.lang
-  const year = 2026 + state.career.seasons.length
-  const team = teamById(state.currentOffer!.teamId)
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div className="kicker">
-            {t(lang, 'season.title', { year })} · {t(lang, 'season.age', { age: state.age })}
-          </div>
-          <div className="kicker">{team.id.toUpperCase()}</div>
-        </div>
-
         {state.headlines.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div className="kicker">{t(lang, 'news.title')}</div>
@@ -109,21 +102,13 @@ function SeasonResultView({ state, dispatch }: Props) {
   const lang = state.lang
   const [tab, setTab] = useState<ResultTab>('result')
   const season = state.career.seasons[state.career.seasons.length - 1]
-  const year = 2026 + state.career.seasons.length - 1
-  const team = teamById(season.finalTeamId)
   const outcome = state.seasonOutcome
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} heavy />
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div className="kicker">
-            {t(lang, 'season.title', { year })} · {t(lang, 'season.age', { age: season.age })}
-          </div>
-          <div className="kicker">{team.id.toUpperCase()}</div>
-        </div>
-
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {RESULT_TABS.map(tb => (
             <button
@@ -251,6 +236,7 @@ function TradeDecision({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
       <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
         <StandingsTable standings={pending.standings} playerTeamId={pendingRegular.teamId} lang={lang} scale={0.5} />
@@ -282,6 +268,7 @@ function EventDecision({ state, dispatch }: Props) {
   const ev = state.pendingEvents!.find(e => INTERACTIVE_EVENTS.includes(e))!
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
       <div className="modal-veil">
         <div className="card card--gold" style={{ padding: 24, maxWidth: 360, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center' }}>
@@ -306,6 +293,7 @@ function FreeAgency({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} />
       <div className="screen__glow" />
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, textAlign: 'center' }}>
@@ -345,6 +333,7 @@ function RetireDecision({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
       <div
         style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 16, textAlign: 'center' }}

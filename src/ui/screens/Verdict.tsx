@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { computeVerdict } from '../../engine/verdict'
 import type { Award } from '../../engine/types'
 import { drawShareCard, shareText } from '../share'
+import { CareerBar } from '../components/CareerBar'
 
 interface Props {
   state: GameState
@@ -52,6 +53,7 @@ export function Verdict({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
+      <CareerBar state={state} dispatch={dispatch} heavy />
       <div className="screen__glow" style={{ transform: 'translateX(-50%) scale(1.4)' }} />
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center' }}>
