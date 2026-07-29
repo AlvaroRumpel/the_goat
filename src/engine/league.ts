@@ -221,7 +221,7 @@ export function advanceOffseason(input: {
     const rookie: LeaguePlayer = {
       id: `f-${league.year}-${draftCount}`,       // fictício: id único por ano+ordem
       name, pos: rng.pick(POS), age: rng.int(19, 22),
-      ovr: 58 + Math.round(39 * r * r),           // piso 58 (ovr<58 se aposenta no offseason seguinte), teto 97
+      ovr: 55 + Math.round(42 * r * r),           // skew: maioria 55-70, raros 90+
       tags: rng.chance(0.5) ? [rng.pick(TAGS)] : [],
       teamId, rookie: true, prevPpg: null,
     }
