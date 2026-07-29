@@ -178,38 +178,55 @@ export function AttrDraft({ state, dispatch }: Props) {
 function DraftDone({ state, dispatch }: Props) {
   const lang = state.lang
   const build = state.build!
-  const archetypeName = t(lang, 'archetype.' + build.archetype).split(' (')[0]
+  const lowSlots = SLOT_ORDER.filter(slot => build.attributes[slot] < 70)
 
   return (
     <div className="screen">
       <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div className="kicker">{t(lang, 'draft.done.title')}</div>
-          <div className="display goldtext" style={{ fontSize: 40, marginTop: 8 }}>{archetypeName}</div>
-          <div className="hint" style={{ marginTop: 4 }}>{t(lang, 'draft.done.overall', { n: build.overall })}</div>
+        <div>
+          <div className="mono-label">{t(lang, 'draft.done.headline')}</div>
+          <div className="headline headline--red" style={{ fontSize: 50, marginTop: 6 }}>
+            {t(lang, 'archetype.name.' + build.archetype)}
+          </div>
+          <div className="mono-label" style={{ marginTop: 6 }}>{t(lang, 'archetype.pos.' + build.archetype)}</div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={{ fontSize: 15, lineHeight: 1.5 }}>{t(lang, 'archetype.desc.' + build.archetype)}</p>
+
+        <div className="strip strip--ink" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="mono-label" style={{ color: 'var(--on-ink-dim)' }}>{t(lang, 'draft.done.debutOvr')}</div>
+          <div className="headline" style={{ fontSize: 38, color: 'var(--accent-warm)' }}>{build.overall}</div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {SLOT_ORDER.map(slot => {
             const val = build.attributes[slot]
             const low = val < 70
             return (
-              <div className="attr-row" key={slot}>
-                <div className="attr-row__name">{t(lang, 'slot.' + slot)}</div>
-                <div className="attr-row__bar">
-                  <div
-                    className={low ? 'attr-row__fill attr-row__fill--low' : 'attr-row__fill'}
-                    style={{ width: `${val}%` }}
-                  />
+              <div key={slot} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="mono-label" style={{ width: 82, fontSize: 11 }}>{t(lang, 'slot.' + slot)}</div>
+                <div className="bar" style={{ flex: 1 }}>
+                  <div className={low ? 'bar__fill bar__fill--bad' : 'bar__fill'} style={{ width: `${val}%` }} />
                 </div>
-                <div className="attr-row__val" style={low ? { color: 'var(--danger)' } : undefined}>{val}</div>
+                <div className="mono" style={{ fontSize: 11, textAlign: 'right', width: 20 }}>{val}</div>
               </div>
             )
           })}
         </div>
 
-        <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'CONFIRM_BUILD' })}>
+        <hr className="rule" />
+        <div className="hint">
+          {lowSlots.length === 0
+            ? t(lang, 'draft.done.lowNone')
+            : t(lang, 'draft.done.low', {
+                n: lowSlots.length,
+                list: lowSlots.map(slot => t(lang, 'slot.' + slot)).join(' · '),
+              })}
+        </div>
+        <hr className="rule" />
+
+        <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'CONFIRM_BUILD' })}>
           {t(lang, 'draft.done.next')}
         </button>
       </div>
