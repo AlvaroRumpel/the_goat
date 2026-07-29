@@ -451,6 +451,44 @@ button {
   color: var(--ink);
 }
 
+/* team symbols */
+.symbol {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.symbol--bars {
+  flex-direction: column;
+  gap: 4px;
+}
+.symbol__diamond {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--ink);
+  transform: rotate(45deg);
+}
+.symbol__circle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+}
+.symbol__bar {
+  width: 26px;
+  height: 2px;
+  background: var(--ink);
+}
+.symbol--on-red .symbol__diamond,
+.symbol--on-red .symbol__circle {
+  border-color: var(--on-red);
+}
+.symbol--on-red .symbol__bar {
+  background: var(--on-red);
+}
+
 /* hub */
 .hub {
   position: fixed;

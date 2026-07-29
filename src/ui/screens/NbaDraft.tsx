@@ -1,4 +1,4 @@
-import type { Dispatch } from 'react'
+import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
@@ -11,31 +11,40 @@ interface Props {
 
 export function NbaDraft({ state, dispatch }: Props) {
   const lang = state.lang
+  const [selected, setSelected] = useState(0)
+  const offer = state.offers[selected]
+  const team = teamById(offer.teamId)
 
   return (
     <div className="screen">
       <div className="screen__glow" />
       <div className="grain" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, textAlign: 'center' }}>
-        <div className="kicker">{t(lang, 'nbadraft.title')}</div>
-        <div className="display goldtext" style={{ fontSize: 52 }}>
-          {t(lang, 'nbadraft.picked', { n: state.pickNumber ?? 0 })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="mono-label">{t(lang, 'nbadraft.called')}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <div className="headline headline--red" style={{ fontSize: 72 }}>
+            {t(lang, 'nbadraft.pickOrd', { n: state.pickNumber ?? 0 })}
+          </div>
+          <div className="headline" style={{ fontSize: 22 }}>{t(lang, 'nbadraft.pick')}</div>
         </div>
-        <hr className="rule" />
-        <div className="hint">{t(lang, 'nbadraft.choose')}</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {state.offers.map((offer, i) => (
+          {state.offers.map((o, i) => (
             <OfferCard
-              key={offer.teamId}
-              team={teamById(offer.teamId)}
-              profile={offer.profile}
+              key={o.teamId}
+              team={teamById(o.teamId)}
+              profile={o.profile}
               lang={lang}
-              featured={i === 0}
-              onClick={() => dispatch({ type: 'CHOOSE_OFFER', offer })}
+              featured={i === selected}
+              onClick={() => setSelected(i)}
             />
           ))}
         </div>
+
+        <button type="button" className="btn btn--ink" onClick={() => dispatch({ type: 'CHOOSE_OFFER', offer })}>
+          {t(lang, 'nbadraft.sign', { team: `${team.city} ${team.name}` })}
+        </button>
+        <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'nbadraft.contractNote')}</div>
       </div>
     </div>
   )

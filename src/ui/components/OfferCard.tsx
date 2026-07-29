@@ -7,28 +7,55 @@ interface Props {
   lang: Lang
   featured: boolean
   onClick: () => void
+  terms?: string
 }
 
-export function OfferCard({ team, profile, lang, featured, onClick }: Props) {
-  const desc = t(lang, 'profile.' + profile)
-  const chipLabel = desc.split(' — ')[0]
+export function TeamSymbol({ profile, onRed }: { profile: TeamProfile; onRed?: boolean }) {
+  const cls = `symbol${onRed ? ' symbol--on-red' : ''}`
+  if (profile === 'contender') {
+    return <div className={cls}><div className="symbol__diamond" /></div>
+  }
+  if (profile === 'rebuild') {
+    return <div className={cls}><div className="symbol__circle" /></div>
+  }
+  return (
+    <div className={`${cls} symbol--bars`}>
+      <div className="symbol__bar" />
+      <div className="symbol__bar" />
+      <div className="symbol__bar" />
+    </div>
+  )
+}
+
+export function OfferCard({ team, profile, lang, featured, onClick, terms }: Props) {
+  const dim = featured ? 'var(--on-red-dim)' : 'var(--dim)'
   return (
     <button
       type="button"
-      className={featured ? 'card card--gold' : 'card'}
-      style={{
-        padding: 20,
-        width: '100%',
-        textAlign: 'left',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-      }}
+      className={featured ? 'strip--red' : undefined}
       onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        width: '100%',
+        padding: '20px 16px',
+        textAlign: 'left',
+        border: featured ? 'none' : '1px solid var(--rule)',
+        color: featured ? 'var(--on-red)' : 'var(--ink)',
+      }}
     >
-      <span className={featured ? 'chip' : 'chip chip--dim'}>{chipLabel}</span>
-      <span className="display" style={{ fontSize: 22 }}>{team.city} {team.name}</span>
-      <span className="hint" style={{ textAlign: 'left' }}>{desc}</span>
+      <TeamSymbol profile={profile} onRed={featured} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+        <div className="headline" style={{ fontSize: 17, color: featured ? 'var(--on-red)' : 'var(--ink)' }}>
+          {team.city} {team.name}
+        </div>
+        <div className="mono-label" style={{ color: dim }}>{t(lang, 'profile.chip.' + profile)}</div>
+        <div style={{ fontSize: 12, color: featured ? 'var(--on-red)' : 'var(--ink)' }}>
+          {t(lang, 'profile.promise.' + profile)}
+        </div>
+        {terms && <div className="mono-label" style={{ color: dim }}>{terms}</div>}
+      </div>
     </button>
   )
 }
