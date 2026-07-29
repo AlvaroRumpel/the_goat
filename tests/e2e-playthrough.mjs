@@ -101,9 +101,13 @@ async function main() {
     log('nba draft: choose first offer')
     await page.locator('.card').first().click()
 
-    // Phase markers (both preseason focus buttons AND OfferCard offers render as
-    // a bare `<button class="card">`, so phases are told apart by button.card COUNT,
-    // not by text — this stays language-agnostic across pt/en):
+    // Phase markers (both preseason focus buttons, OfferCard offers, AND moment
+    // options in Game.tsx all render as a bare `<button class="card">`, so the
+    // moment/series screens are told apart by their unique PT button text FIRST —
+    // checked before the generic button.card COUNT branches below, which stay
+    // language-agnostic across pt/en for the phases that don't have text markers:
+    //   keyGame/playoffGame (moment open): button "Simular jogo" (game.simulate) present
+    //   playoffGame (finals series screen): button "Simular série" (series.simAll) present
     //   preseason:      4x button.card (focus choices)
     //   freeAgency:     N offers as button.card (N < 4, from makeOffers)
     //   tradeDecision/eventDecision: .modal-veil present
@@ -112,8 +116,19 @@ async function main() {
     //   verdict:        none of the above
     let seasons = 0
     let sawSeasonResultShot = false
+    // Season 1 plays exactly one key game by deciding all 3 moments (option clicks);
+    // every other key/playoff game (rest of season 1, every later season, every
+    // playoff round, finals) is skipped via "Simular jogo" / "Simular série".
+    let decisionClicksLeft = 3
     const MAX_SEASONS = 40 // hard safety cap against infinite loop
+    let iterations = 0
+    const MAX_ITERATIONS = 1000 // hard safety cap against a stuck sub-loop within one season
     while (seasons < MAX_SEASONS) {
+      if (++iterations > MAX_ITERATIONS) {
+        console.log(`[error] exceeded ${MAX_ITERATIONS} loop iterations without reaching verdict — stuck phase?`)
+        exitCode = 1
+        break
+      }
       await page.waitForSelector('.card, .modal-veil, button.btn--gold, button.btn--danger', { timeout: 10000 })
 
       if (await page.locator('.modal-veil').count() > 0) {
@@ -128,6 +143,26 @@ async function main() {
       // card is the one marker unique to it — bail out of the loop, verdict is
       // handled explicitly after.
       if (await page.locator('canvas').count() > 0) break
+
+      const simulateGameBtn = page.locator('button.btn', { hasText: 'Simular jogo' })
+      if (await simulateGameBtn.count() > 0) {
+        if (decisionClicksLeft > 0) {
+          log(`keyGame moment: decide (${decisionClicksLeft} left)`)
+          await page.locator('button.card').first().click()
+          decisionClicksLeft--
+        } else {
+          log('keyGame/playoffGame: simulate')
+          await simulateGameBtn.click()
+        }
+        continue
+      }
+
+      const simulateSeriesBtn = page.locator('button.btn', { hasText: 'Simular série' })
+      if (await simulateSeriesBtn.count() > 0) {
+        log('finals series screen: simulate rest of series')
+        await simulateSeriesBtn.click()
+        continue
+      }
 
       const cardBtnCount = await page.locator('button.card').count()
       if (cardBtnCount === 4) {
@@ -161,6 +196,11 @@ async function main() {
         if (!sawSeasonResultShot) {
           await page.screenshot({ path: `${SHOTS_DIR}/04-season-result.png` })
           sawSeasonResultShot = true
+
+          log('seasonResult: check Jogos-chave block (Resultado tab, default)')
+          const keyGamesVisible = await page.locator('.kicker', { hasText: 'Jogos-chave' }).count() > 0
+          console.log(`[assert] keygames block visible: ${keyGamesVisible}`)
+          if (!keyGamesVisible) exitCode = 1
 
           log('seasonResult: check Tabela/Corridas/Você tabs')
           await page.locator('.chip', { hasText: 'Tabela' }).click()
@@ -203,6 +243,23 @@ async function main() {
     console.log(`[assert] tier text visible: ${tierVisible}`)
     console.log(`[assert] share button visible: ${shareVisible}`)
     if (!tierVisible || !shareVisible) exitCode = 1
+
+    // verdict.moments ("Momentos") only renders when the career landed at least one
+    // iconic moment — the safe policy played here rarely triggers one (sweep is the
+    // one exception), so absence alone isn't a failure; only assert it's visible when
+    // ground truth (the save in localStorage) says the career actually has one.
+    const momentsTitleVisible = await page.locator('.kicker.kicker--gold', { hasText: 'Momentos' }).count() > 0
+    const hasIconicMoments = await page.evaluate(() => {
+      try {
+        const raw = localStorage.getItem('thegoat:v4')
+        const s = raw ? JSON.parse(raw) : null
+        return Boolean(s?.career?.seasons?.some(se => (se.iconicMoments ?? []).length > 0))
+      } catch {
+        return false
+      }
+    })
+    console.log(`[assert] career has iconic moments: ${hasIconicMoments}, Momentos title visible: ${momentsTitleVisible}`)
+    if (hasIconicMoments && !momentsTitleVisible) exitCode = 1
 
     await shareBtn.click().catch(e => console.log(`[info] share click threw (tolerated, likely clipboard): ${e.message}`))
     await page.waitForTimeout(300)
