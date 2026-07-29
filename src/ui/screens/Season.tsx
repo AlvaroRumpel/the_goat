@@ -1,4 +1,4 @@
-import type { Dispatch } from 'react'
+import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
@@ -7,6 +7,7 @@ import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus } from '../../engine/types'
 import { OfferCard } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
+import { PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
 
 interface Props {
   state: GameState
@@ -69,11 +70,16 @@ function Preseason({ state, dispatch }: Props) {
   )
 }
 
+type ResultTab = 'result' | 'standings' | 'races' | 'you'
+const RESULT_TABS: ResultTab[] = ['result', 'standings', 'races', 'you']
+
 function SeasonResultView({ state, dispatch }: Props) {
   const lang = state.lang
+  const [tab, setTab] = useState<ResultTab>('result')
   const season = state.career.seasons[state.career.seasons.length - 1]
   const year = 2026 + state.career.seasons.length - 1
   const team = teamById(season.finalTeamId)
+  const outcome = state.seasonOutcome
 
   return (
     <div className="screen">
@@ -86,48 +92,75 @@ function SeasonResultView({ state, dispatch }: Props) {
           <div className="kicker">{team.id.toUpperCase()}</div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-          <StatLine value={String(season.ppg)} label={t(lang, 'stat.pts')} />
-          <StatLine value={String(season.rpg)} label={t(lang, 'stat.reb')} />
-          <StatLine value={String(season.apg)} label={t(lang, 'stat.ast')} />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {RESULT_TABS.map(tb => (
+            <button
+              key={tb}
+              type="button"
+              className={tab === tb ? 'chip' : 'chip chip--dim'}
+              onClick={() => setTab(tb)}
+            >
+              {t(lang, 'tabs.' + tb)}
+            </button>
+          ))}
         </div>
-        <div className="hint">{t(lang, 'season.games', { n: season.games })}</div>
 
-        <hr className="rule" />
+        {tab === 'result' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+              <StatLine value={String(season.ppg)} label={t(lang, 'stat.pts')} />
+              <StatLine value={String(season.rpg)} label={t(lang, 'stat.reb')} />
+              <StatLine value={String(season.apg)} label={t(lang, 'stat.ast')} />
+            </div>
+            <div className="hint">{t(lang, 'season.games', { n: season.games })}</div>
 
-        {season.events.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {season.events.map(ev => (
-              <div key={ev} className={BAD_EVENTS.has(ev) ? 'evrow evrow--bad' : 'evrow'}>
-                {t(lang, 'event.' + ev)}
+            <hr className="rule" />
+
+            {season.events.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {season.events.map(ev => (
+                  <div key={ev} className={BAD_EVENTS.has(ev) ? 'evrow evrow--bad' : 'evrow'}>
+                    {t(lang, 'event.' + ev)}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+
+            {season.wonTitle ? (
+              <div className="banner" style={{ padding: 16, textAlign: 'center' }}>
+                <span className="display goldtext" style={{ fontSize: 20 }}>{t(lang, 'season.title.won')}</span>
+              </div>
+            ) : !season.madePlayoffs ? (
+              <div className="banner banner--bad" style={{ padding: 16, textAlign: 'center' }}>
+                {t(lang, 'season.playoffs.missed')}
+              </div>
+            ) : (
+              <div className="banner" style={{ padding: 16, textAlign: 'center' }}>
+                {t(lang, 'season.playoffs.made')}
+              </div>
+            )}
+
+            {season.awards.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {season.awards.map(a => (
+                  <span key={a} className={HIGHLIGHT_AWARDS.has(a) ? 'chip' : 'chip chip--dim'}>
+                    {t(lang, 'award.' + a)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
-        {season.wonTitle ? (
-          <div className="banner" style={{ padding: 16, textAlign: 'center' }}>
-            <span className="display goldtext" style={{ fontSize: 20 }}>{t(lang, 'season.title.won')}</span>
-          </div>
-        ) : !season.madePlayoffs ? (
-          <div className="banner banner--bad" style={{ padding: 16, textAlign: 'center' }}>
-            {t(lang, 'season.playoffs.missed')}
-          </div>
-        ) : (
-          <div className="banner" style={{ padding: 16, textAlign: 'center' }}>
-            {t(lang, 'season.playoffs.made')}
-          </div>
+        {tab === 'standings' && outcome && (
+          <StandingsTable standings={outcome.standings} playerTeamId={season.finalTeamId} lang={lang} />
         )}
 
-        {season.awards.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {season.awards.map(a => (
-              <span key={a} className={HIGHLIGHT_AWARDS.has(a) ? 'chip' : 'chip chip--dim'}>
-                {t(lang, 'award.' + a)}
-              </span>
-            ))}
-          </div>
+        {tab === 'races' && outcome && (
+          <RacesPanel races={outcome.races} lang={lang} />
         )}
+
+        {tab === 'you' && <PlayerPanel state={state} />}
 
         <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'ADVANCE' })}>
           {t(lang, 'season.advance')}
