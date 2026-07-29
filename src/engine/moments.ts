@@ -1,7 +1,9 @@
 import { ageMultiplier } from './season'
+import { rosterStrength } from './league'
+import { TEAMS, teamById } from '../data/teams'
 import type {
-  Build, IconicMomentId, Moment, MomentOption, MomentOutcome, MomentRisk,
-  PendingGame, Rng, WatchedGameContext, WatchedGameResult,
+  Build, IconicMomentId, KeyGame, LeagueState, Moment, MomentOption, MomentOutcome, MomentRisk,
+  PendingGame, Rng, TeamStanding, WatchedGameContext, WatchedGameResult,
 } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -113,4 +115,75 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
   if (playerPts >= 55 && (context.kind === 'rivalry' || context.kind === 'seedRace' || context.kind === 'special')) iconics.push('bigNight')
 
   return { won, margin, playerPts, outcomes, injured, choke, iconics }
+}
+
+// menor índice em TEAMS = desempate vencedor (nunca rng em comparator)
+function bestBy(ids: string[], score: (id: string) => number, order: Map<string, number>, higherIsBetter: boolean): string {
+  let best = ids[0]
+  let bestScore = score(best)
+  for (const id of ids.slice(1)) {
+    const s = score(id)
+    const better = higherIsBetter ? s > bestScore : s < bestScore
+    const tie = s === bestScore && order.get(id)! < order.get(best)!
+    if (better || tie) { best = id; bestScore = s }
+  }
+  return best
+}
+
+export function selectKeyGames(input: {
+  league: LeagueState
+  playerTeamId: string
+  prevStandings: TeamStanding[] | null
+  prevChampionTeamId: string | null
+  hasRivalryEvent: boolean
+  rng: Rng
+}): KeyGame[] {
+  const { league, playerTeamId, prevStandings, prevChampionTeamId, hasRivalryEvent, rng } = input
+  const strengths = new Map(TEAMS.map(t => [t.id, rosterStrength(league, t.id)]))
+  const order = new Map(TEAMS.map((t, i) => [t.id, i]))
+  const playerConf = teamById(playerTeamId).conf
+  const sameConf = TEAMS.filter(t => t.conf === playerConf && t.id !== playerTeamId).map(t => t.id)
+  const otherConf = TEAMS.filter(t => t.conf !== playerConf).map(t => t.id)
+  const allExceptPlayer = TEAMS.filter(t => t.id !== playerTeamId).map(t => t.id)
+
+  const rivalryId = bestBy(sameConf, id => strengths.get(id)!, order, true)
+
+  const seedRacePool = sameConf.filter(id => id !== rivalryId)
+  const seedRaceId = prevStandings
+    ? (() => {
+        const winsOf = new Map(prevStandings.map(s => [s.teamId, s.wins]))
+        const playerWins = winsOf.get(playerTeamId) ?? 0
+        return bestBy(seedRacePool, id => Math.abs((winsOf.get(id) ?? 0) - playerWins), order, false)
+      })()
+    : bestBy(seedRacePool, id => Math.abs(strengths.get(id)! - strengths.get(playerTeamId)!), order, false)
+
+  const chosen = new Set([playerTeamId, rivalryId, seedRaceId])
+  const nextStrongest = (): string =>
+    bestBy(allExceptPlayer.filter(id => !chosen.has(id)), id => strengths.get(id)!, order, true)
+
+  const christmasId = (): string => {
+    const bigMarket = TEAMS.filter(t => t.bigMarket && !chosen.has(t.id)).map(t => t.id)
+    return bigMarket.length ? bestBy(bigMarket, id => strengths.get(id)!, order, true) : nextStrongest()
+  }
+  const revengeId = (): string =>
+    prevChampionTeamId && prevChampionTeamId !== playerTeamId && !chosen.has(prevChampionTeamId)
+      ? prevChampionTeamId
+      : christmasId()
+  const showcaseId = (): string => {
+    const pool = otherConf.filter(id => !chosen.has(id))
+    return pool.length ? bestBy(pool, id => strengths.get(id)!, order, true) : nextStrongest()
+  }
+
+  const specialRoll = rng.int(0, 2)                       // call 1/3
+  const specialId = specialRoll === 0 ? christmasId() : specialRoll === 1 ? revengeId() : showcaseId()
+
+  rng.next(); rng.next()                                  // calls 2-3/3 — folga fixa (contrato)
+
+  const games: KeyGame[] = [
+    { kind: 'rivalry', opponentTeamId: rivalryId },
+    { kind: 'seedRace', opponentTeamId: seedRaceId },
+    { kind: 'special', opponentTeamId: specialId },
+  ]
+  if (hasRivalryEvent) games.push({ kind: 'rivalry', opponentTeamId: rivalryId })
+  return games
 }
