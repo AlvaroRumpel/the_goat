@@ -87,6 +87,8 @@ export interface GameState {
   leagueHistory: LeagueYear[]
   headlines: Headline[]      // do último offseason (UI: preseason)
   pendingLeague: PendingLeague | null   // liga simulada, aguardando decisão de trade
+  hubOpen: boolean
+  resumePhase: Phase | null
 }
 
 export type Action =
@@ -105,6 +107,9 @@ export type Action =
   | { type: 'SKIP_SERIES' }          // finais: auto-resolve os jogos restantes da série
   | { type: 'ADVANCE' }              // from seasonResult → next phase (FA / retire / preseason)
   | { type: 'RETIRE_DECISION'; retire: boolean }
+  | { type: 'OPEN_HUB' }
+  | { type: 'CLOSE_HUB' }
+  | { type: 'RESUME' }
   | { type: 'RESET' }
 
 const STORAGE_KEY = 'thegoat:v4'
@@ -162,6 +167,8 @@ export function initialState(lang: Lang = 'pt'): GameState {
     leagueHistory: [],
     headlines: [],
     pendingLeague: null,
+    hubOpen: false,
+    resumePhase: null,
   }
 }
 
@@ -656,6 +663,16 @@ function reduce(state: GameState, action: Action): GameState {
       return { ...state, phase: action.retire ? 'verdict' : 'preseason' }
     }
 
+    case 'OPEN_HUB':
+      return { ...state, hubOpen: true }
+
+    case 'CLOSE_HUB':
+      return { ...state, hubOpen: false }
+
+    case 'RESUME':
+      if (!state.resumePhase) return state
+      return { ...state, phase: state.resumePhase, resumePhase: null }
+
     case 'RESET':
       throw new Error('RESET handled in gameReducer')
   }
@@ -700,6 +717,8 @@ export function loadState(): GameState | null {
     parsed.pendingGame = parsed.pendingGame ?? null
     parsed.pendingPlayoffs = parsed.pendingPlayoffs ?? null
     parsed.keyGameResults = parsed.keyGameResults ?? []
+    parsed.hubOpen = parsed.hubOpen ?? false
+    parsed.resumePhase = parsed.resumePhase ?? null
     return parsed as GameState
   } catch {
     return null

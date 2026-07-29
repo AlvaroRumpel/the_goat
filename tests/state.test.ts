@@ -262,3 +262,33 @@ describe('aposentadoria por queda', () => {
     expect(next.phase).toBe('preseason')
   })
 })
+
+describe('hub e resume (C1)', () => {
+  test('OPEN_HUB/CLOSE_HUB só mexem em hubOpen', () => {
+    const s = playToSeasonResult()
+    const open = gameReducer(s, { type: 'OPEN_HUB' })
+    expect(open.hubOpen).toBe(true)
+    expect({ ...open, hubOpen: s.hubOpen }).toEqual(s)
+    const closed = gameReducer(open, { type: 'CLOSE_HUB' })
+    expect(closed.hubOpen).toBe(false)
+    expect(closed).toEqual(s)
+  })
+  test('RESUME restaura a fase salva e limpa resumePhase', () => {
+    const s = { ...playToSeasonResult(), phase: 'home' as const, resumePhase: 'seasonResult' as const }
+    const resumed = gameReducer(s, { type: 'RESUME' })
+    expect(resumed.phase).toBe('seasonResult')
+    expect(resumed.resumePhase).toBeNull()
+  })
+  test('RESUME sem resumePhase é no-op', () => {
+    const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 9 })
+    expect(gameReducer(s, { type: 'RESUME' })).toEqual(s)
+  })
+  test('loadState defaulta hubOpen/resumePhase em save v4 antigo', () => {
+    const s = playToSeasonResult()
+    const { hubOpen: _h, resumePhase: _r, ...old } = s as Record<string, unknown>
+    localStorage.setItem('thegoat:v4', JSON.stringify(old))
+    const loaded = loadState()!
+    expect(loaded.hubOpen).toBe(false)
+    expect(loaded.resumePhase).toBeNull()
+  })
+})
