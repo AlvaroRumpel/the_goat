@@ -72,6 +72,27 @@ describe('computeVerdict', () => {
     expect(with_.score - without.score).toBe(30)
   })
 
+  test('icônicos pontuam com cap 100', () => {
+    const base: SeasonResult = {
+      age: 27, teamId: 'okc', finalTeamId: 'okc', games: 80, ppg: 25, rpg: 6, apg: 5,
+      events: [], choices: [], madePlayoffs: true, wonTitle: false, seed: 1, playoffRun: 'finals',
+      awards: [], iconicMoments: [], chokes: 0,
+    }
+    const one = computeVerdict({ seasons: [{ ...base, iconicMoments: ['finalsBuzzer'] }], fame: 0 })
+    const none = computeVerdict({ seasons: [base], fame: 0 })
+    expect(one.score - none.score).toBe(25)
+    expect(one.iconicPoints).toBe(25)
+    // cap: 6 buzzer-beaters = 150 brutos → 100
+    const six = computeVerdict({
+      seasons: Array.from({ length: 6 }, () => ({ ...base, iconicMoments: ['finalsBuzzer' as const] })), fame: 0,
+    })
+    const zero = computeVerdict({
+      seasons: Array.from({ length: 6 }, () => base), fame: 0,
+    })
+    expect(six.score - zero.score).toBe(100)
+    expect(six.chokes).toBe(0)
+  })
+
   test('calibration: full random careers — goat rate < 2%, not all peladeiro', () => {
     const tiers: Record<string, number> = {}
     for (let seed = 0; seed < 300; seed++) {

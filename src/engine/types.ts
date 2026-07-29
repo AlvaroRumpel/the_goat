@@ -192,6 +192,8 @@ export interface Verdict {
   tier: Tier
   totals: { points: number; rebounds: number; assists: number; seasons: number }
   counts: Record<Award, number>
+  iconicPoints: number
+  chokes: number
 }
 
 export interface Rng {
