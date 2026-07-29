@@ -131,6 +131,14 @@ async function main() {
 
       const cardBtnCount = await page.locator('button.card').count()
       if (cardBtnCount === 4) {
+        if (seasons === 1) {
+          // Preseason for year 2: first offseason with league history behind it —
+          // trades happen 2-4x/year so headlines are guaranteed present here.
+          log('preseason (season 2): check league headlines present')
+          const newsVisible = await page.locator('.kicker', { hasText: 'Notícias da liga' }).count() > 0
+          console.log(`[assert] year 2 headlines visible: ${newsVisible}`)
+          if (!newsVisible) exitCode = 1
+        }
         log(`preseason (season ${seasons + 1}): choose focus scoring`)
         await page.locator('button.card').first().click()
         seasons++
@@ -153,6 +161,28 @@ async function main() {
         if (!sawSeasonResultShot) {
           await page.screenshot({ path: `${SHOTS_DIR}/04-season-result.png` })
           sawSeasonResultShot = true
+
+          log('seasonResult: check Tabela/Corridas/Você tabs')
+          await page.locator('.chip', { hasText: 'Tabela' }).click()
+          await page.waitForTimeout(50)
+          const standingsRows = await page.locator('span', { hasText: /^\d+-\d+$/ }).count()
+          console.log(`[assert] standings rows: ${standingsRows} (expect 30)`)
+          if (standingsRows !== 30) exitCode = 1
+
+          await page.locator('.chip', { hasText: 'Corridas' }).click()
+          await page.waitForTimeout(50)
+          const raceBlocks = await page.locator('.card').count()
+          console.log(`[assert] race blocks: ${raceBlocks} (expect 4)`)
+          if (raceBlocks !== 4) exitCode = 1
+
+          await page.locator('.chip', { hasText: 'Você' }).click()
+          await page.waitForTimeout(50)
+          const ovrVisible = await page.locator('text=OVR atual').first().isVisible()
+          console.log(`[assert] OVR visible on Você tab: ${ovrVisible}`)
+          if (!ovrVisible) exitCode = 1
+
+          await page.locator('.chip', { hasText: 'Resultado' }).click()
+          await page.waitForTimeout(50)
         }
         await page.locator('button.btn--gold').click()
         continue
