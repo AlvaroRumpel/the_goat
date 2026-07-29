@@ -21,13 +21,23 @@ function playToBuild() {
   return gameReducer(s, { type: 'CONFIRM_BUILD' })
 }
 
+// jogos-chave + playoffs em auto: SKIP_GAME resolve o jogo aberto, SKIP_SERIES a tela
+// de série das finais. Para no primeiro estado que não é jogo (tradeDecision/seasonResult).
+function skipGames(s: GameState): GameState {
+  let guard = 0
+  while ((s.phase === 'keyGame' || s.phase === 'playoffGame') && guard++ < 60) {
+    s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
+  }
+  return s
+}
+
 function playToSeasonResult() {
   let s = playToBuild()
   s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
   s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
   if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-  while (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
-  if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+  s = skipGames(s)
+  if (s.phase === 'tradeDecision') s = skipGames(gameReducer(s, { type: 'TRADE_DECISION', accept: false }))
   return s
 }
 
@@ -96,7 +106,7 @@ describe('gameReducer', () => {
     expect(s.phase).toBe('preseason')
     s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
     if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-    while (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+    s = skipGames(s)
     // trade never offered in first 2 seasons
     expect(s.phase).toBe('seasonResult')
     expect(s.career.seasons).toHaveLength(1)
@@ -109,9 +119,10 @@ describe('gameReducer', () => {
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
       else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-      else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+      else if (s.phase === 'keyGame' || s.phase === 'playoffGame') s = skipGames(s)
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') break
+      else break
     }
     expect(s.phase).toBe('retireDecision')
     expect(gameReducer(s, { type: 'RETIRE_DECISION', retire: true }).phase).toBe('verdict')
@@ -129,7 +140,7 @@ describe('gameReducer', () => {
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
       else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-      else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+      else if (s.phase === 'keyGame' || s.phase === 'playoffGame') s = skipGames(s)
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
       else break
@@ -198,7 +209,7 @@ describe('eventDecision', () => {
     expect(s.pendingEvents!.some(e => e === 'injury' || e === 'lockerroom')).toBe(true)
     let done = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
     expect(done.phase).toBe('keyGame')
-    while (done.phase === 'keyGame') done = gameReducer(done, { type: 'SKIP_GAME' })
+    done = skipGames(done)
     expect(['seasonResult', 'tradeDecision']).toContain(done.phase)
     expect(done.pendingEvents).toBeNull()
   })

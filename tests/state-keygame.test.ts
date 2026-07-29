@@ -17,7 +17,8 @@ function playToKeyGame(seed: number): GameState {
 function finishSeasonFrom(s: GameState): GameState {
   let guard = 0
   while ((s.phase === 'keyGame' || s.phase === 'playoffGame') && guard++ < 60) {
-    s = gameReducer(s, { type: 'SKIP_GAME' })
+    // tela de série das finais (sem jogo aberto): SKIP_SERIES fecha a série
+    s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
     if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
   }
   if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })

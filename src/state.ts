@@ -5,7 +5,11 @@ import { draftPickNumber, makeOffers } from './engine/offers'
 import {
   ageMultiplier, computeTitleProb, computeWinPct, effectiveOverall, finishSeason, performanceRatio, simRegularSeason,
 } from './engine/season'
-import { advanceOffseason, rosterStrength, simAwards, simBracket, simNpcLines, simStandings } from './engine/league'
+import { advanceOffseason, ROUND_RUN, rosterStrength, simAwards, simBracket, simNpcLines, simStandings } from './engine/league'
+import {
+  advancePlayer, npcRound, pGameForSeries, PLAYER_OUT_MARGIN, resolveRest, seedBracket, SERIES_SHIFT,
+} from './engine/playoffs'
+import type { BracketState } from './engine/playoffs'
 import {
   applyMoment, autoResolveGame, finishWatchedGame, selectKeyGames, startWatchedGame,
 } from './engine/moments'
@@ -13,20 +17,44 @@ import { initLeague } from './data/league'
 import { teamById } from './data/teams'
 import type { Lang } from './i18n'
 import type {
-  Build, Career, DraftPick, EventChoice, Focus, GameEventId, Headline, KeyGame, LeagueSeasonOutcome, LeagueState,
-  NpcLine, Offer, PendingGame, RaceAward, RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding,
-  WatchedGameResult,
+  Award, AwardRace, Build, Career, DraftPick, EventChoice, Focus, GameEventId, Headline, IconicMomentId, KeyGame,
+  LeagueSeasonOutcome, LeagueState, NpcLine, Offer, PendingGame, PlayoffRun, RaceAward, RegularSeasonResult, Rng,
+  SeasonResult, SlotId, TeamProfile, TeamStanding, WatchedGameContext, WatchedGameResult,
 } from './engine/types'
 
 export type Phase =
   | 'home' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
-  | 'seasonResult' | 'tradeDecision' | 'eventDecision' | 'keyGame' | 'freeAgency' | 'retireDecision' | 'verdict'
+  | 'seasonResult' | 'tradeDecision' | 'eventDecision' | 'keyGame' | 'playoffGame'
+  | 'freeAgency' | 'retireDecision' | 'verdict'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export interface LeagueYear { year: number; championTeamId: string; winners: Record<RaceAward, string | null> }
 
 interface PendingLeague { standings: TeamStanding[]; lines: NpcLine[]; winPct: number; effClutch: number }
+
+interface SeasonAwards { races: AwardRace[]; winners: Record<RaceAward, string | null>; playerAwards: Award[] }
+
+// Playoffs em andamento: tudo que a conclusão da temporada precisa, congelado
+// enquanto o jogador decide os jogos (a temporada regular já está fechada).
+export interface PendingPlayoffs {
+  bracket: BracketState
+  opponentTeamId: string
+  seriesUs: number; seriesThem: number   // finais; 0-0 nos rounds de prob
+  pGame: number                          // finais: p por jogo equivalente a seriesProb
+  seriesProb: number                     // rounds 0-2 (base, sem shift)
+  titleProb: number
+  winPct: number
+  seed: number
+  playerOut: boolean                     // lesionado: jogos restantes auto-resolvem
+  chokes: number
+  iconics: IconicMomentId[]
+  regular: RegularSeasonResult
+  finalOffer: Offer
+  awards: SeasonAwards
+  standings: TeamStanding[]
+  lines: NpcLine[]
+}
 
 export interface GameState {
   phase: Phase
@@ -49,7 +77,8 @@ export interface GameState {
   pendingEvents: GameEventId[] | null  // set when an interactive event pauses PLAY_SEASON
   pendingChoices: EventChoice[] | null  // resolved event choices, held across the keyGame pause
   pendingKeyGames: KeyGame[] | null   // remaining key-game queue (current game already popped)
-  pendingGame: PendingGame | null     // key game currently being watched
+  pendingGame: PendingGame | null     // key/playoff game currently being watched
+  pendingPlayoffs: PendingPlayoffs | null  // postseason in progress (null outside the playoffGame phase)
   keyGameResults: WatchedGameResult[] // this season's watched games; reset at the start of PLAY_SEASON
   injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
@@ -72,6 +101,8 @@ export type Action =
   | { type: 'EVENT_DECISION'; choice: 'a' | 'b' }
   | { type: 'DECIDE_MOMENT'; optionId: string }
   | { type: 'SKIP_GAME' }
+  | { type: 'ADVANCE_GAME' }         // finais: da tela de série para o próximo jogo
+  | { type: 'SKIP_SERIES' }          // finais: auto-resolve os jogos restantes da série
   | { type: 'ADVANCE' }              // from seasonResult → next phase (FA / retire / preseason)
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'RESET' }
@@ -122,6 +153,7 @@ export function initialState(lang: Lang = 'pt'): GameState {
     pendingChoices: null,
     pendingKeyGames: null,
     pendingGame: null,
+    pendingPlayoffs: null,
     keyGameResults: [],
     injuryProne: false,
     career: { seasons: [], fame: 0 },
@@ -133,12 +165,22 @@ export function initialState(lang: Lang = 'pt'): GameState {
   }
 }
 
-// Ordem fixa de consumo de rng (replay do save depende dela):
+// Ordem fixa de consumo de rng POR DISPATCH (replay do save depende dela; o custo de
+// um jogo assistido é fixo — GAME_RNG_CALLS = 10 — decidindo ou pulando):
 // PLAY_SEASON: rollEvents → selectKeyGames(3) → startWatchedGame(4) → pausa (fase keyGame).
-// DECIDE_MOMENT/SKIP_GAME: applyMoment(2×N) → [próximo jogo: startWatchedGame(4)] →
+// DECIDE_MOMENT/SKIP_GAME em keyGame: applyMoment(2×N) → [próximo jogo: startWatchedGame(4)] →
 //   pausa de novo, ou (fila vazia) runSeasonSim: simRegularSeason → winPct → standings →
-//   lines → [pausa tradeDecision] → concludeSeason: [winPct do time final, só se trocou]
-//   → bracket → awards → finishSeason.
+//   lines → [pausa tradeDecision] → concludeSeason.
+// TRADE_DECISION / fim da fila: concludeSeason: [winPct do time final, só se trocou] →
+//   simAwards → sem seed: simBracket → finishSeason (seasonResult);
+//   com seed: enterRound (npcRound das séries NPC + startWatchedGame(4)) → pausa (playoffGame).
+// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(2×N) →
+//   rounds 0-2: chance(shifted) → venceu: enterRound (npcRound + startWatchedGame(4)) →
+//     pausa; perdeu: resolveRest → finishSeason (seasonResult).
+//   finais: sem roll de série — 4ª vitória/derrota fecha (finishSeason), senão pausa na
+//     tela de série sem consumir rng.
+// ADVANCE_GAME: startWatchedGame(4) → pausa. SKIP_SERIES: repete [startWatchedGame(4) +
+//   applyMoment(6)] por jogo até a série fechar → finishSeason.
 
 // Efeitos dos jogos-chave (FORA das fórmulas-contrato — deltas de state layer, não da
 // forma das fórmulas de season.ts): ±0.01 de winPct por vitória/derrota, ±0.5 de ppg
@@ -186,6 +228,8 @@ function runSeasonSim(
   return concludeSeason(state, regular, currentOffer, focus, { standings, lines, winPct, effClutch }, rng, calls)
 }
 
+// Temporada regular fechada: awards (não dependem do bracket) e então os playoffs —
+// de uma vez quando o jogador ficou fora, jogo a jogo quando classificou.
 function concludeSeason(
   state: GameState, regular: RegularSeasonResult, finalOffer: Offer, focus: Focus,
   pending: PendingLeague, rng: Rng, calls: () => number,
@@ -200,13 +244,9 @@ function concludeSeason(
   const seed = standings.find(s => s.teamId === finalOffer.teamId)!.seed
   const clutchAdj = seed !== null && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch
   const titleProb = seed !== null ? computeTitleProb(winPct, clutchAdj) : 0
-  const bracket = simBracket({
-    standings, league: state.league!, playerTeamId: seed !== null ? finalOffer.teamId : null,
-    playerTitleProb: titleProb, rng,
-  })
   const m = ageMultiplier(state.age, build.attributes.physical)
   const prevSeason = state.career.seasons[state.career.seasons.length - 1]
-  const { races, winners, playerAwards } = simAwards({
+  const awards = simAwards({
     league: state.league!, lines, standings, playerName: '', rng,   // UI traduz id === 'you'; name ignorado
     player: {
       ppg: regular.ppg, rpg: regular.rpg, apg: regular.apg, teamWinPct: winPct,
@@ -214,29 +254,153 @@ function concludeSeason(
       prevPpg: prevSeason?.ppg ?? null,
     },
   })
-  const season = finishSeason({
-    regular, finalTeamId: finalOffer.teamId, build, rng, winPct,
-    seed, playoffRun: bracket.playerRun, wonTitle: bracket.wonTitle, extraAwards: playerAwards,
-    iconicMoments: [], chokes: 0,
-  })
-  const career = applyFame(state.career, season, finalOffer.profile)
-  const seasonOutcome: LeagueSeasonOutcome = {
-    standings, lines, races, winners, championTeamId: bracket.championTeamId, playerRun: bracket.playerRun,
+  const base = { ...state, pendingEvents: null, pendingLeague: null }
+  const common = { regular, finalOffer, winPct, awards, standings, lines, iconics: [], chokes: 0 }
+
+  if (seed === null) {
+    const bracket = simBracket({
+      standings, league: state.league!, playerTeamId: null, playerTitleProb: titleProb, rng,
+    })
+    return finishPostseason(base, { ...common, seed }, bracket, rng, calls)
   }
-  return { ...state, phase: 'seasonResult', career, seasonOutcome, pendingEvents: null, pendingLeague: null, rngCalls: calls() }
+  return enterRound(base, {
+    ...common, bracket: seedBracket(standings), opponentTeamId: '', seriesUs: 0, seriesThem: 0,
+    pGame: 0, seriesProb: 0, titleProb, seed, playerOut: false,
+  }, rng, calls)
+}
+
+// Entra num round: NPCs resolvem suas séries, o oponente do jogador é definido e o
+// jogo decisivo abre. seriesProb usa a MESMA fórmula do simBracket (fórmula-contrato).
+function enterRound(state: GameState, pp: PendingPlayoffs, rng: Rng, calls: () => number): GameState {
+  const { next, playerOpponent } = npcRound(pp.bracket, state.league!, pp.finalOffer.teamId, rng)
+  const opponentTeamId = playerOpponent!
+  const baseP = Math.pow(Math.max(pp.titleProb, 0.0001), 1 / 4)
+  const oppStrength = rosterStrength(state.league!, opponentTeamId)
+  const seriesProb = clamp(baseP * (1 - (oppStrength - 70) * 0.004), 0.05, 0.95)
+  return openPlayoffGame(state, {
+    ...pp, bracket: next, opponentTeamId, seriesProb, seriesUs: 0, seriesThem: 0,
+    pGame: next.round === 3 ? pGameForSeries(seriesProb) : 0,
+  }, rng, calls)
+}
+
+function playoffContext(pp: PendingPlayoffs): WatchedGameContext {
+  const finals = pp.bracket.round === 3
+  return {
+    kind: finals ? 'finals' : 'playoff',
+    opponentTeamId: pp.opponentTeamId,
+    round: ROUND_RUN[pp.bracket.round],
+    seriesUs: pp.seriesUs, seriesThem: pp.seriesThem,
+    gameNumber: finals ? pp.seriesUs + pp.seriesThem + 1 : undefined,
+    // rounds 0-2: jogo pivotal, sempre narrado como decisivo
+    elimination: finals ? (pp.seriesThem === 3 || pp.seriesUs === 3) : true,
+  }
+}
+
+// Abre o próximo jogo de playoffs. Com o jogador lesionado não há decisão: o time
+// joga com PLAYER_OUT_MARGIN de penalidade e o jogo resolve na hora.
+function openPlayoffGame(state: GameState, pp: PendingPlayoffs, rng: Rng, calls: () => number): GameState {
+  const ourStrength = watchedGameStrength(state, pp.finalOffer.teamId) + (pp.playerOut ? PLAYER_OUT_MARGIN : 0)
+  const oppStrength = rosterStrength(state.league!, pp.opponentTeamId)
+  const pending = startWatchedGame({ context: playoffContext(pp), ourStrength, oppStrength, rng })
+  if (!pp.playerOut) {
+    return { ...state, phase: 'playoffGame', pendingPlayoffs: pp, pendingGame: pending, rngCalls: calls() }
+  }
+  return finishPlayoffGame(state, pp, autoResolveGame(pending, state.build!, state.age, rng), rng, calls)
+}
+
+// Jogador eliminado: sai do bracket e o oponente segue (npcRound deixa o par do
+// jogador como [player, opp] adjacentes, ambos vivos até esta decisão).
+function eliminated(bs: BracketState, playerTeamId: string): BracketState {
+  return {
+    round: bs.round + 1,
+    aliveEast: bs.aliveEast.filter(id => id !== playerTeamId),
+    aliveWest: bs.aliveWest.filter(id => id !== playerTeamId),
+  }
+}
+
+// Jogo de playoffs fechado (3 momentos resolvidos).
+function finishPlayoffGame(
+  state: GameState, pp: PendingPlayoffs, pending: PendingGame, rng: Rng, calls: () => number,
+): GameState {
+  const result = finishWatchedGame(pending, state.build!, state.age)
+  const next: PendingPlayoffs = {
+    ...pp,
+    iconics: [...pp.iconics, ...result.iconics],
+    chokes: pp.chokes + (result.choke ? 1 : 0),
+    playerOut: pp.playerOut || result.injured,
+  }
+  // lesão nos playoffs corta o resto da pós-temporada E entra na próxima temporada
+  const base = { ...state, pendingGame: null, injuryProne: state.injuryProne || result.injured }
+  const teamId = pp.finalOffer.teamId
+
+  if (pp.bracket.round < 3) {
+    const shifted = clamp(pp.seriesProb + (result.won ? SERIES_SHIFT : -SERIES_SHIFT), 0.05, 0.95)
+    if (rng.chance(shifted)) {
+      return enterRound(base, { ...next, bracket: advancePlayer(pp.bracket, teamId, rng) }, rng, calls)
+    }
+    const championTeamId = resolveRest(eliminated(pp.bracket, teamId), state.league!, rng)
+    return finishPostseason(base, next, { championTeamId, playerRun: ROUND_RUN[pp.bracket.round], wonTitle: false }, rng, calls)
+  }
+
+  const seriesUs = pp.seriesUs + (result.won ? 1 : 0)
+  const seriesThem = pp.seriesThem + (result.won ? 0 : 1)
+  const series = { ...next, seriesUs, seriesThem }
+  if (seriesUs === 4) {
+    const iconics: IconicMomentId[] = seriesThem === 0 ? [...series.iconics, 'sweep'] : series.iconics
+    return finishPostseason(base, { ...series, iconics },
+      { championTeamId: teamId, playerRun: 'champion', wonTitle: true }, rng, calls)
+  }
+  if (seriesThem === 4) {
+    return finishPostseason(base, series,
+      { championTeamId: pp.opponentTeamId, playerRun: 'finals', wonTitle: false }, rng, calls)
+  }
+  // série aberta: tela de placar (ADVANCE_GAME abre o próximo jogo, SKIP_SERIES fecha a série)
+  return { ...base, phase: 'playoffGame', pendingPlayoffs: series, rngCalls: calls() }
+}
+
+// Fecha a temporada: agrega icônicos/chokes dos jogos-chave + playoffs e monta o resultado.
+function finishPostseason(
+  state: GameState,
+  p: {
+    regular: RegularSeasonResult; finalOffer: Offer; winPct: number; seed: number | null
+    awards: SeasonAwards; standings: TeamStanding[]; lines: NpcLine[]
+    iconics: IconicMomentId[]; chokes: number
+  },
+  outcome: { championTeamId: string; playerRun: PlayoffRun; wonTitle: boolean },
+  rng: Rng, calls: () => number,
+): GameState {
+  const iconicMoments = [...state.keyGameResults.flatMap(r => r.iconics), ...p.iconics]
+  const chokes = state.keyGameResults.filter(r => r.choke).length + p.chokes
+  const season = finishSeason({
+    regular: p.regular, finalTeamId: p.finalOffer.teamId, build: state.build!, rng, winPct: p.winPct,
+    seed: p.seed, playoffRun: outcome.playerRun, wonTitle: outcome.wonTitle,
+    extraAwards: p.awards.playerAwards, iconicMoments, chokes,
+  })
+  const career = applyFame(state.career, season, p.finalOffer.profile)
+  const seasonOutcome: LeagueSeasonOutcome = {
+    standings: p.standings, lines: p.lines, races: p.awards.races, winners: p.awards.winners,
+    championTeamId: outcome.championTeamId, playerRun: outcome.playerRun,
+  }
+  return {
+    ...state, phase: 'seasonResult', career, seasonOutcome,
+    pendingGame: null, pendingPlayoffs: null, pendingEvents: null, pendingLeague: null, rngCalls: calls(),
+  }
 }
 
 // ourStrength inclui o overall efetivo do jogador (extraOvr) — diferente de
 // runSeasonSim/computeWinPct, aqui não há termo separado somando overallEff.
-function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): PendingGame {
+function watchedGameStrength(state: GameState, teamId: string): number {
   const build = state.build!
-  const ourStrength = rosterStrength(
-    state.league!, state.currentOffer!.teamId,
-    effectiveOverall(build.overall, state.age, build.attributes.physical),
+  return rosterStrength(
+    state.league!, teamId, effectiveOverall(build.overall, state.age, build.attributes.physical),
   )
+}
+
+function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): PendingGame {
   const oppStrength = rosterStrength(state.league!, game.opponentTeamId)
   return startWatchedGame({
-    context: { kind: game.kind, opponentTeamId: game.opponentTeamId }, ourStrength, oppStrength, rng,
+    context: { kind: game.kind, opponentTeamId: game.opponentTeamId },
+    ourStrength: watchedGameStrength(state, state.currentOffer!.teamId), oppStrength, rng,
   })
 }
 
@@ -260,8 +424,10 @@ function startKeyGames(
 }
 
 // Chamado após DECIDE_MOMENT/SKIP_GAME resolverem o jogo corrente até momentIndex 3.
-function advanceKeyGame(state: GameState, pending: PendingGame, rng: Rng, calls: () => number): GameState {
+// Mesmo caminho para keyGame e playoffGame; só o branch de conclusão difere por fase.
+function advanceGame(state: GameState, pending: PendingGame, rng: Rng, calls: () => number): GameState {
   if (pending.momentIndex < 3) return { ...state, pendingGame: pending, rngCalls: calls() }
+  if (state.phase === 'playoffGame') return finishPlayoffGame(state, state.pendingPlayoffs!, pending, rng, calls)
   const result = finishWatchedGame(pending, state.build!, state.age)
   const keyGameResults = [...state.keyGameResults, result]
   const queue = state.pendingKeyGames!
@@ -361,20 +527,42 @@ function reduce(state: GameState, action: Action): GameState {
     }
 
     case 'DECIDE_MOMENT': {
-      if (state.phase !== 'keyGame') return state
-      const pending = state.pendingGame!
+      if (state.phase !== 'keyGame' && state.phase !== 'playoffGame') return state
+      const pending = state.pendingGame
+      if (!pending) return state   // tela de série das finais: sem jogo aberto
       const option = pending.moments[pending.momentIndex].options.find(o => o.id === action.optionId)
       if (!option) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const next = applyMoment(pending, option, state.build!, state.age, rng)
-      return advanceKeyGame(state, next, rng, calls)
+      return advanceGame(state, next, rng, calls)
     }
 
     case 'SKIP_GAME': {
-      if (state.phase !== 'keyGame') return state
+      if (state.phase !== 'keyGame' && state.phase !== 'playoffGame') return state
+      if (!state.pendingGame) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const next = autoResolveGame(state.pendingGame!, state.build!, state.age, rng)
-      return advanceKeyGame(state, next, rng, calls)
+      const next = autoResolveGame(state.pendingGame, state.build!, state.age, rng)
+      return advanceGame(state, next, rng, calls)
+    }
+
+    case 'ADVANCE_GAME': {
+      if (state.phase !== 'playoffGame' || state.pendingGame || !state.pendingPlayoffs) return state
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      return openPlayoffGame(state, state.pendingPlayoffs, rng, calls)
+    }
+
+    case 'SKIP_SERIES': {
+      // só nas finais: auto-resolve até a série fechar (rounds 0-2 têm 1 jogo por série)
+      if (state.phase !== 'playoffGame' || state.pendingPlayoffs?.bracket.round !== 3) return state
+      const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
+      let s = state
+      let guard = 0
+      while (s.phase === 'playoffGame' && s.pendingPlayoffs?.bracket.round === 3 && guard++ < 16) {
+        s = s.pendingGame
+          ? advanceGame(s, autoResolveGame(s.pendingGame, s.build!, s.age, rng), rng, calls)
+          : openPlayoffGame(s, s.pendingPlayoffs, rng, calls)
+      }
+      return s
     }
 
     case 'TRADE_DECISION': {
@@ -383,14 +571,15 @@ function reduce(state: GameState, action: Action): GameState {
       const tradeOffer = pendingRegular.tradeOffer!
       const finalOffer = action.accept ? tradeOffer : state.currentOffer!
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const concluded = concludeSeason(state, pendingRegular, finalOffer, pendingFocus, state.pendingLeague!, rng, calls)
-      return {
-        ...concluded,
+      // contrato aplicado ANTES dos playoffs: o estado pausado em playoffGame já é o final
+      const base: GameState = {
+        ...state,
         currentOffer: finalOffer,
         contractYearsLeft: action.accept ? 4 : state.contractYearsLeft,
         pendingRegular: null,
         pendingFocus: null,
       }
+      return concludeSeason(base, pendingRegular, finalOffer, pendingFocus, state.pendingLeague!, rng, calls)
     }
 
     case 'ADVANCE': {
@@ -472,6 +661,7 @@ export function loadState(): GameState | null {
     parsed.pendingChoices = parsed.pendingChoices ?? null
     parsed.pendingKeyGames = parsed.pendingKeyGames ?? null
     parsed.pendingGame = parsed.pendingGame ?? null
+    parsed.pendingPlayoffs = parsed.pendingPlayoffs ?? null
     parsed.keyGameResults = parsed.keyGameResults ?? []
     return parsed as GameState
   } catch {

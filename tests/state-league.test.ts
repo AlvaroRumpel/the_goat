@@ -10,7 +10,11 @@ function playToSeason(seed: number): GameState {
   s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
   s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
   if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-  while (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+  let guard = 0
+  while ((s.phase === 'keyGame' || s.phase === 'playoffGame') && guard++ < 60) {
+    s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
+    if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+  }
   if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
   return s
 }

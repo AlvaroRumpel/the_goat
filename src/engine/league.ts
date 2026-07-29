@@ -51,7 +51,8 @@ export function simStandings(input: {
   return standings
 }
 
-const ROUND_RUN: PlayoffRun[] = ['r1', 'semi', 'conf', 'finals']
+// índice do round do bracket (0=r1..3=finals) → PlayoffRun. Compartilhado com state.ts.
+export const ROUND_RUN: PlayoffRun[] = ['r1', 'semi', 'conf', 'finals']
 
 // Prob NPC vs NPC de vencer a série, por força de elenco. Compartilhado com
 // playoffs.ts (npcRound/resolveRest) — MESMA fórmula, sem duplicação divergente.
