@@ -79,7 +79,7 @@ export interface GameState {
   pendingKeyGames: KeyGame[] | null   // remaining key-game queue (current game already popped)
   pendingGame: PendingGame | null     // key/playoff game currently being watched
   pendingPlayoffs: PendingPlayoffs | null  // postseason in progress (null outside the playoffGame phase)
-  keyGameResults: WatchedGameResult[] // this season's watched games; reset at the start of PLAY_SEASON
+  keyGameResults: WatchedGameResult[] // this season's watched games; reset in startKeyGames (after any eventDecision pause)
   injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
   league: LeagueState | null

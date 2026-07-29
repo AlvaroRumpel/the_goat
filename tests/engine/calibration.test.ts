@@ -78,6 +78,7 @@ function simCareer(overall: number, seed: number, policy: Policy) {
     else if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
     else break
   }
+  if (s.phase !== 'verdict') throw new Error('simCareer truncado: guard de 60 iterações estourou')
   const seasons = s.career.seasons
   const peakSeasons = seasons.filter(x => x.age >= 26 && x.age <= 29)
   const avg = (f: (x: typeof seasons[number]) => number) =>
@@ -186,7 +187,6 @@ describe('políticas de momento', () => {
     const bold = distribution(90, 'bold')
     if (process.env.CALIBRATE) console.log('90 auto vs bold:', JSON.stringify({ auto, bold }, null, 2))
     // auto só alcança `sweep` (resultado de série); todo icônico de jogada exige ousadia
-    expect(auto.iconicAvg).toBeGreaterThanOrEqual(0)
     expect(bold.iconicAvg).toBeGreaterThan(auto.iconicAvg)
     expect(auto.iconicPointsAvg).toBeLessThanOrEqual(100)
     expect(bold.iconicPointsAvg).toBeLessThanOrEqual(100)

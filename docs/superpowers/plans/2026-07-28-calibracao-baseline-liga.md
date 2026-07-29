@@ -368,8 +368,12 @@ arremate. Todo o resto do catálogo é território da política de risco.
   cada ponto que bold ganha no jogo pivotal vira `2×SHIFT` de probabilidade de série.
   Dobrar SHIFT dobra o valor de jogar ousado nesses rounds (e nas finais o mesmo papel
   cabe ao `pGame`, que já é por jogo).
-- **`bigNight` (playerPts ≥ 55) é inalcançável** — `expPts` satura em ~29 no 99 e o
-  bônus máximo de momentos é 21. Branch morto; não bloqueia nenhuma trava.
+- **`bigNight` (playerPts ≥ 55) é alcançável com política reckless** — teto de bônus
+  é 27 (3 momentos × `RISK.reckless.hit = 10`, menos falhas; hit reckless é o maior
+  dos três riscos), medido 16% dos jogos com build 99 overall + política reckless
+  em força 95×55 (`playerPts` máx observado 61). Não é branch morto — mas o harness
+  de calibração só cobre as políticas `auto`/`bold`; cobertura de `reckless` é
+  backlog (ver HANDOFF.md).
 - **`fluGame`/`comeback` são exclusivos de políticas de risco** (`playHurt` é reckless;
   `comeback` exige Σ deltas > 15, fora do alcance da política safe).
 - **Vitória em jogo-chave volta a valer winPct** (fix round 1): cada jogo rende

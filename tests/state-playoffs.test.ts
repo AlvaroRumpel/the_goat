@@ -139,4 +139,44 @@ describe('playoffs pausáveis', () => {
     }
     expect(run()).toBe(run())
   }, 30000)
+  test('trade aceito (accept: true) entra em playoffs sem crash', () => {
+    // canTrade só liga a partir da 3ª temporada (state.ts: seasons.length >= 2);
+    // varre seeds/anos até achar uma temporada com tradeOffer que também classifica.
+    const finishToSeasonResult = (x: GameState): GameState => {
+      let guard = 0
+      while (x.phase !== 'seasonResult' && guard++ < 100) {
+        if (x.phase === 'keyGame' || x.phase === 'playoffGame') {
+          x = x.pendingGame ? gameReducer(x, { type: 'SKIP_GAME' }) : gameReducer(x, { type: 'SKIP_SERIES' })
+        } else break
+      }
+      return x
+    }
+    for (let seed = 500; seed < 560; seed++) {
+      let s = newCareer(seed)
+      for (let y = 0; y < 8; y++) {
+        s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+        if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+        let guard = 0
+        while (s.phase === 'keyGame' && guard++ < 60) {
+          s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
+        }
+        if (s.phase === 'tradeDecision') {
+          const tradeTeamId = s.pendingRegular!.tradeOffer!.teamId
+          s = finishToSeasonResult(gameReducer(s, { type: 'TRADE_DECISION', accept: true }))
+          expect(s.phase).toBe('seasonResult')
+          expect(s.pendingPlayoffs).toBeNull()
+          const season = s.career.seasons[s.career.seasons.length - 1]
+          if (season.seed !== null) {   // classificou pros playoffs com o time novo
+            expect(season.finalTeamId).toBe(tradeTeamId)
+            return
+          }
+        }
+        s = gameReducer(s, { type: 'ADVANCE' })
+        if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+        if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
+        if (s.phase === 'verdict') break
+      }
+    }
+    throw new Error('nenhuma temporada com trade aceita + classificação pros playoffs em 60 seeds × 8 anos')
+  }, 60000)
 })

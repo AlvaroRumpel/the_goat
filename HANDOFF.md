@@ -75,6 +75,8 @@ npx wrangler pages deploy dist --project-name=the-goat --branch=master
 - **Mini-jogos de habilidade** em momentos-chave (era desejo original do dono, adiado no MVP)
 - EN landing/SEO, custom domain
 - Calibração fina contínua com playtest real — infra pronta: harness em `calibration.test.ts` (rodar com `CALIBRATE=1 ... --disableConsoleIntercept`), ajustar só constantes, nunca forma das fórmulas
+- Feedback pós-jogo nos playoffs rounds 0-2 (spec §5 do motor-momentos, parcial: resultado só aparece no seasonResult)
+- Política reckless no harness de calibração (playHurt/playerOut/bigNight sem cobertura; lock sugerido reckless.goatRate < 0.04)
 
 ## Processo usado
 

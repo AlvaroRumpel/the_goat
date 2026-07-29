@@ -151,6 +151,8 @@
   "game.kind.rivalry": "Rivalidade",
   "game.kind.seedRace": "Corrida pelo seed",
   "game.kind.special": "Jogo especial",
+  "game.kind.playoff": "Playoffs",
+  "game.kind.finals": "Finais",
   "game.round.0": "1ª Rodada",
   "game.round.1": "Semifinal de Conferência",
   "game.round.2": "Final de Conferência",
