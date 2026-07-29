@@ -1,22 +1,26 @@
-/* The GOAT — design tokens (legado dourado, from claude-design project 5a193998) */
+/* The GOAT — design tokens (tema 2B "Jornal de Tinta Vermelha", claude-design 5a193998) */
 :root {
-  --bg: #0d0b08;
-  --surface: #161209;
-  --surface2: #1e1810;
-  --border: #2a2318;
-  --border-gold: #4a3c1c;
-  --gold: #d4a73c;
-  --gold-hi: #efc75e;
-  --gold-dim: #7a6224;
-  --text: #f1ead8;
-  --dim: #9c9080;
-  --faint: #5c543f;
-  --danger: #c4553b;
-  --danger-border: #6b3325;
+  --paper: #EDE6D6;      /* fundo padrão */
+  --paper-2: #E7DFCD;    /* papel de carta (aposentadoria, C3) */
+  --paper-3: #E4DAC4;    /* linha/cartão destacado */
+  --ink: #1C1A16;        /* texto, faixas escuras, CTA neutro */
+  --ink-2: #22201A;      /* opção não escolhida dentro da faixa preta */
+  --ink-3: #3A362E;      /* divisor dentro da faixa preta */
+  --red: #A8231C;        /* manchete, adversário, perda, irreversível */
+  --red-soft: #C4655C;   /* texto secundário sobre vermelho */
+  --on-red: #F6F0E4;
+  --on-red-dim: #F0C4C0;
+  --on-ink: #EDE6D6;
+  --on-ink-dim: #A8A192;
+  --rule: #C6BCA2;       /* filete forte */
+  --rule-soft: #DCD3BE;  /* filete de tabela */
+  --track: #D8D0BB;      /* trilha de barra */
+  --dim: #6B6455;        /* rótulos mono e valores secundários */
+  --body-dim: #3A362E;   /* corpo secundário */
+  --accent-warm: #E8B24A;/* SÓ dentro de faixa preta (relógio, ganho, OVR) */
+  --canvas: #17150F;     /* fundo fora do app (desktop) */
 
-  --serif: 'Marcellus', serif;
   --sans: 'Archivo', sans-serif;
-
-  --radius: 12px;
-  --radius-btn: 8px;
+  --black: 'Archivo Black', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
 }
