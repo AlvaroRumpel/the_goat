@@ -53,6 +53,12 @@ export function simStandings(input: {
 
 const ROUND_RUN: PlayoffRun[] = ['r1', 'semi', 'conf', 'finals']
 
+// Prob NPC vs NPC de vencer a série, por força de elenco. Compartilhado com
+// playoffs.ts (npcRound/resolveRest) — MESMA fórmula, sem duplicação divergente.
+export function npcSeriesProb(sA: number, sB: number): number {
+  return clamp(0.5 + (sA - sB) * 0.03, 0.10, 0.90)
+}
+
 // Constantes calibráveis (Task 10): expoente 1/4 e fator 0.004 ajustam para bater
 // a taxa agregada de título do jogador ≈ playerTitleProb ao longo das 4 rodadas.
 export function simBracket(input: {
@@ -67,7 +73,7 @@ export function simBracket(input: {
     const sA = strengths.get(a)!, sB = strengths.get(b)!
     if (a === playerTeamId) return rng.chance(clamp(baseP * (1 - (sB - 70) * 0.004), 0.05, 0.95))
     if (b === playerTeamId) return !rng.chance(clamp(baseP * (1 - (sA - 70) * 0.004), 0.05, 0.95))
-    return rng.chance(clamp(0.5 + (sA - sB) * 0.03, 0.10, 0.90))
+    return rng.chance(npcSeriesProb(sA, sB))
   }
   const bySeed = (conf: Conf) => {
     const seeded = standings.filter(s => s.conf === conf && s.seed !== null)
