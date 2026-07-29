@@ -9,7 +9,13 @@ import { Game } from './ui/screens/Game'
 import { Hub } from './ui/screens/Hub'
 
 export default function App() {
-  const [state, dispatch] = useReducer(gameReducer, undefined, () => loadState() ?? initialState('pt'))
+  const [state, dispatch] = useReducer(gameReducer, undefined, () => {
+    const saved = loadState()
+    if (!saved) return initialState('pt')
+    if (saved.phase === 'home') return saved
+    // boot sempre na Home; nada é persistido até o primeiro dispatch (spec §4)
+    return { ...saved, phase: 'home' as const, resumePhase: saved.phase, hubOpen: false }
+  })
   const p = state.phase
   const screen =
     p === 'home' ? <Home state={state} dispatch={dispatch} /> :
