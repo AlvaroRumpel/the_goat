@@ -129,8 +129,16 @@ export function AttrDraft({ state, dispatch }: Props) {
                       })}
                     </div>
                   </div>
-                  <div className="headline" style={{ fontSize: 22, color: isSel ? 'var(--accent-warm)' : undefined }}>
-                    {player.attrs[slot]}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <div className="headline" style={{ fontSize: 22, color: isSel ? 'var(--accent-warm)' : undefined }}>
+                      {player.attrs[slot]}
+                    </div>
+                    <div
+                      className="mono"
+                      style={{ fontSize: 11, marginTop: 2, color: isSel ? 'var(--on-ink-dim)' : 'var(--dim)' }}
+                    >
+                      {t(lang, 'draft.yours', { legend: player.attrs[slot], yours: '—' })}
+                    </div>
                   </div>
                 </button>
                 {!isLast && <hr className="rule--soft" />}
