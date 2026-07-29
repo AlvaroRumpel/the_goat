@@ -23,4 +23,10 @@
   --sans: 'Archivo', sans-serif;
   --black: 'Archivo Black', sans-serif;
   --mono: 'IBM Plex Mono', monospace;
+
+  /* COMPAT — aliases p/ inline styles de telas não migradas. REMOVER NA TASK 14. */
+  --gold: var(--red);
+  --gold-hi: var(--red);
+  --border-gold: var(--red);
+  --danger: var(--red);
 }
