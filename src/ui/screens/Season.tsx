@@ -274,20 +274,22 @@ function TradeDecision({ state, dispatch }: Props) {
         <RacesPanel races={[partialRace]} lang={lang} scale={0.5} />
       </div>
       <div className="modal-veil">
-        <div
-          className="card card--gold"
-          style={{ padding: 24, maxWidth: 360, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center' }}
-        >
-          <div className="kicker kicker--gold">{t(lang, 'trade.title')}</div>
-          <div className="display" style={{ fontSize: 22 }}>
+        <div className="crossroads-card">
+          <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
+          <div className="headline" style={{ fontSize: 26 }}>
             {t(lang, 'trade.desc', { team: `${team.city} ${team.name}` })}
           </div>
-          <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'TRADE_DECISION', accept: true })}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="mono-label">{t(lang, 'crossroads.ifStay')} · {t(lang, 'trade.stay.effect')}</div>
+            <div className="mono-label mono-label--red">{t(lang, 'crossroads.ifAccept')} · {t(lang, 'trade.accept.effect')}</div>
+          </div>
+          <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'TRADE_DECISION', accept: true })}>
             {t(lang, 'trade.accept')}
           </button>
-          <button type="button" className="btn" onClick={() => dispatch({ type: 'TRADE_DECISION', accept: false })}>
+          <button type="button" className="btn btn--outline" onClick={() => dispatch({ type: 'TRADE_DECISION', accept: false })}>
             {t(lang, 'trade.reject')}
           </button>
+          <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'crossroads.note')}</div>
         </div>
       </div>
     </div>
@@ -302,15 +304,21 @@ function EventDecision({ state, dispatch }: Props) {
       <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
       <div className="modal-veil">
-        <div className="card card--gold" style={{ padding: 24, maxWidth: 360, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center' }}>
-          <div className="kicker kicker--gold">{t(lang, `eventdec.${ev}.title`)}</div>
-          <div className="display" style={{ fontSize: 20 }}>{t(lang, `eventdec.${ev}.desc`)}</div>
-          <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'EVENT_DECISION', choice: 'a' })}>
+        <div className="crossroads-card">
+          <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
+          <div className="headline" style={{ fontSize: 26 }}>{t(lang, `eventdec.${ev}.title`)}</div>
+          <div style={{ fontSize: 15, lineHeight: 1.55 }}>{t(lang, `eventdec.${ev}.desc`)}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="mono-label mono-label--red">{t(lang, 'eventdec.ifA')} · {t(lang, `eventdec.${ev}.aEffect`)}</div>
+            <div className="mono-label">{t(lang, 'eventdec.ifB')} · {t(lang, `eventdec.${ev}.bEffect`)}</div>
+          </div>
+          <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'EVENT_DECISION', choice: 'a' })}>
             {t(lang, `eventdec.${ev}.a`)}
           </button>
-          <button type="button" className="btn" onClick={() => dispatch({ type: 'EVENT_DECISION', choice: 'b' })}>
+          <button type="button" className="btn btn--outline" onClick={() => dispatch({ type: 'EVENT_DECISION', choice: 'b' })}>
             {t(lang, `eventdec.${ev}.b`)}
           </button>
+          <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'crossroads.note')}</div>
         </div>
       </div>
     </div>
