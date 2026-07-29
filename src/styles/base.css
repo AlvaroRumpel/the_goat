@@ -450,3 +450,164 @@ button {
   border-color: var(--dim);
   color: var(--ink);
 }
+
+/* hub */
+.hub {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--paper);
+  z-index: 20;
+}
+.hub__inner {
+  gap: 24px;
+}
+.hub__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 18px 0 14px;
+  margin: 0 -22px;
+  padding-left: 22px;
+  padding-right: 22px;
+  border-bottom: 3px double var(--red);
+}
+.hub__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.hub__status,
+.hub__table,
+.hub__profile,
+.hub__trophies,
+.hub__moments,
+.hub__league,
+.hub__contract {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hub__rings {
+  display: flex;
+  gap: 6px;
+}
+.hub-ring {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--red);
+}
+.hub__row {
+  display: grid;
+  grid-template-columns: 44px 50px 44px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 0;
+}
+.hub__row--head {
+  background: var(--paper-3);
+  padding: 6px 4px;
+}
+.hub__row--head .hub__cell {
+  color: var(--red);
+  font-weight: 700;
+}
+.hub__cell {
+  font-size: 12px;
+}
+.hub__cell--wide {
+  display: none;
+}
+.hub__monogram-block {
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+.hub__monogram {
+  width: 62px;
+  height: 62px;
+  font-size: 18px;
+}
+.hub__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hub__bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+}
+.hub__trajectory {
+  display: none;
+}
+.hub__traj-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 64px;
+}
+.hub__traj-bar {
+  flex: 1;
+  background: var(--ink);
+}
+.hub__traj-bar--last {
+  background: var(--red);
+}
+.hub__trophy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.hub__trophy-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--paper-3);
+  padding: 8px 10px;
+}
+.hub__moment-row {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+@media (min-width: 900px) {
+  .hub__grid {
+    display: grid;
+    grid-template-columns: 320px 1fr 300px;
+    grid-template-areas:
+      'status   status status'
+      'profile  table  trophies'
+      'profile  table  iconics'
+      'profile  table  contract'
+      'league   league league';
+    gap: 0;
+    column-gap: 24px;
+    row-gap: 20px;
+  }
+  .hub__scrollhint {
+    display: none;
+  }
+  .hub__table,
+  .hub__trophies,
+  .hub__moments,
+  .hub__contract {
+    border-left: 1px solid var(--rule);
+    padding-left: 20px;
+  }
+  .hub__row {
+    grid-template-columns: 44px 1fr 44px 44px 44px 110px 1fr;
+  }
+  .hub__cell--wide {
+    display: block;
+  }
+  .hub__monogram-block {
+    display: flex;
+  }
+  .hub__trajectory {
+    display: block;
+  }
+}
