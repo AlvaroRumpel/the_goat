@@ -64,7 +64,7 @@ export type Action =
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'RESET' }
 
-const STORAGE_KEY = 'thegoat:v3'
+const STORAGE_KEY = 'thegoat:v4'
 
 function makeCountedRng(seed: number, skip: number): { rng: Rng; calls: () => number } {
   const inner = createRng(seed)
@@ -176,6 +176,7 @@ function concludeSeason(
   const season = finishSeason({
     regular, finalTeamId: finalOffer.teamId, build, rng, winPct,
     seed, playoffRun: bracket.playerRun, wonTitle: bracket.wonTitle, extraAwards: playerAwards,
+    iconicMoments: [], chokes: 0,
   })
   const career = applyFame(state.career, season, finalOffer.profile)
   const seasonOutcome: LeagueSeasonOutcome = {
@@ -350,6 +351,7 @@ export function loadState(): GameState | null {
     if (typeof localStorage === 'undefined') return null
     localStorage.removeItem('thegoat:v1')
     localStorage.removeItem('thegoat:v2')
+    localStorage.removeItem('thegoat:v3')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)

@@ -1,5 +1,5 @@
 import { makeOffers } from './offers'
-import type { Award, Build, EventChoice, Focus, GameEventId, PlayoffRun, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile, TeamStanding } from './types'
+import type { Award, Build, EventChoice, Focus, GameEventId, IconicMomentId, PlayoffRun, RegularSeasonResult, Rng, SeasonResult, Team, TeamProfile, TeamStanding } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -99,8 +99,9 @@ export function finishSeason(input: {
   regular: RegularSeasonResult; finalTeamId: string; build: Build; rng: Rng
   winPct: number; seed: number | null; playoffRun: PlayoffRun; wonTitle: boolean
   extraAwards: Award[]   // mvp/dpoy/roy/mip vindos do modelo de ranking (Task 8)
+  iconicMoments: IconicMomentId[]; chokes: number
 }): SeasonResult {
-  const { regular, finalTeamId, rng, seed, playoffRun, wonTitle, extraAwards } = input
+  const { regular, finalTeamId, rng, seed, playoffRun, wonTitle, extraAwards, iconicMoments, chokes } = input
   const awards: Award[] = []
   if (regular.ppg >= 19 || regular.apg >= 8 || regular.rpg >= 11) awards.push('allstar')
   if (regular.ppg >= 26 && rng.chance(0.5)) awards.push('scoring')
@@ -110,5 +111,5 @@ export function finishSeason(input: {
     if (rng.chance(0.7)) awards.push('fmvp')
   }
   const { tradeOffer: _drop, ...rest } = regular
-  return { ...rest, finalTeamId, madePlayoffs: playoffRun !== 'missed', wonTitle, seed, playoffRun, awards }
+  return { ...rest, finalTeamId, madePlayoffs: playoffRun !== 'missed', wonTitle, seed, playoffRun, awards, iconicMoments, chokes }
 }

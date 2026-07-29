@@ -27,7 +27,7 @@ describe('partes do season', () => {
     const s = finishSeason({
       regular: { ...regular, ppg: 27, rpg: 6, apg: 5 }, finalTeamId: 'okc', build: build(90),
       rng: createRng(7), winPct: 0.7, seed: 1, playoffRun: 'champion', wonTitle: true,
-      extraAwards: ['mvp'],
+      extraAwards: ['mvp'], iconicMoments: [], chokes: 0,
     })
     expect(s.awards).toContain('allstar')
     expect(s.awards).toContain('ring')

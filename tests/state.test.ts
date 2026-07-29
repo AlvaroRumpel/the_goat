@@ -138,13 +138,13 @@ describe('gameReducer', () => {
     const s = playToBuild()
     saveState(s)
     expect(loadState()).toEqual(s)
-    localStorage.setItem('thegoat:v3', '{broken')
+    localStorage.setItem('thegoat:v4', '{broken')
     expect(loadState()).toBeNull()
   })
   test('save sem liga completa (v2 e anteriores) é descartado', () => {
     const s = playToBuild()
     const { league: _drop, ...noLeague } = s
-    localStorage.setItem('thegoat:v3', JSON.stringify(noLeague))
+    localStorage.setItem('thegoat:v4', JSON.stringify(noLeague))
     expect(loadState()).toBeNull()
   })
   test('loadState normaliza save legado sem injuryProne/pendingEvents e com pendingRegular sem choices', () => {
@@ -165,7 +165,7 @@ describe('gameReducer', () => {
     }
     delete legacy.injuryProne
     delete legacy.pendingEvents
-    localStorage.setItem('thegoat:v3', JSON.stringify(legacy))
+    localStorage.setItem('thegoat:v4', JSON.stringify(legacy))
 
     const loaded = loadState()!
     expect(loaded.pendingRegular!.choices).toEqual([])

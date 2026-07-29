@@ -26,7 +26,7 @@ function composePostseason(input: { build: Build; regular: RegularSeasonResult; 
   return finishSeason({
     regular, finalTeamId: team.id, build, rng, winPct, seed: null,
     playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
-    extraAwards: [],
+    extraAwards: [], iconicMoments: [], chokes: 0,
   })
 }
 

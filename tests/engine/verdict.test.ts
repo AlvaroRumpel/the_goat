@@ -13,7 +13,8 @@ function season(over: Partial<SeasonResult>): SeasonResult {
   return {
     age: 25, teamId: 'okc', finalTeamId: 'okc', games: 78,
     ppg: 12, rpg: 5, apg: 3, events: [], choices: [], madePlayoffs: false,
-    wonTitle: false, awards: [], seed: null, playoffRun: 'missed', ...over,
+    wonTitle: false, awards: [], seed: null, playoffRun: 'missed',
+    iconicMoments: [], chokes: 0, ...over,
   }
 }
 
@@ -99,7 +100,7 @@ describe('computeVerdict', () => {
         seasons.push(finishSeason({
           regular, finalTeamId: finalTeam.id, build, rng, winPct, seed: null,
           playoffRun: wonTitle ? 'champion' : madePlayoffs ? 'r1' : 'missed', wonTitle,
-          extraAwards: [],
+          extraAwards: [], iconicMoments: [], chokes: 0,
         }))
         if ((age - 19) % 4 === 3) offer = makeOffers(rng, finalTeam.id)[rng.int(0, 2)]
       }

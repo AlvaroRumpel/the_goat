@@ -65,6 +65,7 @@ function simCareer(build: Build, seed: number) {
     const season = finishSeason({
       regular, finalTeamId: team.id, build, rng, winPct, seed: playoffSeed,
       playoffRun: bracket.playerRun, wonTitle: bracket.wonTitle, extraAwards: playerAwards,
+      iconicMoments: [], chokes: 0,
     })
     career.seasons.push(season)
     prevPpg = regular.ppg

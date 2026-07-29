@@ -106,6 +106,67 @@ export interface RegularSeasonResult {
   tradeOffer: Offer | null   // deadline trade; decided before postseason
 }
 
+export type MomentRisk = 'safe' | 'bold' | 'reckless'
+
+export interface MomentOption {
+  id: string                 // 'safePass' | 'boldThree' | 'attackRim' | 'playHurt' | ...
+  attr: SlotId
+  attr2?: SlotId             // mix opcional (ex.: three + clutch)
+  risk: MomentRisk
+  injuryRisk?: number        // só em opções que ANUNCIAM risco (spec §1)
+}
+
+export interface Moment {
+  id: string                 // 'q2tactic' | 'q4pressure' | 'clutch'
+  situationKey: string       // chave i18n: 'moment.q2tactic.desc' etc.
+  params: Record<string, string | number>   // { opp: 'BOS', diff: 4 }
+  options: MomentOption[]    // 2-3
+}
+
+export type WatchedGameKind = 'rivalry' | 'seedRace' | 'special' | 'playoff' | 'finals'
+
+export interface WatchedGameContext {
+  kind: WatchedGameKind
+  opponentTeamId: string
+  round?: PlayoffRun         // contexto de playoffs
+  seriesUs?: number          // placar da série antes deste jogo
+  seriesThem?: number
+  gameNumber?: number        // 1-7 nas finais
+  elimination?: boolean      // derrota elimina (ou vitória fecha) — para icônicos/choke
+}
+
+export interface MomentOutcome {
+  momentId: string
+  optionId: string
+  success: boolean
+  injury: boolean
+  delta: number              // contribuição ao margin
+}
+
+export type IconicMomentId =
+  | 'finalsBuzzer' | 'seriesWinner' | 'closeout45' | 'fluGame'
+  | 'comeback' | 'bigNight' | 'rivalWinner' | 'sweep'
+
+export interface WatchedGameResult {
+  won: boolean
+  margin: number             // >0 = vitória
+  playerPts: number
+  outcomes: MomentOutcome[]
+  injured: boolean           // lesão ocorreu neste jogo
+  choke: boolean             // falhou clutch em jogo de eliminação
+  iconics: IconicMomentId[]  // detectados neste jogo (sweep é detectado na série, fora daqui)
+}
+
+export interface PendingGame {
+  context: WatchedGameContext
+  moments: Moment[]          // 3, gerados no início do jogo
+  momentIndex: number        // próximo momento a resolver (0-3)
+  outcomes: MomentOutcome[]
+  baseMargin: number         // rolado no início
+}
+
+export interface KeyGame { kind: WatchedGameKind; opponentTeamId: string }
+
 export interface SeasonResult extends Omit<RegularSeasonResult, 'tradeOffer'> {
   finalTeamId: string        // differs from teamId if trade accepted
   madePlayoffs: boolean
@@ -113,6 +174,8 @@ export interface SeasonResult extends Omit<RegularSeasonResult, 'tradeOffer'> {
   awards: Award[]
   seed: number | null
   playoffRun: PlayoffRun
+  iconicMoments: IconicMomentId[]
+  chokes: number
 }
 
 export interface Career {
