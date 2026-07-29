@@ -6,7 +6,7 @@ import { performanceRatio } from '../../engine/season'
 import { partialMvpRace } from '../../engine/league'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus, Headline } from '../../engine/types'
-import { OfferCard } from '../components/OfferCard'
+import { OfferCard, TeamSymbol } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
 import { CeremonyPanel, PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
 import { CareerBar } from '../components/CareerBar'
@@ -56,40 +56,71 @@ function headlineText(lang: Lang, h: Headline): string {
 
 function Preseason({ state, dispatch }: Props) {
   const lang = state.lang
+  const offer = state.currentOffer!
+  const team = teamById(offer.teamId)
+  const [selected, setSelected] = useState<Focus>('scoring')
+  const headlines = headlineItems(state.headlines).slice(0, 3)
 
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
       <div className="grain" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        {state.headlines.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div className="kicker">{t(lang, 'news.title')}</div>
-            {headlineItems(state.headlines).map((h, i) => (
-              <div key={i} className="hint">{headlineText(lang, h)}</div>
-            ))}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="headline" style={{ fontSize: 26 }}>{team.city} {team.name}</div>
+          <TeamSymbol profile={offer.profile} />
+        </div>
+
+        {headlines.length > 0 && (
+          <>
+            <hr className="rule--double" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="mono-label">{t(lang, 'preseason.league')}</div>
+              {headlines.map((h, i) => (
+                <div
+                  key={i}
+                  style={{
+                    borderLeft: `2px solid ${i === 0 ? 'var(--red)' : 'var(--ink)'}`,
+                    paddingLeft: 12, fontSize: 13, fontWeight: 600,
+                  }}
+                >
+                  {headlineText(lang, h)}
+                </div>
+              ))}
+            </div>
+            <hr className="rule" />
+          </>
         )}
 
-        <div style={{ textAlign: 'center' }}>
-          <div className="kicker kicker--gold">{t(lang, 'season.focus.kicker')}</div>
-          <div className="display" style={{ fontSize: 28, marginTop: 8 }}>{t(lang, 'season.focus.title')}</div>
+        <div className="mono-label">{t(lang, 'preseason.work')}</div>
+        <div>
+          {FOCUSES.map((f, i) => {
+            const isSel = f === selected
+            return (
+              <div key={f}>
+                <button
+                  type="button"
+                  className={isSel ? 'strip strip--ink' : undefined}
+                  onClick={() => setSelected(f)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: 4, width: '100%',
+                    textAlign: 'left', padding: isSel ? undefined : '11px 0',
+                  }}
+                >
+                  <span className="headline" style={{ fontSize: 16 }}>{t(lang, 'focus.' + f)}</span>
+                  {isSel
+                    ? <span className="mono" style={{ fontSize: 11, color: 'var(--accent-warm)' }}>{t(lang, `focus.${f}.desc`)}</span>
+                    : <span className="hint">{t(lang, `focus.${f}.desc`)}</span>}
+                </button>
+                {i < FOCUSES.length - 1 && <hr className="rule--soft" />}
+              </div>
+            )
+          })}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {FOCUSES.map(f => (
-            <button
-              key={f}
-              type="button"
-              className="card"
-              style={{ padding: 18, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}
-              onClick={() => dispatch({ type: 'PLAY_SEASON', focus: f })}
-            >
-              <span className="display" style={{ fontSize: 18 }}>{t(lang, 'focus.' + f)}</span>
-              <span className="hint" style={{ textAlign: 'left' }}>{t(lang, `focus.${f}.desc`)}</span>
-            </button>
-          ))}
-        </div>
+        <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'PLAY_SEASON', focus: selected })}>
+          {t(lang, 'preseason.start')}
+        </button>
       </div>
     </div>
   )
