@@ -11,7 +11,7 @@ import {
 } from './engine/playoffs'
 import type { BracketState } from './engine/playoffs'
 import {
-  applyMoment, autoResolveGame, dagger, expectedAutoDelta, finishWatchedGame, selectKeyGames, startWatchedGame,
+  applyMoment, autoResolveGame, expectedAutoDelta, finishWatchedGame, selectKeyGames, startWatchedGame,
 } from './engine/moments'
 import { initLeague } from './data/league'
 import { teamById } from './data/teams'
@@ -183,24 +183,31 @@ export function initialState(lang: Lang = 'pt'): GameState {
 //   applyMoment(6)] por jogo até a série fechar → finishSeason.
 
 // Efeitos dos jogos-chave (FORA das fórmulas-contrato — deltas de state layer, não da
-// forma das fórmulas de season.ts): até ±0.03 de winPct, ±0.5 de ppg e desgaste de
+// forma das fórmulas de season.ts): até ±0.04 de winPct, ±0.5 de ppg e desgaste de
 // lesão (games/ppg) por jogo em que algum momento machucou o jogador.
 //
-// Ambos saem do MESMO swing: o impacto dos momentos MENOS o que a build entregaria
-// jogando no automático (expectedAutoDelta). O que conta é superar a própria
-// expectativa, não existir — um 99 acertar 73% dos momentos é o esperado dele.
-// Medido pelo saldo bruto, toda build forte levava +0.5 ppg e +0.03 de winPct fixos
-// por temporada; isso empurrava a corrida de MVP (decidida por ~3 pontos de margem
-// contra 270 NPCs) e o seed dos playoffs, inflando o topo da distribuição de score.
-// Centrado, E[delta] = 0 em qualquer faixa e a política ousada é que gera o desvio.
+// Os dois deltas são CENTRADOS NA EXPECTATIVA — o que conta é superar a própria
+// expectativa, não existir. Um 99 acertar 73% dos momentos é o esperado dele. Medido
+// pelo saldo bruto, toda build forte levava +0.5 ppg e +0.03 de winPct fixos por
+// temporada, o que empurrava a corrida de MVP (decidida por ~3 pontos de margem contra
+// 270 NPCs) e o seed dos playoffs, inflando o topo da distribuição de score.
+//
+// - winPct: VITÓRIA do jogo contra a chance que o jogo tinha (`r.winP`, calculada no
+//   startWatchedGame a partir da diferença de força). Ganhar um jogo que valia 0.3 vale
+//   +0.014; ganhar um que valia 0.8 vale +0.004; perder esse mesmo vale −0.016.
+// - ppg: impacto dos momentos menos o que a política padrão entregaria.
+//
+// Nos dois casos E[delta] ≈ 0 na política auto, por construção, em qualquer faixa —
+// e a política ousada é que gera o desvio.
 function keyGameEffects(
   results: WatchedGameResult[], build: Build, age: number,
 ): { winPctDelta: number; ppgDelta: number; injuredCount: number } {
   const injuredCount = results.filter(r => r.injured).length
   const swing = results.reduce((n, r) => n + r.outcomes.reduce((s, o) => s + o.delta, 0), 0)
     - results.length * expectedAutoDelta(build, age)
+  const winSwing = results.reduce((n, r) => n + ((r.won ? 1 : 0) - r.winP) * 0.02, 0)
   return {
-    winPctDelta: clamp(swing * 0.0005, -0.01, 0.01),
+    winPctDelta: clamp(winSwing, -0.04, 0.04),
     ppgDelta: clamp(swing * 0.03, -0.5, 0.5) - injuredCount,
     injuredCount,
   }
@@ -371,12 +378,9 @@ function finishPlayoffGame(
   const seriesThem = pp.seriesThem + (result.won ? 0 : 1)
   const series = { ...next, seriesUs, seriesThem }
   if (seriesUs === 4) {
-    // sweep é do time; o icônico é FECHAR a varrida com uma jogada ousada (mesma regra
-    // do catálogo em moments.ts). Sem isso a política auto ganhava os únicos pontos de
-    // icônico que consegue justamente nas carreiras campeãs — em cima do topo do score.
-    const iconics: IconicMomentId[] = seriesThem === 0 && dagger(result)
-      ? [...series.iconics, 'sweep']
-      : series.iconics
+    // sweep é o ÚNICO icônico que não exige jogada ousada: é resultado de série, não de
+    // arremate (decisão do dono). Vale para qualquer política.
+    const iconics: IconicMomentId[] = seriesThem === 0 ? [...series.iconics, 'sweep'] : series.iconics
     return finishPostseason(base, { ...series, iconics },
       { championTeamId: teamId, playerRun: 'champion', wonTitle: true }, rng, calls)
   }
@@ -431,6 +435,9 @@ function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): Pending
   return startWatchedGame({
     context: { kind: game.kind, opponentTeamId: game.opponentTeamId },
     ourStrength: watchedGameStrength(state, state.currentOffer!.teamId), oppStrength, rng,
+    // sem targetWinP (a margem sai da força), mas o winP calculado precisa contar os
+    // momentos — é ele que centra o winPctDelta em keyGameEffects
+    expectedDelta: expectedAutoDelta(state.build!, state.age),
   })
 }
 

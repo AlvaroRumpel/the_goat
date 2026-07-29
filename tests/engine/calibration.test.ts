@@ -100,7 +100,6 @@ function simCareer(overall: number, seed: number, policy: Policy) {
 // A trava do dono goatRate(99) < 0.02 precisa de mais resolução: em N=200 o statistic
 // anda de 0.005 em 0.005 e mesmo o engine pré-Task-8 (taxa real 0.0133) reprova em ~1/3
 // dos blocos de seed. O teste do 99 roda com N maior — mesma trava, medida melhor.
-const N = 200
 const N_GOAT = 600
 
 function distribution(overall: number, policy: Policy = 'auto', N = 200) {
@@ -186,7 +185,10 @@ describe('políticas de momento', () => {
     const auto = distribution(90, 'auto')
     const bold = distribution(90, 'bold')
     if (process.env.CALIBRATE) console.log('90 auto vs bold:', JSON.stringify({ auto, bold }, null, 2))
+    // auto só alcança `sweep` (resultado de série); todo icônico de jogada exige ousadia
+    expect(auto.iconicAvg).toBeGreaterThanOrEqual(0)
     expect(bold.iconicAvg).toBeGreaterThan(auto.iconicAvg)
     expect(auto.iconicPointsAvg).toBeLessThanOrEqual(100)
+    expect(bold.iconicPointsAvg).toBeLessThanOrEqual(100)
   }, 240000)
 })

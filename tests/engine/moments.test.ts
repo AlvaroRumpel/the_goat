@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
-  GAME_RNG_CALLS, applyMoment, autoResolveGame, defaultOption, finishWatchedGame,
+  GAME_RNG_CALLS, applyMoment, autoResolveGame, defaultOption, expectedAutoDelta, finishWatchedGame,
   makeMoments, resolveMoment, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
@@ -113,6 +113,25 @@ describe('jogo', () => {
     expect(r1.playerPts).toBeGreaterThanOrEqual(6)
     expect(r1.playerPts).toBeLessThanOrEqual(65)
   })
+  test('probabilidade-alvo: P(vitória | auto) bate targetWinP (Monte Carlo)', () => {
+    // mecanismo central da Task 8 — se isto quebrar, a taxa de título deixa de bater
+    // o titleProb (bug de 2.02× da Task 7).
+    for (const [p, ovr] of [[0.35, 80], [0.5, 90], [0.65, 99]] as const) {
+      let wins = 0
+      const runs = 2000
+      for (let i = 0; i < runs; i++) {
+        const { rng } = countedRng(50000 + i)
+        let g = startWatchedGame({
+          context: ctx, ourStrength: 70, oppStrength: 70, rng,
+          targetWinP: p, expectedDelta: expectedAutoDelta(build(ovr), 27),
+        })
+        expect(g.winP).toBeCloseTo(p, 10)   // winP guardado = alvo, por construção
+        g = autoResolveGame(g, build(ovr), 27, rng)
+        if (finishWatchedGame(g, build(ovr), 27).won) wins++
+      }
+      expect(Math.abs(wins / runs - p)).toBeLessThan(0.04)
+    }
+  }, 30000)
   test('força importa: time muito superior vence mais (estatístico)', () => {
     let wins = 0
     for (let i = 0; i < 200; i++) {

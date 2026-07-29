@@ -35,7 +35,9 @@ const RISK_OF = new Map<string, MomentRisk>(
 
 // prob base por risco + impacto por risco (constantes calibráveis).
 // bold tem attrW MAIOR que safe: é aposta ruim para build fraca e boa para build de
-// elite (cruzamento em ~86 de atributo efetivo) — é isso que dá "edge" ao jogo ousado.
+// elite (E[delta] safe = 0.52 + 0.048x, bold = −0.92 + 0.121x com x = atributo − 60;
+// cruzam em x ≈ 19.7, ou seja ~80 de atributo efetivo) — é isso que dá "edge" ao jogo
+// ousado.
 const RISK = {
   safe: { base: 0.42, attrW: 0.008, hit: 4, miss: -2 },
   bold: { base: 0.28, attrW: 0.011, hit: 7, miss: -4 },
@@ -46,7 +48,8 @@ const RISK = {
 // Precisa ser larga o bastante para engolir Σ deltas dos momentos: no modo de
 // probabilidade-alvo, quando (centro + S) sai da janela a probabilidade satura, e a
 // saturação é assimétrica (só a cauda ruim bate no 0) — com ±8 as finais realizavam
-// 0.555/jogo contra alvo 0.543. Com ±12 a saturação some e o alvo é exato.
+// 0.555/jogo contra alvo 0.543 e com ±12 ainda sobrava resíduo. Com ±16 o alvo é exato
+// (medido: as 4 rodadas caem a menos de 0.4 p.p. do alvo).
 export const MARGIN_NOISE = 16
 
 export function makeMoments(context: WatchedGameContext, rng: Rng): Moment[] {
@@ -117,12 +120,16 @@ export function startWatchedGame(input: {
   marginBias?: number      // penalidade fixa de margem (ex.: PLAYER_OUT_MARGIN)
 }): PendingGame {
   const { context, ourStrength, oppStrength, rng, targetWinP, expectedDelta = 0, marginBias = 0 } = input
-  const center = targetWinP === undefined
+  const center = (targetWinP === undefined
     ? (ourStrength - oppStrength) * 0.45
-    : 2 * MARGIN_NOISE * targetWinP - MARGIN_NOISE + 0.5 - expectedDelta
+    : 2 * MARGIN_NOISE * targetWinP - MARGIN_NOISE + 0.5 - expectedDelta) + marginBias
+  // Mesma equação resolvida ao contrário: a P(vitória) que este centro implica com a
+  // política padrão. No modo alvo devolve targetWinP de volta (a menos do marginBias);
+  // no jogo comum é o que a diferença de força vale. Determinístico, sem rng.
+  const winP = clamp((center + expectedDelta + MARGIN_NOISE - 0.5) / (2 * MARGIN_NOISE), 0, 1)
   // 1 call: ruído do jogo
-  const baseMargin = center + marginBias + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)
-  return { context, moments: makeMoments(context, rng), momentIndex: 0, outcomes: [], baseMargin }
+  const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)
+  return { context, moments: makeMoments(context, rng), momentIndex: 0, outcomes: [], baseMargin, winP }
 }
 
 export function applyMoment(
@@ -143,18 +150,21 @@ export function autoResolveGame(pending: PendingGame, build: Build, age: number,
 }
 
 // REGRA DO CATÁLOGO DE ICÔNICOS: jogar seguro nunca vira lenda. Um passe seguro que
-// fecha o jogo por 3 é bom basquete, não um momento eterno — todo icônico exige uma
-// jogada de arremate ousada/temerária bem-sucedida (ou, no caso de comeback/closeout45,
+// fecha o jogo por 3 é bom basquete, não um momento eterno — todo icônico DE JOGADA
+// exige um arremate ousado/temerário bem-sucedido (ou, no caso de comeback/closeout45,
 // o impacto que só o risco entrega). Sem essa regra a política auto carimbava ~12
 // icônicos por carreira e batia o cap de 100 pontos em TODA carreira, dando +100 de
 // score grátis em todas as faixas e estourando o goatRate do 99.
+// Exceção ratificada pelo dono: `sweep` é resultado de SÉRIE, não de jogada — vale para
+// qualquer política (ver state.ts).
+// Id desconhecido (save de versão anterior do catálogo) conta como safe: não vira icônico.
 export function dagger(r: Pick<WatchedGameResult, 'outcomes'>): boolean {
   const clutch = r.outcomes[2]
-  return clutch?.success === true && RISK_OF.get(clutch.optionId) !== 'safe'
+  return clutch?.success === true && (RISK_OF.get(clutch.optionId) ?? 'safe') !== 'safe'
 }
 
 export function finishWatchedGame(pending: PendingGame, build: Build, age: number): WatchedGameResult {
-  const { context, outcomes, baseMargin } = pending
+  const { context, outcomes, baseMargin, winP } = pending
   const margin = Math.round(baseMargin + outcomes.reduce((n, o) => n + o.delta, 0))
   const won = margin > 0
   const m = ageMultiplier(age, build.attributes.physical)
@@ -164,7 +174,7 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
   // em ~39% dos jogos e carimbava closeout45 (18 pts) ~8× por carreira, batendo o cap
   // de icônicos sozinho — era o que jogava o goatRate do 99 para 0.075.
   const playerPts = Math.round(clamp(
-    expPts + outcomes.reduce((n, o) => n + (o.success ? RISK[RISK_OF.get(o.optionId)!].hit : -2), 0)
+    expPts + outcomes.reduce((n, o) => n + (o.success ? RISK[RISK_OF.get(o.optionId) ?? 'safe'].hit : -2), 0)
       + baseMargin / 8,
     6, 65,
   ))
@@ -182,7 +192,7 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
   if (won && baseMargin <= -15) iconics.push('comeback')
   if (playerPts >= 55 && (context.kind === 'rivalry' || context.kind === 'seedRace' || context.kind === 'special')) iconics.push('bigNight')
 
-  return { won, margin, playerPts, outcomes, injured, choke, iconics }
+  return { won, margin, playerPts, outcomes, injured, choke, iconics, winP }
 }
 
 // menor índice em TEAMS = desempate vencedor (nunca rng em comparator)

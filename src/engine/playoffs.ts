@@ -3,12 +3,20 @@ import type { Conf, LeagueState, Rng, TeamStanding } from './types'
 
 // Deslocamento da prob de série pelo resultado do jogo pivotal (rounds 0-2), aplicado
 // CENTRADO em state.ts: seriesProb + 2×SHIFT×(venceu − seriesProb). Em seriesProb = 0.5
-// isso é o ±0.20 clássico, e E[prob deslocada] = seriesProb para qualquer seriesProb —
-// sem isso a série ganhava ~+0.04 de graça (P(vencer o pivotal) ≈ 0.6, medido na Task 7).
+// isso é o ±0.20 clássico, e E[prob deslocada] = seriesProb QUANDO P(vencer o pivotal) =
+// seriesProb — o caso da política auto. Sem centrar, a série ganhava ~+0.04 de graça
+// (P(vencer o pivotal) ≈ 0.6, medido na Task 7).
+//
+// SHIFT continua sendo knob de CALIBRAÇÃO, não decoração: é o multiplicador direto do
+// edge da política ousada nos rounds 0-2. Na forma geral
+//   E[shifted] = seriesProb + 2×SHIFT×(P(pivotal) − seriesProb),
+// então todo ponto que bold ganha no jogo pivotal vira 2×SHIFT de prob de série. Dobrar
+// SHIFT dobra o quanto jogar ousado vale nesses rounds.
 export const SERIES_SHIFT = 0.20
 // Penalidade fixa de baseMargin com o jogador lesionado, aplicada NO baseMargin (era
-// aplicada em ourStrength, valendo só ×0.45). Na janela de ruído de 16 pontos, −5 de
-// margem ≈ −31 p.p. de chance no jogo: derrota provável, não certa.
+// aplicada em ourStrength, valendo só ×0.45). Na janela de ruído de 32 pontos
+// (±MARGIN_NOISE = ±16), −5 de margem ≈ −15.6 p.p. de chance no jogo: derrota provável,
+// não certa.
 export const PLAYER_OUT_MARGIN = -5
 
 // P(vencer best-of-7 | p de vencer um jogo) — forma fechada:

@@ -155,6 +155,7 @@ export interface WatchedGameResult {
   injured: boolean           // lesão ocorreu neste jogo
   choke: boolean             // falhou clutch em jogo de eliminação
   iconics: IconicMomentId[]  // detectados neste jogo (sweep é detectado na série, fora daqui)
+  winP: number               // P(vitória) do jogo ANTES dos momentos, na política padrão
 }
 
 export interface PendingGame {
@@ -163,6 +164,7 @@ export interface PendingGame {
   momentIndex: number        // próximo momento a resolver (0-3)
   outcomes: MomentOutcome[]
   baseMargin: number         // rolado no início
+  winP: number               // P(vitória) implícita no baseMargin, com a política padrão
 }
 
 export interface KeyGame { kind: WatchedGameKind; opponentTeamId: string }

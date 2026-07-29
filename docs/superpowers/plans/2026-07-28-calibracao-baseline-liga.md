@@ -301,7 +301,7 @@ Verificação (99 overall, N=600, taxa realizada vs alvo por rodada):
 | `RISK.bold.attrW` | 0.008 | **0.011** | bold era EV-pior que safe até ~97 de atributo (não existia edge). Com 0.011 o cruzamento cai para ~86: aposta ruim para build fraca, boa para elite |
 | `MARGIN_NOISE` (era literal `±8`) | 8 | **16** | no modo alvo, quando `c + S` sai da janela a probabilidade satura — e satura **assimétrico** (só a cauda ruim bate no 0). Com ±8 as finais realizavam 0.555/jogo contra alvo 0.543; com ±16 a saturação some |
 | `PLAYER_OUT_MARGIN` | −7 aplicado em `ourStrength` (valia −3.15) | **−5 aplicado no `baseMargin`** | o comentário dizia baseMargin e o código dizia strength. Alinhado pelo efeito desejado: −5 em janela de 32 ≈ −16 p.p. no jogo — derrota provável, não certa |
-| `keyGameEffects` | `winPct ±0.01/jogo`, `ppg = net×0.1` | ambos derivados do **swing centrado** (`Σ deltas − jogos × expectedAutoDelta`): `winPct = swing×0.0005` (cap ±0.01), `ppg = swing×0.03` (cap ±0.5) | o saldo bruto dava +0.5 ppg e +0.03 de winPct **fixos** a toda build forte. Isso empurrava a corrida de MVP (decidida por ~3 pontos contra 270 NPCs): `avgMvp(99)` ia a 6.37 contra 5.88 do baseline |
+| `keyGameEffects` | `winPct ±0.01/jogo`, `ppg = net×0.1` | os dois **centrados na expectativa**: `winPct = Σ (venceu − r.winP) × 0.02` (cap ±0.04), `ppg = swing×0.03` (cap ±0.5), com `swing = Σ deltas − jogos × expectedAutoDelta` | o saldo bruto dava +0.5 ppg e +0.03 de winPct **fixos** a toda build forte. Isso empurrava a corrida de MVP (decidida por ~3 pontos contra 270 NPCs): `avgMvp(99)` ia a 6.37 contra 5.88 do baseline |
 | `playerPts` | `+7 por acerto` | `+RISK[risco].hit` (safe 4 / bold 7 / reckless 10) | três passes seguros não fazem um jogo de 45. Com bônus fixo o 99 fechava 3/3 em ~39% dos jogos e carimbava `closeout45` ~8× por carreira |
 | catálogo de icônicos | `clutch.success && won && margin ≤ 4` | idem **+ jogada de arremate não-safe** (`dagger`), inclusive no `sweep` | jogar seguro nunca vira lenda. Sem o gate a política auto batia o cap de 100 pontos de icônico em TODA carreira — +100 de score grátis em todas as faixas |
 
@@ -313,12 +313,15 @@ contagem de rng calls (`GAME_RNG_CALLS = 10`, `selectKeyGames = 3`).
 
 | overall | ringsMed (pós-A) | ringsAvg (pós-A) | mvpRate (pós-A) | legendRate (pós-A) | goatRate (pós-A) | peakPpg (pós-A) | royRate (pós-A) |
 |---|---|---|---|---|---|---|---|
-| 75 | 0 (0) | 0.54 (0.56) | 0 (0) | 0 (0) | 0 (0) | 12.7 (12.8) | 0.195 (0.245) |
-| 79 | 1 (0) | 0.80 (0.62) | 0 (0) | 0 (0) | 0 (0) | 15.6 (15.6) | 0.42 (0.455) |
-| 83 | 1 (1) | 1.00 (1.07) | 0 (0) | 0 (0) | 0 (0) | 18.3 (18.4) | 0.74 (0.785) |
-| 90 | 1 (1) | 1.49 (1.51) | 0.095 (0.13) | 0.035 (0.005) | 0 (0) | 23.3 (23.3) | 0.995 (1.0) |
-| 95 | 2 (2) | 1.71 (1.73) | 0.82 (0.855) | 0.335 (0.395) | 0 (0) | 26.7 (26.8) | 1.0 (1.0) |
-| 99 | 2 (2) | 1.91 (1.87) | 1.0 (1.0) | 0.953 (0.935) | **0.015** (0) | 29.6 (29.6) | 1.0 (1.0) |
+| 75 | 0 (0) | 0.50 (0.56) | 0 (0) | 0 (0) | 0 (0) | 12.7 (12.8) | 0.195 (0.245) |
+| 79 | 1 (0) | **0.74** (0.62) | 0 (0) | 0 (0) | 0 (0) | 15.5 (15.6) | 0.42 (0.455) |
+| 83 | 1 (1) | 0.94 (1.07) | 0 (0) | 0 (0) | 0 (0) | 18.3 (18.4) | 0.74 (0.785) |
+| 90 | 1 (1) | 1.40 (1.51) | 0.11 (0.13) | 0.035 (0.005) | 0 (0) | 23.3 (23.3) | 0.995 (1.0) |
+| 95 | 2 (2) | 1.70 (1.73) | 0.81 (0.855) | 0.345 (0.395) | 0 (0) | 26.7 (26.8) | 1.0 (1.0) |
+| 99 | 2 (2) | 1.90 (1.87) | 1.0 (1.0) | 0.953 (0.935) | **0.017** (0) | 29.6 (29.6) | 1.0 (1.0) |
+
+O drift de anéis do 79 (0.74 contra 0.62 do pós-A) foi **aceito pelo dono** — revoga
+parcialmente a decisão do ciclo A de manter o 79 sem anel mediano. Não recalibrar.
 
 Travas: 83 `ringsMedian ≤ 2` ✓ e `legendRate < 0.15` ✓; 95 `legendRate > 0.2` ✓ e
 `mvpRate > 0.5` ✓; 79 `peakPpg 12–19` ✓ e `royRate < 0.8` ✓; 99 `peakPpg 26–34` ✓ e
@@ -328,30 +331,51 @@ Travas: 83 `ringsMedian ≤ 2` ✓ e `legendRate < 0.15` ✓; 95 `legendRate > 0
 
 | | 95 auto | 95 bold | 90 auto | 90 bold |
 |---|---|---|---|---|
-| ringsAvg | 1.71 | **2.23** (1.30×) | 1.49 | **1.56** (1.05×) |
-| legendRate | 0.335 | 0.65 | 0.035 | 0.065 |
+| ringsAvg | 1.70 | **2.28** (1.34×) | 1.40 | **1.51** (1.08×) |
+| legendRate | 0.345 | 0.68 | 0.035 | 0.075 |
 | goatRate | 0 | 0.005 | 0 | 0 |
-| iconicAvg | 0 | 13.33 | 0 | 7.87 |
-| iconicPointsAvg | 0 | 99.68 | 0 | 91.24 |
-| avgMvp | 1.93 | 2.18 | 0.13 | 0.15 |
-| scoreP90 | 1209 | 1443 | 829 | 917 |
+| iconicAvg | 0.27 | 13.53 | 0.15 | 7.65 |
+| iconicPointsAvg | 2.70 | 99.60 | 1.50 | 90.74 |
+| avgMvp | 1.96 | 2.21 | 0.13 | 0.13 |
+| scoreP90 | 1217 | 1462 | 828 | 927 |
 
-Travas novas: bold `ringsAvg` entre 1.05× e 1.8× do auto ✓ (1.30× em 95, 1.05× em 90);
+Travas novas: bold `ringsAvg` entre 1.05× e 1.8× do auto ✓ (1.34× em 95, 1.08× em 90);
 bold `goatRate < 0.04` ✓ (0.005); `bold.iconicAvg > auto.iconicAvg` ✓;
-`auto.iconicPointsAvg ≤ 100` ✓ (= 0).
+`auto.iconicPointsAvg ≤ 100` ✓ (2.70) e `bold.iconicPointsAvg ≤ 100` ✓ (99.60).
+
+Os icônicos do auto vêm **só de `sweep`** (0.04–0.27 por carreira conforme a faixa):
+é o único icônico que não exige jogada ousada, porque é resultado de série e não de
+arremate. Todo o resto do catálogo é território da política de risco.
 
 ## Notas de calibração
 
 - **`goatRate(99)` e o N do teste.** A taxa real do engine **pré-Task-8** medida com
   N=600 é **0.0133** — o `0` registrado no pós-A foi amostra pequena (1/200 no bloco de
-  seeds 1000-1199). A taxa pós-Task-8 é **0.015**, estatisticamente igual. Em N=200 o
+  seeds 1000-1199). A taxa pós-Task-8 é **0.017**, estatisticamente igual. Em N=200 o
   statistic anda de 0.005 em 0.005 e reprova a trava de 2% em ~1/3 dos blocos de seed
   **nos dois engines**; por isso o teste do 99 roda com N=600. A trava e o limiar são os
   mesmos — só a medição ficou mais precisa.
-- **`SERIES_SHIFT` virou knob puramente narrativo.** Com o shift centrado, o marginal da
-  série é `seriesProb` para **qualquer** valor de SHIFT: ele só controla o quanto o jogo
-  pivotal "parece" decidir a série, não a taxa de título.
+- **`SERIES_SHIFT` é knob de calibração, não decoração** (correção de uma afirmação
+  errada da primeira versão desta seção). A forma geral do shift centrado é
+
+  ```
+  E[shifted] = seriesProb + 2×SERIES_SHIFT×(P(pivotal) − seriesProb)
+  ```
+
+  O marginal só colapsa em `seriesProb` no caso `P(pivotal) = seriesProb`, que é a
+  política **auto** — ali, de fato, o valor de SHIFT não muda a taxa de título. Fora
+  dela, SHIFT é o **multiplicador direto do edge da política ousada nos rounds 0-2**:
+  cada ponto que bold ganha no jogo pivotal vira `2×SHIFT` de probabilidade de série.
+  Dobrar SHIFT dobra o valor de jogar ousado nesses rounds (e nas finais o mesmo papel
+  cabe ao `pGame`, que já é por jogo).
 - **`bigNight` (playerPts ≥ 55) é inalcançável** — `expPts` satura em ~29 no 99 e o
   bônus máximo de momentos é 21. Branch morto; não bloqueia nenhuma trava.
 - **`fluGame`/`comeback` são exclusivos de políticas de risco** (`playHurt` é reckless;
   `comeback` exige Σ deltas > 15, fora do alcance da política safe).
+- **Vitória em jogo-chave volta a valer winPct** (fix round 1): cada jogo rende
+  `(venceu − r.winP) × 0.02`, com `r.winP` = P(vitória) que o jogo tinha antes dos
+  momentos, calculada analiticamente no `startWatchedGame` a partir da diferença de
+  força (mesma equação do `targetWinP`, resolvida ao contrário). Ganhar um jogo que
+  valia 0.3 rende +0.014; ganhar um que valia 0.8 rende +0.004; perder esse mesmo custa
+  −0.016. Cap ±0.04 na temporada. Auto fica neutro por construção; bold ganha winPct
+  por vencer jogos que não deveria.
