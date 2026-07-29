@@ -1,13 +1,14 @@
 import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
-import { t } from '../../i18n'
+import { t, type Lang } from '../../i18n'
 import { teamById } from '../../data/teams'
 import { performanceRatio } from '../../engine/season'
+import { partialMvpRace } from '../../engine/league'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
-import type { Focus } from '../../engine/types'
+import type { Focus, Headline } from '../../engine/types'
 import { OfferCard } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
-import { PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
+import { CeremonyPanel, PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
 
 interface Props {
   state: GameState
@@ -30,6 +31,27 @@ export function Season(props: Props) {
   }
 }
 
+// até 5 manchetes; drafts (podem ser muitas por ano) capados em 2.
+function headlineItems(headlines: Headline[]): Headline[] {
+  const items: Headline[] = []
+  let draftCount = 0
+  for (const h of headlines) {
+    if (h.kind === 'draft') {
+      if (draftCount >= 2) continue
+      draftCount++
+    }
+    items.push(h)
+    if (items.length >= 5) break
+  }
+  return items
+}
+
+function headlineText(lang: Lang, h: Headline): string {
+  if (h.kind === 'trade') return t(lang, 'headline.trade', { player: h.playerName, from: h.fromTeamId.toUpperCase(), to: h.toTeamId.toUpperCase() })
+  if (h.kind === 'retire') return t(lang, 'headline.retire', { player: h.playerName })
+  return t(lang, 'headline.draft', { player: h.playerName, team: h.teamId.toUpperCase() })
+}
+
 function Preseason({ state, dispatch }: Props) {
   const lang = state.lang
   const year = 2026 + state.career.seasons.length
@@ -45,6 +67,15 @@ function Preseason({ state, dispatch }: Props) {
           </div>
           <div className="kicker">{team.id.toUpperCase()}</div>
         </div>
+
+        {state.headlines.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="kicker">{t(lang, 'news.title')}</div>
+            {headlineItems(state.headlines).map((h, i) => (
+              <div key={i} className="hint">{headlineText(lang, h)}</div>
+            ))}
+          </div>
+        )}
 
         <div style={{ textAlign: 'center' }}>
           <div className="kicker kicker--gold">{t(lang, 'season.focus.kicker')}</div>
@@ -149,6 +180,13 @@ function SeasonResultView({ state, dispatch }: Props) {
                 ))}
               </div>
             )}
+
+            {outcome && (
+              <>
+                <hr className="rule" />
+                <CeremonyPanel outcome={outcome} league={state.league!} lang={lang} />
+              </>
+            )}
           </>
         )}
 
@@ -172,12 +210,21 @@ function SeasonResultView({ state, dispatch }: Props) {
 
 function TradeDecision({ state, dispatch }: Props) {
   const lang = state.lang
-  const tradeOffer = state.pendingRegular!.tradeOffer!
+  const pendingRegular = state.pendingRegular!
+  const tradeOffer = pendingRegular.tradeOffer!
   const team = teamById(tradeOffer.teamId)
+  const pending = state.pendingLeague!
+  const partialRace = partialMvpRace(state.league!, pending.lines, pending.standings, {
+    ppg: pendingRegular.ppg, rpg: pendingRegular.rpg, apg: pendingRegular.apg, teamWinPct: pending.winPct,
+  })
 
   return (
     <div className="screen">
       <div className="grain" />
+      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <StandingsTable standings={pending.standings} playerTeamId={pendingRegular.teamId} lang={lang} scale={0.5} />
+        <RacesPanel races={[partialRace]} lang={lang} scale={0.5} />
+      </div>
       <div className="modal-veil">
         <div
           className="card card--gold"

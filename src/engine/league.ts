@@ -122,6 +122,31 @@ export interface PlayerAwardInput {
 // Referência de calibração: no modelo antigo (pré-liga) o jogador levava MVP com
 // ppg>=23 && winPct>=0.6 && chance(0.25), e DPOY com defense*m>=90 && chance(0.15).
 // As constantes abaixo devem reproduzir frequências parecidas (harness Task 10).
+// Compartilhado com partialMvpRace (deadline): MESMAS constantes do MVP real.
+function mvpValue(ppg: number, apg: number, rpg: number, winPct: number): number {
+  return ppg + 1.4 * apg + 1.1 * rpg + (winPct - 0.5) * 30
+}
+
+// Corrida de MVP parcial (deadline, TradeDecision) — determinística, sem rng:
+// mesma fórmula do MVP real (mvpValue), rodando só sobre standings/lines já
+// simulados até ali (bracket/awards reais ainda não rodaram).
+export function partialMvpRace(
+  league: LeagueState, lines: NpcLine[], standings: TeamStanding[],
+  playerPartial: { ppg: number; rpg: number; apg: number; teamWinPct: number },
+): AwardRace {
+  const winPctOf = new Map(standings.map(s => [s.teamId, s.wins / 82]))
+  const lineOf = new Map(lines.map(l => [l.playerId, l]))
+  const list: RaceEntry[] = league.players.map(p => {
+    const l = lineOf.get(p.id)!
+    return { id: p.id, name: p.name, value: mvpValue(l.ppg, l.apg, l.rpg, winPctOf.get(p.teamId) ?? 0.5) }
+  })
+  list.push({
+    id: 'you', name: '',   // UI traduz id === 'you'
+    value: mvpValue(playerPartial.ppg, playerPartial.apg, playerPartial.rpg, playerPartial.teamWinPct),
+  })
+  return { award: 'mvp', top: [...list].sort((a, b) => b.value - a.value).slice(0, 5) }
+}
+
 export function simAwards(input: {
   league: LeagueState; lines: NpcLine[]; standings: TeamStanding[]
   player: PlayerAwardInput; playerName: string; rng: Rng
@@ -130,8 +155,7 @@ export function simAwards(input: {
   const winPctOf = new Map(standings.map(s => [s.teamId, s.wins / 82]))
   const lineOf = new Map(lines.map(l => [l.playerId, l]))
 
-  const mvpScore = (l: NpcLine, teamId: string) =>
-    l.ppg + 1.4 * l.apg + 1.1 * l.rpg + ((winPctOf.get(teamId) ?? 0.5) - 0.5) * 30
+  const mvpScore = (l: NpcLine, teamId: string) => mvpValue(l.ppg, l.apg, l.rpg, winPctOf.get(teamId) ?? 0.5)
   const entries = (award: RaceAward, list: RaceEntry[]): AwardRace => {
     // jitter já embutido em value; sem rng no sort
     const top = [...list].sort((a, b) => b.value - a.value).slice(0, 5)
@@ -141,7 +165,7 @@ export function simAwards(input: {
   const mvpList: RaceEntry[] = league.players.map(p => ({
     id: p.id, name: p.name, value: mvpScore(lineOf.get(p.id)!, p.teamId),
   }))
-  mvpList.push({ id: 'you', name: playerName, value: player.ppg + 1.4 * player.apg + 1.1 * player.rpg + (player.teamWinPct - 0.5) * 30 })
+  mvpList.push({ id: 'you', name: playerName, value: mvpValue(player.ppg, player.apg, player.rpg, player.teamWinPct) })
 
   const dpoyList: RaceEntry[] = league.players.map(p => ({
     id: p.id, name: p.name,

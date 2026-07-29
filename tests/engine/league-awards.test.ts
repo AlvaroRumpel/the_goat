@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
-import { simAwards, simNpcLines, simStandings } from '../../src/engine/league'
+import { partialMvpRace, simAwards, simNpcLines, simStandings } from '../../src/engine/league'
 import { initLeague } from '../../src/data/league'
 
 const league = initLeague()
@@ -59,5 +59,14 @@ describe('simAwards', () => {
     const royIds = races.find(r => r.award === 'roy')!.top.map(e => e.id)
     const rookieIds = new Set(league.players.filter(p => p.rookie).map(p => p.id))
     for (const id of royIds) expect(id === 'you' || rookieIds.has(id)).toBe(true)
+  })
+  test('partialMvpRace: determinístico e sem rng', () => {
+    const rng = createRng(50)
+    const standings = simStandings({ league, playerTeamId: 'den', playerWins: 55, rng })
+    const lines = simNpcLines(league, rng)
+    const a = partialMvpRace(league, lines, standings, { ppg: 25, rpg: 6, apg: 6, teamWinPct: 0.67 })
+    const b = partialMvpRace(league, lines, standings, { ppg: 25, rpg: 6, apg: 6, teamWinPct: 0.67 })
+    expect(a).toEqual(b)
+    expect(a.top.length).toBeGreaterThanOrEqual(3)
   })
 })
