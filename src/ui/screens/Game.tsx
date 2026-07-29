@@ -131,25 +131,49 @@ function SeriesScreen({ state, dispatch }: Props) {
   const lang = state.lang
   const pp = state.pendingPlayoffs!
   const opp = teamById(pp.opponentTeamId)
+  const gameNumber = pp.seriesUs + pp.seriesThem + 1
+  const seriesCloses = pp.seriesUs === 3
+  const seriesOver = pp.seriesThem === 3
 
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div className="grain" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, flex: 1, justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-        <div className="kicker kicker--gold">{t(lang, 'game.round.' + pp.bracket.round)}</div>
-        <div className="kicker">{opp.id.toUpperCase()}</div>
-        <div className="display goldtext" style={{ fontSize: 56 }}>{pp.seriesUs} : {pp.seriesThem}</div>
-        <div className="hint">{t(lang, 'series.title')}</div>
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'game.round.' + pp.bracket.round)}</div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'ADVANCE_GAME' })}>
-          {t(lang, 'series.next')}
-        </button>
-        <button type="button" className="btn" onClick={() => dispatch({ type: 'SKIP_SERIES' })}>
-          {t(lang, 'series.simAll')}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div className="headline" style={{ fontSize: 92, lineHeight: 0.8, letterSpacing: '-0.04em' }}>{pp.seriesUs}</div>
+          <div className="mono-label">{t(lang, 'series.label')}</div>
+          <div className="headline" style={{ fontSize: 92, lineHeight: 0.8, letterSpacing: '-0.04em', color: 'var(--red)' }}>{pp.seriesThem}</div>
+        </div>
+
+        <div className="headline" style={{ fontSize: 20, textAlign: 'center' }}>
+          {t(lang, 'series.at', { n: gameNumber, team: opp.city })}
+        </div>
+
+        <div className="mono" style={{ fontSize: 12, color: 'var(--dim)', textAlign: 'center' }}>
+          {t(lang, 'game.series', { us: pp.seriesUs, them: pp.seriesThem })}
+        </div>
+
+        <div className="strip strip--ink" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="mono-label" style={{ color: 'var(--on-ink-dim)' }}>{t(lang, 'series.stake')}</div>
+          <div className="mono" style={{ fontSize: 13, color: 'var(--accent-warm)' }}>
+            {t(lang, 'series.win')} · {t(lang, seriesCloses ? 'series.winCloseout' : 'series.winEffect')}
+          </div>
+          <div className="headline" style={{ fontSize: 16, color: 'var(--red-soft)' }}>
+            {t(lang, 'series.lose')} · {t(lang, seriesOver ? 'series.loseEffect' : 'series.loseGame')}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'ADVANCE_GAME' })}>
+            {t(lang, 'series.play', { n: gameNumber })}
+          </button>
+          <button type="button" className="btn btn--outline" onClick={() => dispatch({ type: 'SKIP_SERIES' })}>
+            {t(lang, 'series.sim', { n: gameNumber })}
+          </button>
+        </div>
       </div>
     </div>
   )

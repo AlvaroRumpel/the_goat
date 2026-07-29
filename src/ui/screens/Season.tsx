@@ -2,7 +2,7 @@ import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t, type Lang } from '../../i18n'
 import { teamById } from '../../data/teams'
-import { performanceRatio } from '../../engine/season'
+import { effectiveOverall, performanceRatio } from '../../engine/season'
 import { partialMvpRace } from '../../engine/league'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus, Headline } from '../../engine/types'
@@ -197,34 +197,65 @@ function FreeAgency({ state, dispatch }: Props) {
   const lang = state.lang
   const ratio = performanceRatio(state.career.seasons)
   const heavyDecline = ratio !== null && ratio < 0.55
+  const [selected, setSelected] = useState(0)
+  const offer = state.offers[selected]
+  const team = teamById(offer.teamId)
+  const build = state.build!
+  const showOvr = state.career.seasons.length >= 2
+  const effNow = effectiveOverall(build.overall, state.age, build.attributes.physical)
+  const effPast = showOvr ? effectiveOverall(build.overall, state.age - 2, build.attributes.physical) : 0
+  const [ovrBefore, ovrAfter] = t(lang, 'fa.ovrDrop', { n: effNow, delta: effPast - effNow }).split('↓')
 
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
       <div className="screen__glow" />
       <div className="grain" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, textAlign: 'center' }}>
-        <div className="kicker">{t(lang, 'season.age', { age: state.age })}</div>
-        <div className="display goldtext" style={{ fontSize: 42, textTransform: 'uppercase' }}>{t(lang, 'fa.title')}</div>
-        <hr className="rule" />
-        <div className="hint">{t(lang, 'fa.desc')}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="mono-label">{t(lang, 'fa.over')}</div>
+        <div className="headline" style={{ fontSize: 30 }}>
+          {t(lang, 'fa.headline').split('\n').map((line, i) => <div key={i}>{line}</div>)}
+        </div>
+        <div style={{ fontSize: 14, lineHeight: 1.5 }}>{t(lang, 'fa.desc')}</div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {state.offers.map((offer, i) => (
+          {state.offers.map((o, i) => (
             <OfferCard
-              key={offer.teamId}
-              team={teamById(offer.teamId)}
-              profile={offer.profile}
+              key={o.teamId}
+              team={teamById(o.teamId)}
+              profile={o.profile}
               lang={lang}
-              featured={i === 0}
-              onClick={() => dispatch({ type: 'CHOOSE_OFFER', offer })}
+              featured={i === selected}
+              onClick={() => setSelected(i)}
+              terms={t(lang, 'nbadraft.contractNote')}
             />
           ))}
         </div>
 
+        {showOvr && (
+          <>
+            <hr className="rule" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <div className="mono-label">{t(lang, 'fa.ovrToday')}</div>
+              <div className="mono" style={{ fontSize: 12 }}>
+                {ovrBefore}<span style={{ color: 'var(--red)' }}>↓{ovrAfter}</span>
+              </div>
+            </div>
+            <hr className="rule" />
+          </>
+        )}
+
+        <button type="button" className="btn btn--ink" onClick={() => dispatch({ type: 'CHOOSE_OFFER', offer })}>
+          {t(lang, 'nbadraft.sign', { team: `${team.city} ${team.name}` })}
+        </button>
+
         {(state.age >= 31 || heavyDecline) && (
-          <button type="button" className="btn btn--danger" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: true })}>
-            {t(lang, 'retire.stop')}
+          <button
+            type="button"
+            className="btn btn--outline btn--outline-red"
+            onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: true })}
+          >
+            {t(lang, 'fa.hang')}
           </button>
         )}
       </div>
