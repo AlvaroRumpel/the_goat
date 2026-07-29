@@ -5,6 +5,7 @@ import { AttrDraft } from './ui/screens/AttrDraft'
 import { NbaDraft } from './ui/screens/NbaDraft'
 import { Season } from './ui/screens/Season'
 import { Verdict } from './ui/screens/Verdict'
+import { Game } from './ui/screens/Game'
 
 export default function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, () => loadState() ?? initialState('pt'))
@@ -13,5 +14,6 @@ export default function App() {
   if (p === 'attrDraft' || p === 'draftDone') return <AttrDraft state={state} dispatch={dispatch} />
   if (p === 'nbaDraft') return <NbaDraft state={state} dispatch={dispatch} />
   if (p === 'verdict') return <Verdict state={state} dispatch={dispatch} />
+  if (p === 'keyGame' || p === 'playoffGame') return <Game state={state} dispatch={dispatch} />
   return <Season state={state} dispatch={dispatch} />
 }
