@@ -76,7 +76,7 @@ export function RacesPanel(props: { races: AwardRace[]; lang: Lang; scale?: numb
                   {i + 1}. {isYou ? t(lang, 'races.you') : entry.name}
                 </span>
                 <span className={isYou ? 'goldtext' : 'hint'} style={{ fontWeight: isYou ? 700 : 400 }}>
-                  {(entry.value * scale).toFixed(1)}
+                  {entry.value.toFixed(1)}
                 </span>
               </div>
             )

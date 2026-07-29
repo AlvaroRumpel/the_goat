@@ -15,7 +15,7 @@ const elitePicks: DraftPick[] = SLOT_ORDER.map(slot => ({
 }))
 const eliteBuild = resolveBuild(elitePicks)
 
-// provisório: composição equivalente ao antigo simPostseason (Task 8 liga o ranking real).
+// composição sintética sem liga: isola as partes do season.ts.
 // Mantido aqui só para os testes deste arquivo; a composição "de verdade" vive em state.ts.
 function composePostseason(input: { build: Build; regular: RegularSeasonResult; team: Team; focus: Focus; rng: Rng }): SeasonResult {
   const { build, regular, team, focus, rng } = input

@@ -91,7 +91,7 @@ describe('computeVerdict', () => {
         const choices = autoResolve(events)
         const regular = simRegularSeason({ build, age, team, profile: offer.profile, focus, rng, events, choices })
         const finalTeam = regular.tradeOffer && rng.chance(0.5) ? teamById(regular.tradeOffer.teamId) : team
-        // provisório: composição equivalente ao antigo simPostseason (Task 8 liga o ranking real)
+        // composição sintética sem liga: isola as partes do season.ts
         const { winPct, effClutch } = computeWinPct({ build, regular, strength: finalTeam.strength, focus, rng })
         const madePlayoffs = winPct > 0.5 || rng.chance(winPct)
         const clutchAdj = madePlayoffs && regular.events.includes('playoffspark') ? effClutch + 8 : effClutch

@@ -130,6 +130,7 @@ describe('calibração de dificuldade (política: até 40, foco scoring)', () =>
     const d = distribution(95)
     if (process.env.CALIBRATE) console.log('95:', JSON.stringify(d, null, 2))
     expect(d.legendRate).toBeGreaterThan(0.2)
+    expect(d.mvpRate).toBeGreaterThan(0.5)
   }, 30000)
   test('relatório completo (só com CALIBRATE=1)', () => {
     if (!process.env.CALIBRATE) return
@@ -148,5 +149,6 @@ describe('calibração de dificuldade (política: até 40, foco scoring)', () =>
     if (process.env.CALIBRATE) console.log('99:', JSON.stringify(d, null, 2))
     expect(d.peakPpg).toBeGreaterThanOrEqual(26)
     expect(d.peakPpg).toBeLessThanOrEqual(34)
+    expect(d.goatRate).toBeLessThan(0.02)
   }, 30000)
 })

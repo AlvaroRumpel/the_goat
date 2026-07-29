@@ -20,11 +20,11 @@ src/
 │   ├── draft.ts     drawPlayer/weakestSlot/malusAmount/resolveBuild (1 jogador sorteado/rodada, malus = clamp(round((v−71)/6),1,5), piso 40)
 │   ├── offers.ts    draftPickNumber, makeOffers (contender/rebuild/bigmarket)
 │   ├── events.ts    8 eventos, 2 interativos, máx 2/temporada (lesão 18%/9% c/ foco saúde, rivalidade, viral, fase fria, eventDecision)
-│   ├── season.ts    simRegularSeason + simPostseason; ageMultiplier(age, physical), performanceRatio (fórmulas = contrato)
+│   ├── season.ts    simRegularSeason + computeWinPct/computeTitleProb/finishSeason (league.ts orquestra); ageMultiplier(age, physical), performanceRatio (fórmulas = contrato)
 │   ├── league.ts    liga viva: 29 NPCs simulados/temporada — tabela, corridas de prêmio, bracket, trades, draft/aposentadoria NPC
 │   └── verdict.ts   score + tiers + GATE icônico do GOAT
 ├── data/      players.ts (~200 jogadores, 8 eras), teams.ts (30), i18n/{pt,en}.json (paridade testada)
-├── state.ts   gameReducer (11 fases, incl. eventDecision), localStorage 'thegoat:v3' (loadState normaliza saves antigos), RNG replay via rngCalls
+├── state.ts   gameReducer (11 fases, incl. eventDecision), localStorage 'thegoat:v3' (loadState descarta saves v1/v2), RNG replay via rngCalls
 ├── styles/    tokens.css + base.css (design "legado dourado" portado do claude-design)
 └── ui/        screens/{Home,AttrDraft,NbaDraft,Season,Verdict} + components (incl. LeaguePanels: Standings/Races/Ceremony/Player) + share.ts (canvas card)
 ```
@@ -69,6 +69,7 @@ npx wrangler pages deploy dist --project-name=the-goat --branch=master
 - **Mini-jogos de habilidade** em momentos-chave (era desejo original do dono, adiado no MVP)
 - EN landing/SEO, custom domain
 - Calibração fina contínua com playtest real — infra pronta: harness em `calibration.test.ts` (rodar com `CALIBRATE=1 ... --disableConsoleIntercept`), ajustar só constantes, nunca forma das fórmulas
+- Elenco do time ofertante visível nas ofertas (spec §4, não entregue no ciclo liga viva)
 
 ## Processo usado
 
