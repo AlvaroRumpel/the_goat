@@ -10,7 +10,7 @@ interface Props {
 }
 
 // placar fictício: 100 de base +/- metade da margem parcial — puramente visual.
-function scoreOf(margin: number): { us: number; them: number } {
+export function scoreOf(margin: number): { us: number; them: number } {
   return { us: Math.round(100 + margin / 2), them: Math.round(100 - margin / 2) }
 }
 
@@ -18,7 +18,7 @@ function liveMargin(pending: PendingGame): number {
   return pending.baseMargin + pending.outcomes.reduce((n, o) => n + o.delta, 0)
 }
 
-function resultScoreText(r: WatchedGameResult): string {
+export function resultScoreText(r: WatchedGameResult): string {
   const { us, them } = scoreOf(r.margin)
   return `${us}-${them}`
 }

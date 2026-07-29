@@ -16,6 +16,7 @@ export function Verdict({ state, dispatch }: Props) {
   const lang = state.lang
   const verdict = computeVerdict(state.career)
   const { totals, counts, tier, score } = verdict
+  const iconicMoments = state.career.seasons.flatMap(s => s.iconicMoments ?? [])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [copied, setCopied] = useState(false)
 
@@ -87,6 +88,21 @@ export function Verdict({ state, dispatch }: Props) {
             <span key={a} className="chip">{counts[a]}× {t(lang, 'award.' + a)}</span>
           ))}
         </div>
+
+        {iconicMoments.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+            <div className="kicker kicker--gold">{t(lang, 'verdict.moments')} · +{verdict.iconicPoints}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {iconicMoments.map((id, i) => (
+                <span key={i} className="chip">{t(lang, 'iconic.' + id)}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {verdict.chokes > 0 && (
+          <span className="chip chip--dim">{t(lang, 'verdict.chokes', { n: verdict.chokes })}</span>
+        )}
 
         <canvas
           ref={canvasRef}

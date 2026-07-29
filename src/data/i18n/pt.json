@@ -184,5 +184,18 @@
   "risk.injury": "Risco de lesão",
   "series.title": "Placar da série",
   "series.next": "Próximo jogo",
-  "series.simAll": "Simular série"
+  "series.simAll": "Simular série",
+  "iconic.finalsBuzzer": "Cesta da vitória nas Finais",
+  "iconic.seriesWinner": "Cesta que fechou a série",
+  "iconic.closeout45": "45+ pontos no fechamento",
+  "iconic.fluGame": "Jogo da gripe",
+  "iconic.comeback": "Virada heroica",
+  "iconic.bigNight": "Noite de gala",
+  "iconic.rivalWinner": "Decisivo contra o rival",
+  "iconic.sweep": "Varreu a série",
+  "keygames.title": "Jogos-chave",
+  "keygames.win": "Vitória",
+  "keygames.loss": "Derrota",
+  "verdict.moments": "Momentos",
+  "verdict.chokes": "{n}× falha no clutch"
 }

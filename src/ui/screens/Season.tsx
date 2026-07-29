@@ -9,6 +9,7 @@ import type { Focus, Headline } from '../../engine/types'
 import { OfferCard } from '../components/OfferCard'
 import { StatLine } from '../components/StatLine'
 import { CeremonyPanel, PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
+import { resultScoreText } from './Game'
 
 interface Props {
   state: GameState
@@ -179,6 +180,36 @@ function SeasonResultView({ state, dispatch }: Props) {
                   </span>
                 ))}
               </div>
+            )}
+
+            {(state.keyGameResults.length > 0 || season.iconicMoments.length > 0) && (
+              <>
+                <hr className="rule" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {state.keyGameResults.length > 0 && (
+                    <>
+                      <div className="kicker">{t(lang, 'keygames.title')}</div>
+                      {state.keyGameResults.map((r, i) => (
+                        <div
+                          key={i}
+                          className={r.won ? 'evrow' : 'evrow evrow--bad'}
+                          style={{ display: 'flex', justifyContent: 'space-between' }}
+                        >
+                          <span>{t(lang, r.won ? 'keygames.win' : 'keygames.loss')} · {resultScoreText(r)}</span>
+                          <span>{r.playerPts} {t(lang, 'stat.pts')}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {season.iconicMoments.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {season.iconicMoments.map((id, i) => (
+                        <span key={i} className="chip">{t(lang, 'iconic.' + id)}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             {outcome && (

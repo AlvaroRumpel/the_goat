@@ -184,5 +184,18 @@
   "risk.injury": "Injury risk",
   "series.title": "Series score",
   "series.next": "Next game",
-  "series.simAll": "Simulate series"
+  "series.simAll": "Simulate series",
+  "iconic.finalsBuzzer": "Finals buzzer-beater",
+  "iconic.seriesWinner": "Series-clinching shot",
+  "iconic.closeout45": "45+ points to close it out",
+  "iconic.fluGame": "Flu game",
+  "iconic.comeback": "Heroic comeback",
+  "iconic.bigNight": "Career night",
+  "iconic.rivalWinner": "Rival-slaying winner",
+  "iconic.sweep": "Swept the series",
+  "keygames.title": "Key games",
+  "keygames.win": "Win",
+  "keygames.loss": "Loss",
+  "verdict.moments": "Moments",
+  "verdict.chokes": "{n}× clutch miss"
 }
