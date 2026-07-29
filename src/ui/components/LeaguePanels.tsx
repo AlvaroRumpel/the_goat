@@ -122,6 +122,83 @@ export function CeremonyPanel(props: { outcome: LeagueSeasonOutcome; league: Lea
   )
 }
 
+// standings condensada (decisão 1 do DECISOES-C1.md): top-4 por conferência + a linha
+// do jogador se ele estiver fora do top-4.
+export function StandingsTop4(props: { standings: TeamStanding[]; playerTeamId: string; lang: Lang }) {
+  const { standings, playerTeamId, lang } = props
+  const byConf = (conf: 'east' | 'west') => standings.filter(s => s.conf === conf).sort((a, b) => b.wins - a.wins)
+
+  return (
+    <div className="result__standings">
+      {(['east', 'west'] as const).map(conf => {
+        const rows = byConf(conf)
+        const top4 = rows.slice(0, 4)
+        const playerRow = rows.find(r => r.teamId === playerTeamId)
+        const playerOutside = playerRow && !top4.includes(playerRow)
+        return (
+          <div key={conf} className="result__standings-col">
+            <div className="kicker">{t(lang, `standings.${conf}`)}</div>
+            {[...top4, ...(playerOutside ? [playerRow] : [])].map(entry => (
+              <div
+                key={entry.teamId}
+                className={entry.teamId === playerTeamId ? 'result__standings-row result__standings-row--you' : 'result__standings-row'}
+              >
+                <span>{entry.seed ?? '–'} · {entry.teamId.toUpperCase()}</span>
+                <span className={entry.teamId === playerTeamId ? 'mono' : 'mono hint'} style={entry.teamId === playerTeamId ? { color: 'var(--red)', fontWeight: 700 } : undefined}>
+                  {entry.wins}-{82 - entry.wins}
+                </span>
+              </div>
+            ))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// corrida de prêmios condensada: uma barra por award, líder cheio + 2º normalizado.
+export function RaceBars(props: { races: AwardRace[]; lang: Lang }) {
+  const { races, lang } = props
+  return (
+    <div className="result__races">
+      {races.map(race => {
+        const [leader, runnerUp] = race.top
+        const runnerPct = leader && runnerUp && leader.value > 0 ? Math.round((runnerUp.value / leader.value) * 100) : 0
+        return (
+          <div key={race.award} className="result__race">
+            <div className="mono-label">
+              {t(lang, 'award.' + race.award)} — {leader ? (leader.id === 'you' ? t(lang, 'races.you') : leader.name) : '—'}
+            </div>
+            {leader && (
+              <div className="bar"><div className="bar__fill" style={{ width: '100%' }} /></div>
+            )}
+            {runnerUp && (
+              <div className="bar"><div className="bar__fill bar__fill--dim" style={{ width: `${runnerPct}%` }} /></div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// trajetória de overall efetivo das últimas até-9 temporadas, mesma leitura do Hub.
+export function TrajectoryBars({ state }: { state: GameState }) {
+  const { build } = state
+  if (!build) return null
+  const bars = state.career.seasons.slice(-9).map(s => effectiveOverall(build.overall, s.age, build.attributes.physical))
+  return (
+    <div className="hub__traj-bars">
+      {bars.map((eov, i, arr) => {
+        const h = Math.max(4, Math.round(((eov - 40) / (99 - 40)) * 64))
+        return (
+          <div key={i} className={i === arr.length - 1 ? 'hub__traj-bar hub__traj-bar--last' : 'hub__traj-bar'} style={{ height: h }} />
+        )
+      })}
+    </div>
+  )
+}
+
 export function PlayerPanel({ state }: { state: GameState }) {
   const { lang, build, age, career } = state
   if (!build) return null

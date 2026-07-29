@@ -7,10 +7,9 @@ import { partialMvpRace } from '../../engine/league'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus, Headline } from '../../engine/types'
 import { OfferCard, TeamSymbol } from '../components/OfferCard'
-import { StatLine } from '../components/StatLine'
-import { CeremonyPanel, PlayerPanel, RacesPanel, StandingsTable } from '../components/LeaguePanels'
+import { RacesPanel, StandingsTable } from '../components/LeaguePanels'
 import { CareerBar } from '../components/CareerBar'
-import { resultScoreText } from './Game'
+import { SeasonResult } from './SeasonResult'
 
 interface Props {
   state: GameState
@@ -18,13 +17,11 @@ interface Props {
 }
 
 const FOCUSES: Focus[] = ['scoring', 'defense', 'leadership', 'health']
-const BAD_EVENTS = new Set(['injury', 'coldstreak', 'lockerroom'])
-const HIGHLIGHT_AWARDS = new Set(['ring', 'fmvp', 'mvp'])
 
 export function Season(props: Props) {
   switch (props.state.phase) {
     case 'preseason': return <Preseason {...props} />
-    case 'seasonResult': return <SeasonResultView {...props} />
+    case 'seasonResult': return <SeasonResult {...props} />
     case 'tradeDecision': return <TradeDecision {...props} />
     case 'eventDecision': return <EventDecision {...props} />
     case 'freeAgency': return <FreeAgency {...props} />
@@ -120,135 +117,6 @@ function Preseason({ state, dispatch }: Props) {
 
         <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'PLAY_SEASON', focus: selected })}>
           {t(lang, 'preseason.start')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-type ResultTab = 'result' | 'standings' | 'races' | 'you'
-const RESULT_TABS: ResultTab[] = ['result', 'standings', 'races', 'you']
-
-function SeasonResultView({ state, dispatch }: Props) {
-  const lang = state.lang
-  const [tab, setTab] = useState<ResultTab>('result')
-  const season = state.career.seasons[state.career.seasons.length - 1]
-  const outcome = state.seasonOutcome
-
-  return (
-    <div className="screen">
-      <CareerBar state={state} dispatch={dispatch} heavy />
-      <div className="grain" />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {RESULT_TABS.map(tb => (
-            <button
-              key={tb}
-              type="button"
-              className={tab === tb ? 'chip' : 'chip chip--dim'}
-              onClick={() => setTab(tb)}
-            >
-              {t(lang, 'tabs.' + tb)}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'result' && (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-              <StatLine value={String(season.ppg)} label={t(lang, 'stat.pts')} />
-              <StatLine value={String(season.rpg)} label={t(lang, 'stat.reb')} />
-              <StatLine value={String(season.apg)} label={t(lang, 'stat.ast')} />
-            </div>
-            <div className="hint">{t(lang, 'season.games', { n: season.games })}</div>
-
-            <hr className="rule" />
-
-            {season.events.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {season.events.map(ev => (
-                  <div key={ev} className={BAD_EVENTS.has(ev) ? 'evrow evrow--bad' : 'evrow'}>
-                    {t(lang, 'event.' + ev)}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {season.wonTitle ? (
-              <div className="banner" style={{ padding: 16, textAlign: 'center' }}>
-                <span className="display goldtext" style={{ fontSize: 20 }}>{t(lang, 'season.title.won')}</span>
-              </div>
-            ) : !season.madePlayoffs ? (
-              <div className="banner banner--bad" style={{ padding: 16, textAlign: 'center' }}>
-                {t(lang, 'season.playoffs.missed')}
-              </div>
-            ) : (
-              <div className="banner" style={{ padding: 16, textAlign: 'center' }}>
-                {t(lang, 'season.playoffs.made')}
-              </div>
-            )}
-
-            {season.awards.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {season.awards.map(a => (
-                  <span key={a} className={HIGHLIGHT_AWARDS.has(a) ? 'chip' : 'chip chip--dim'}>
-                    {t(lang, 'award.' + a)}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {(state.keyGameResults.length > 0 || season.iconicMoments.length > 0) && (
-              <>
-                <hr className="rule" />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {state.keyGameResults.length > 0 && (
-                    <>
-                      <div className="kicker">{t(lang, 'keygames.title')}</div>
-                      {state.keyGameResults.map((r, i) => (
-                        <div
-                          key={i}
-                          className={r.won ? 'evrow' : 'evrow evrow--bad'}
-                          style={{ display: 'flex', justifyContent: 'space-between' }}
-                        >
-                          <span>{t(lang, r.won ? 'keygames.win' : 'keygames.loss')} · {resultScoreText(r)}</span>
-                          <span>{r.playerPts} {t(lang, 'stat.pts')}</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  {season.iconicMoments.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {season.iconicMoments.map((id, i) => (
-                        <span key={i} className="chip">{t(lang, 'iconic.' + id)}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {outcome && (
-              <>
-                <hr className="rule" />
-                <CeremonyPanel outcome={outcome} league={state.league!} lang={lang} />
-              </>
-            )}
-          </>
-        )}
-
-        {tab === 'standings' && outcome && (
-          <StandingsTable standings={outcome.standings} playerTeamId={season.finalTeamId} lang={lang} />
-        )}
-
-        {tab === 'races' && outcome && (
-          <RacesPanel races={outcome.races} lang={lang} />
-        )}
-
-        {tab === 'you' && <PlayerPanel state={state} />}
-
-        <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'ADVANCE' })}>
-          {t(lang, 'season.advance')}
         </button>
       </div>
     </div>

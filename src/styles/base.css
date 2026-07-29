@@ -451,6 +451,137 @@ button {
   color: var(--ink);
 }
 
+/* season result (4b/9b) */
+.result {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding-top: 20px;
+}
+.result__banner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.result__banner-title {
+  font-size: 20px;
+}
+.result__banner-meta {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.result__left,
+.result__right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.result__stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.result__evlist,
+.result__keygames,
+.result__honors {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.result__keygame-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.result__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.result__honor-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.result__standings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.result__standings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.result__standings-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 5px 0;
+}
+.result__standings-row--you {
+  background: var(--paper-3);
+}
+.result__races {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.result__race {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.result__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.result__view-career {
+  display: none;
+}
+@media (min-width: 900px) {
+  .result {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'banner banner'
+      'left   right'
+      'footer footer';
+    column-gap: 32px;
+  }
+  .result__banner {
+    grid-area: banner;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .result__banner-title {
+    font-size: 44px;
+  }
+  .result__left {
+    grid-area: left;
+  }
+  .result__right {
+    grid-area: right;
+    border-left: 1px solid var(--rule);
+    padding-left: 32px;
+  }
+  .result__stats .stat-line__num {
+    font-size: 30px;
+  }
+  .result__footer {
+    grid-area: footer;
+    flex-direction: row;
+  }
+  .result__footer .btn--ink {
+    flex: 1;
+  }
+  .result__view-career {
+    display: flex;
+    width: 180px;
+  }
+}
+
 /* team symbols */
 .symbol {
   width: 34px;
