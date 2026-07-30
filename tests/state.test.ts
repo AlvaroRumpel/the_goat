@@ -223,6 +223,26 @@ describe('gameReducer', () => {
     expect(loaded.verdict).not.toBeNull()
     expect(loaded.verdict!.tier).toBeTruthy()
   })
+  test('aposentadoria automática por idade (age > 40) computa e guarda verdict via ADVANCE', () => {
+    let s = playToBuild()
+    s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+    let guard = 0
+    while (s.age <= 40 && s.phase !== 'verdict' && guard++ < 300) {
+      if (s.phase === 'preseason') s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'health' })
+      else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
+      else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+      else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+      else if (s.phase === 'seasonAdvance' || s.phase === 'keyGame' || s.phase === 'gameResult' || s.phase === 'playoffGame') s = skipGames(s)
+      else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+      else if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
+      else break
+    }
+    expect(s.age).toBeGreaterThan(40)
+    expect(s.phase).toBe('verdict')
+    expect(s.verdict).not.toBeNull()
+    expect(s.verdict!.score).toBeGreaterThanOrEqual(0)
+    expect(s.verdict!.tier).toBeTruthy()
+  })
 })
 
 describe('eventDecision', () => {
