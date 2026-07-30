@@ -12,8 +12,8 @@ Cerimônia (3b), aposentadoria (3c), veredito em camadas e persistido (3d) — a
 
 1. **Cerimônia não é fase nova** — sub-view local dentro de `seasonResult` (estado de componente, não do reducer): abre em cerimônia, CTA leva pro balanço já existente. Zero mudança de engine/state.
 2. **Débitos**: fecha tudo que é real. Dois itens da lista do HANDOFF já estavam corrigidos no código antes deste ciclo (ver seção 6) — corrigidos ali só de documentação. Histórico local de runs fica fora (é feature de backend, não débito de redesign).
-3. **`SeasonAdvance` ganha corrida de prêmios parcial** no lugar da linha de stats atual — reaproveita o dado de `outcome.races` já existente, sem cálculo novo de engine.
-4. **Reducer sem guards de fase** fecha via **um mapa central** `Record<Action['type'], Phase[]>` checado no topo de `reduce()` — não guarda espalhada por `case`. Ações meta (`SET_LANG`, `RESET`, `RESUME`, `OPEN_HUB`, `CLOSE_HUB`) ficam fora do mapa (válidas de qualquer fase).
+3. **`SeasonAdvance` ganha corrida de prêmios parcial** no lugar da linha de stats atual. `outcome.races` não serve — é a corrida já decidida da temporada **anterior** (só é setado no fim de `concludeSeason`), mostraria dado velho como se fosse atual. Caminho correto: duas funções puras novas em `engine/league.ts` (`projectedNpcLines`, `projectedStandings`) — mesmas fórmulas de `simNpcLines`/`simStandings` sem o termo de jitter aleatório, então **zero rng, zero impacto em replay/calibração** — alimentando o `partialMvpRace` já existente (achado no levantamento: função pronta, calibrada, pensada pro deadline, nunca chamada em lugar nenhum). Escopo só de MVP (a única corrida com fórmula determinística pronta); DPOY/ROY/MIP ficam de fora.
+4. **Reducer sem guards de fase** — releitura do reducer inteiro mostrou que quase todo `case` (19 de 21) já tem `if (state.phase !== 'x') return state` inline; só `CONFIRM_BUILD` e `CHOOSE_OFFER` não têm. Fecha adicionando a mesma guarda inline a esses dois — não um mecanismo central novo (que duplicaria o padrão já estabelecido em todo o resto do arquivo).
 
 ## 1. Cerimônia (`phase: seasonResult`, sub-view 3b)
 
@@ -41,9 +41,9 @@ Retheme completo de `RetireDecision` (`Season.tsx`):
 
 **Revelação em camadas.** Stagger puro em CSS (tier → totais → momentos, ~200ms entre camadas, fade + leve `translateY`) — não é máquina de estado nova, é timing de entrada aplicado nas seções já renderizadas de uma vez (o dado já está todo disponível em `state.verdict`).
 
-## 4. `SeasonAdvance` — corrida de prêmios parcial (upgrade aprovado)
+## 4. `SeasonAdvance` — corrida de MVP parcial (upgrade aprovado)
 
-Troca a linha de stats do walk (simplificação deliberada do C2, `# ponytail`) por uma versão condensada de `RaceBars` alimentada por `outcome.races` — mesmo dado que o balanço final usa, só que como snapshot do momento (a corrida ainda não fechou). Sem novo cálculo de engine.
+Troca a linha de stats do walk (simplificação deliberada do C2, `# ponytail`) por uma corrida de MVP projetada, determinística: `projectedNpcLines(league)` + `projectedStandings(league)` (novas, puras, sem rng) alimentam o `partialMvpRace` já existente em `engine/league.ts` (definido, calibrado, nunca usado — resgate de código morto). Renderiza no `RaceBars` já usado pelo balanço final, com o rótulo deixando claro que é projeção.
 
 ## 5. Débitos fechados
 
@@ -53,7 +53,7 @@ Troca a linha de stats do walk (simplificação deliberada do C2, `# ponytail`) 
 - **Comentário de contrato RNG incompleto** (`continuePlayoffs`, perto de `advancePlayer`) — passa a listar `advancePlayer` explicitamente entre as calls contadas do avanço de playoffs.
 - **`tests/state-calendar.test.ts` ancorado em seed 42** — comentário no topo do arquivo deixando explícito que é trava de *snapshot* (RNG call-order), não trava de *comportamento* — pra quem for debugar uma falha futura não confundir as duas coisas.
 - **`loadState` validação rasa** — troca o `typeof parsed.phase !== 'string'` por whitelist contra o union `Phase` (mesmo para `resumePhase`, quando presente). Mais um `ErrorBoundary` (classe React simples) em `main.tsx` envolvendo `<App/>`: qualquer erro de render limpa o `localStorage` e mostra uma tela mínima de "recomeçar" em vez de branco.
-- **Reducer sem guards de fase** — mapa central `Record<Action['type'], Phase[]>` (um item por `case` do switch de `reduce()`, ações meta de fora) checado antes do `switch`; mismatch → no-op (retorna `state` sem mudar). Fecha o double-dispatch teórico sem guarda espalhada por `case`.
+- **Reducer sem guards de fase** — `CONFIRM_BUILD` e `CHOOSE_OFFER` ganham a mesma guarda `if (state.phase !== ...) return state` que já existe em todos os outros `case`s do reducer (não um mecanismo novo).
 
 ## 6. Débitos já obsoletos (correção de documentação, zero código)
 
