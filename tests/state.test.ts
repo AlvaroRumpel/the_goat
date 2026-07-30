@@ -352,4 +352,14 @@ describe('hub e resume (C1)', () => {
     expect(loaded.hubOpen).toBe(false)
     expect(loaded.resumePhase).toBeNull()
   })
+  test('loadState rejeita phase fora do union Phase (whitelist)', () => {
+    const s = playToBuild()
+    localStorage.setItem('thegoat:v5', JSON.stringify({ ...s, phase: 'totallyFakePhase' }))
+    expect(loadState()).toBeNull()
+  })
+  test('loadState rejeita resumePhase fora do union Phase', () => {
+    const s = playToBuild()
+    localStorage.setItem('thegoat:v5', JSON.stringify({ ...s, phase: 'home', resumePhase: 'nonsense' }))
+    expect(loadState()).toBeNull()
+  })
 })

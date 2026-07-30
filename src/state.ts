@@ -140,6 +140,13 @@ export type Action =
 
 const STORAGE_KEY = 'thegoat:v5'
 
+const VALID_PHASES = new Set<Phase>([
+  'home', 'attrDraft', 'draftDone', 'nbaDraft', 'preseason',
+  'seasonAdvance', 'seasonResult', 'tradeDecision', 'eventDecision',
+  'keyGame', 'playoffGame', 'gameResult',
+  'freeAgency', 'retireDecision', 'verdict',
+])
+
 function makeCountedRng(seed: number, skip: number): { rng: Rng; calls: () => number } {
   const inner = createRng(seed)
   let n = 0
@@ -817,7 +824,8 @@ export function loadState(): GameState | null {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed.phase !== 'string' || typeof parsed.seed !== 'number') return null
+    if (!parsed || typeof parsed.seed !== 'number' || !VALID_PHASES.has(parsed.phase)) return null
+    if (parsed.resumePhase != null && !VALID_PHASES.has(parsed.resumePhase)) return null
     // save sem liga completa é incompatível com o replay — descarta.
     // usa a fase efetiva (resumePhase, se houver hub aberto sobre ela) — parsed.resumePhase
     // ainda não tem o default aplicado aqui, mas undefined/null caem no `?? parsed.phase` igual.
