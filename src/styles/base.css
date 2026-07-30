@@ -214,10 +214,6 @@ button {
   background: var(--ink);
   color: var(--on-ink);
 }
-.chip--dim {
-  border-color: var(--rule);
-  color: var(--dim);
-}
 
 /* stat blocks */
 .stat-line {
@@ -237,14 +233,6 @@ button {
   letter-spacing: 0.24em;
   color: var(--dim);
   text-transform: uppercase;
-}
-.totcell {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 }
 
 /* monograma */

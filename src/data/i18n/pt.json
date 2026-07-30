@@ -79,7 +79,7 @@
   "races.you": "Você",
   "races.partial": "Corrida parcial",
   "ceremony.title": "Prêmios da temporada",
-  "ceremony.champion": "{team} é campeão",
+  "ceremony.campaignLabel": "SUA CAMPANHA",
   "ceremony.mvpLabel": "MVP DA TEMPORADA",
   "ceremony.line": "{ppg} PTS · {rpg} REB · {apg} AST POR JOGO",
   "ceremony.viewBalance": "Ver o balanço",
@@ -344,5 +344,8 @@
   "advance.run": "Correr até os playoffs",
   "advance.win": "V",
   "advance.loss": "D",
-  "advance.pts": "{n} PTS"
+  "advance.pts": "{n} PTS",
+  "error.crashed": "ALGO QUEBROU",
+  "error.desc": "O save foi limpo. Recomece uma carreira nova.",
+  "error.reload": "Recarregar"
 }

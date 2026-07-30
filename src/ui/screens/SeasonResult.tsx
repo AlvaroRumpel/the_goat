@@ -73,7 +73,8 @@ export function SeasonResult({ state, dispatch }: Props) {
             ))}
           </div>
 
-          <div className="strip strip--red" style={{ width: '100%' }}>
+          <div className="strip strip--red" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'ceremony.campaignLabel')}</span>
             <span className="headline" style={{ fontSize: 17 }}>{t(lang, 'run.' + season.playoffRun)}</span>
           </div>
         </div>
@@ -138,20 +139,6 @@ export function SeasonResult({ state, dispatch }: Props) {
         </div>
 
         <div className="result__right">
-          <div className="mono-label">{t(lang, 'result.honors')}</div>
-          <div className="result__honors">
-            <div className="result__honor-row">
-              <span>{t(lang, 'result.champion')}</span>
-              <span style={{ color: 'var(--red)', fontWeight: 700 }}>{championTeam.city} {championTeam.name}</span>
-            </div>
-            {RACE_AWARDS.map(award => (
-              <div key={award} className="result__honor-row">
-                <span className="hint">{t(lang, 'award.' + award)}</span>
-                <span>{nameOf(award)}</span>
-              </div>
-            ))}
-          </div>
-
           <div className="mono-label">{t(lang, 'result.leagueTrajectory')}</div>
           <StandingsTop4 standings={outcome.standings} playerTeamId={season.finalTeamId} lang={lang} />
           <RaceBars races={outcome.races} lang={lang} />

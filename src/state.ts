@@ -139,7 +139,7 @@ export type Action =
   | { type: 'RESUME' }
   | { type: 'RESET' }
 
-const STORAGE_KEY = 'thegoat:v5'
+export const STORAGE_KEY = 'thegoat:v5'
 
 const VALID_PHASES = new Set<Phase>([
   'home', 'attrDraft', 'draftDone', 'nbaDraft', 'preseason',

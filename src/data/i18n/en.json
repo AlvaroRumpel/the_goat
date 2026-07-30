@@ -79,7 +79,7 @@
   "races.you": "You",
   "races.partial": "Partial race",
   "ceremony.title": "Season awards",
-  "ceremony.champion": "{team} are champions",
+  "ceremony.campaignLabel": "YOUR CAMPAIGN",
   "ceremony.mvpLabel": "SEASON MVP",
   "ceremony.line": "{ppg} PTS · {rpg} REB · {apg} AST PER GAME",
   "ceremony.viewBalance": "View the recap",
@@ -344,5 +344,8 @@
   "advance.run": "Run to the playoffs",
   "advance.win": "W",
   "advance.loss": "L",
-  "advance.pts": "{n} PTS"
+  "advance.pts": "{n} PTS",
+  "error.crashed": "SOMETHING BROKE",
+  "error.desc": "The save was cleared. Start a new career.",
+  "error.reload": "Reload"
 }
