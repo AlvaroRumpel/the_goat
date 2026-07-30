@@ -52,10 +52,11 @@ async function waitForServer(url, timeoutMs = 20000) {
 
 // Buttons that aren't the fixed chrome (CTA `.btn` variants, the CareerBar's
 // "CARREIRA ↗" topbar link) — i.e. the selectable row/card in whatever screen
-// is showing: attr-draft rows use a dedicated testid, but OfferCard (nba
-// draft / free agency offers) and Game's moment OptionButton render as bare
-// `<button>` with no distinguishing class, so this structural selector is the
-// stable way to grab "the first selectable option" on those screens.
+// is showing: attr-draft rows use a dedicated testid, and OfferCard (nba
+// draft / free agency offers) renders as a bare `<button>` with no
+// distinguishing class, so this structural selector is the stable way to
+// grab "the first selectable option" on those screens. (Game's moment
+// decisions use the dedicated `.game-option` class instead — see below.)
 function firstOptionBtn(page) {
   return page.locator('.screen button:not(.btn):not(.topbar__link)').first()
 }
@@ -112,10 +113,12 @@ async function main() {
     await firstOptionBtn(page).click()
     await page.locator('button.btn--ink').click()
 
-    // Phase markers (all offer/option rows across nbaDraft/freeAgency/moments
-    // are bare `<button>` with no shared class now that `.card` is gone), so
-    // phases are told apart by unique PT text/markers instead:
-    //   keyGame/playoffGame (moment open): button "Simular jogo" (game.simulate)
+    // Phase markers (all offer rows across nbaDraft/freeAgency are bare
+    // `<button>` with no shared class now that `.card` is gone), so phases
+    // are told apart by unique PT text/markers instead:
+    //   seasonAdvance (6b): text "A TEMPORADA CORRE" (advance.title)
+    //   gameResult (6a):    text "PLACAR FINAL" (result.final)
+    //   keyGame/playoffGame (moment open): button "SIMULAR O RESTO DO JOGO" (game.simulate)
     //   playoffGame (finals series screen): button /Simular o jogo/ (series.sim)
     //   preseason:      text "NO QUE VOCÊ VAI TRABALHAR" (preseason.work)
     //   freeAgency:     text "O CONTRATO ACABOU" (fa.over) — checked BEFORE the
@@ -127,6 +130,9 @@ async function main() {
     //   verdict:        <canvas> present
     let seasons = 0
     let sawSeasonResultShot = false
+    let sawSeasonAdvanceShot = false
+    let sawGameResultShot = false
+    let sawKeyGameShot = false
     let hubCheckedInModal = false
     // Season 1 plays exactly one key game by deciding all 3 moments (option clicks);
     // every other key/playoff game (rest of season 1, every later season, every
@@ -167,11 +173,58 @@ async function main() {
       // verdict is handled explicitly after.
       if (await page.locator('canvas').count() > 0) break
 
-      const simulateGameBtn = page.locator('button', { hasText: 'Simular jogo' })
+      // seasonAdvance (6b): primeira temporada assume os jogos; depois corre até os playoffs
+      if (await page.locator('text=A TEMPORADA CORRE').count() > 0) {
+        if (!sawSeasonAdvanceShot) {
+          sawSeasonAdvanceShot = true
+          await page.screenshot({ path: `${SHOTS_DIR}/08-season-advance.png` })
+          const tickerVisible = await page.locator('text=PLACARES ENTRANDO').count() > 0
+          console.log(`[assert] seasonAdvance "placares entrando" visible: ${tickerVisible}`)
+          if (!tickerVisible) exitCode = 1
+        }
+        if (seasons <= 1) {
+          log('seasonAdvance: take next key game')
+          await page.locator('button.btn--ink', { hasText: 'Assumir' }).click()
+        } else {
+          log('seasonAdvance: run to playoffs')
+          await page.locator('button.btn--outline', { hasText: 'Correr' }).click()
+        }
+        continue
+      }
+
+      // gameResult (6a): sempre presente após jogo assistido/skipado
+      if (await page.locator('text=PLACAR FINAL').count() > 0) {
+        if (!sawGameResultShot) {
+          sawGameResultShot = true
+          await page.screenshot({ path: `${SHOTS_DIR}/07-game-result.png` })
+          const decidedVisible = await page.locator('text=O QUE VOCÊ DECIDIU').count() > 0
+          console.log(`[assert] first gameResult "o que você decidiu" visible: ${decidedVisible}`)
+          if (!decidedVisible) exitCode = 1
+        }
+        log('gameResult: continue')
+        await page.locator('button.btn--ink').click()
+        continue
+      }
+
+      // keyGame/playoffGame moment screen — the simulate-rest button lives inside
+      // `.game-decision`; there's also a desktop-only `.game-desktop-hint` button
+      // with the same text (hidden <900px but still in the DOM), so the locator
+      // must be scoped or it hits Playwright's strict-mode "multiple elements" error.
+      const simulateGameBtn = page.locator('.game-decision button', { hasText: 'SIMULAR O RESTO DO JOGO' })
       if (await simulateGameBtn.count() > 0) {
+        if (!sawKeyGameShot) {
+          sawKeyGameShot = true
+          await page.screenshot({ path: `${SHOTS_DIR}/06-keygame.png` })
+          const playCount = await page.locator('.game-play').count()
+          const momentCardCount = await page.locator('.moment-card').count()
+          console.log(`[assert] first keyGame play-log lines: ${playCount} (expect >= 4)`)
+          console.log(`[assert] first keyGame moment cards: ${momentCardCount} (expect 3)`)
+          if (playCount < 4) exitCode = 1
+          if (momentCardCount !== 3) exitCode = 1
+        }
         if (decisionClicksLeft > 0) {
           log(`keyGame moment: decide (${decisionClicksLeft} left)`)
-          await firstOptionBtn(page).click()
+          await page.locator('.game-option').first().click()
           decisionClicksLeft--
         } else {
           log('keyGame/playoffGame: simulate')
@@ -266,7 +319,7 @@ async function main() {
     const momentsTitleVisible = await page.locator('.mono-label.mono-label--red', { hasText: 'Momentos' }).count() > 0
     const hasIconicMoments = await page.evaluate(() => {
       try {
-        const raw = localStorage.getItem('thegoat:v4')
+        const raw = localStorage.getItem('thegoat:v5')
         const s = raw ? JSON.parse(raw) : null
         return Boolean(s?.career?.seasons?.some(se => (se.iconicMoments ?? []).length > 0))
       } catch {
@@ -321,6 +374,36 @@ async function main() {
     )
     console.log(`[assert] desktop no horizontal scroll: ${noHScroll}`)
     if (!noHScroll) exitCode = 1
+
+    log('desktop: quick draft to first keyGame, assert .game-side (9c grid) visible')
+    await desktopPage.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    for (let i = 0; i < 8; i++) {
+      await desktopPage.locator('[data-testid="attr-row"]').first().click()
+      await desktopPage.locator('button.btn--primary').click()
+      await desktopPage.waitForTimeout(50)
+    }
+    await desktopPage.locator('button.btn--primary').click() // build confirm
+    await firstOptionBtn(desktopPage).click() // nba draft: pick first offer
+    await desktopPage.locator('button.btn--ink').click() // nba draft: confirm
+    await desktopPage.locator('button.btn--primary', { hasText: 'Começar a temporada' }).click() // preseason -> start
+    // season 1 may pause at an interactive eventDecision (modal, rng-dependent) before
+    // reaching seasonAdvance — dismiss it (safe option) if it shows up, then take the game.
+    for (let guard = 0; guard < 5; guard++) {
+      await desktopPage.waitForSelector('.screen', { timeout: 10000 })
+      if (await desktopPage.locator('.modal-veil').count() > 0) {
+        await desktopPage.locator('.modal-veil button.btn--outline').click()
+        continue
+      }
+      if (await desktopPage.locator('button.btn--ink', { hasText: 'Assumir' }).count() > 0) {
+        await desktopPage.locator('button.btn--ink', { hasText: 'Assumir' }).click()
+        break
+      }
+    }
+    await desktopPage.waitForSelector('.game-side', { timeout: 5000 })
+    const gameSideVisible = await desktopPage.locator('.game-side').isVisible()
+    console.log(`[assert] desktop .game-side visible at first keyGame: ${gameSideVisible}`)
+    if (!gameSideVisible) exitCode = 1
+
     await desktopContext.close()
 
     await browser.close()
