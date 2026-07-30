@@ -61,7 +61,6 @@ function Preseason({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="headline" style={{ fontSize: 26 }}>{team.city} {team.name}</div>
@@ -136,8 +135,7 @@ function TradeDecision({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div className="grain" />
-      <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, border: '1px solid var(--rule)', background: 'var(--paper)' }}>
         <StandingsTable standings={pending.standings} playerTeamId={pendingRegular.teamId} lang={lang} scale={0.5} />
         <RacesPanel races={[partialRace]} lang={lang} scale={0.5} />
       </div>
@@ -170,7 +168,6 @@ function EventDecision({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div className="grain" />
       <div className="modal-veil">
         <div className="crossroads-card">
           <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
@@ -212,8 +209,6 @@ function FreeAgency({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div className="screen__glow" />
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div className="mono-label">{t(lang, 'fa.over')}</div>
         <div className="headline" style={{ fontSize: 30 }}>
@@ -276,14 +271,13 @@ function RetireDecision({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div className="grain" />
       <div
         style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 16, textAlign: 'center' }}
       >
-        <div className="kicker">
+        <div className="mono-label">
           {t(lang, 'season.age', { age: state.age })} · {t(lang, 'retire.season', { n })}
         </div>
-        <div className="display" style={{ fontSize: 30 }}>{t(lang, 'retire.title')}</div>
+        <div className="headline" style={{ fontSize: 30 }}>{t(lang, 'retire.title')}</div>
         <hr className="rule" style={{ width: '80%' }} />
         <div className="hint">
           {t(lang, heavyDecline ? 'retire.desc.pressure' : 'retire.desc', { age: state.age })}
@@ -291,10 +285,10 @@ function RetireDecision({ state, dispatch }: Props) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <button type="button" className="btn btn--gold" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: false })}>
+        <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: false })}>
           {t(lang, 'retire.continue')}
         </button>
-        <button type="button" className="btn btn--danger" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: true })}>
+        <button type="button" className="btn btn--outline btn--outline-red" onClick={() => dispatch({ type: 'RETIRE_DECISION', retire: true })}>
           {t(lang, 'retire.stop')}
         </button>
       </div>

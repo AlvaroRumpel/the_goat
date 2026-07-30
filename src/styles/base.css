@@ -217,6 +217,34 @@ button {
   color: var(--dim);
 }
 
+/* stat blocks */
+.stat-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.stat-line__num {
+  font-family: var(--black);
+  font-size: 28px;
+  line-height: 1;
+}
+.stat-line__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.totcell {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* monograma */
 .mono-ring {
   width: 48px;
@@ -263,192 +291,6 @@ button {
 .evline--bad {
   border-left-color: var(--red);
   color: #7A2A22;
-}
-
-/* COMPAT — telas ainda não migradas (Game.tsx, Verdict.tsx e telas até suas tasks). REMOVER NA TASK 14. */
-.kicker {
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-.kicker--gold {
-  color: var(--red);
-}
-.display {
-  font-family: var(--black);
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
-}
-.goldtext {
-  color: var(--red);
-}
-.btn--gold {
-  background: var(--red);
-  color: var(--on-red);
-  border: none;
-  height: 54px;
-  font-family: var(--black);
-  font-size: 14px;
-  letter-spacing: 0.1em;
-}
-.btn--ghost {
-  height: 46px;
-  border: 1px solid var(--ink);
-  color: var(--ink);
-  background: none;
-  font-family: var(--mono);
-  font-size: 11px;
-}
-.btn--danger {
-  height: 46px;
-  border: 1px solid var(--red);
-  color: var(--red);
-  background: none;
-  font-family: var(--mono);
-  font-size: 11px;
-}
-.card {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-}
-.card--gold {
-  border-color: var(--red);
-}
-.banner {
-  background: var(--red);
-  color: var(--on-red);
-  padding: 11px 22px;
-}
-.banner--bad {
-  background: var(--ink);
-  color: var(--on-ink);
-}
-.evrow {
-  border-left: 2px solid var(--ink);
-  padding-left: 12px;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.evrow--bad {
-  border-left-color: var(--red);
-  color: #7A2A22;
-}
-.stat-line {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.stat-line__num {
-  font-family: var(--black);
-  font-size: 28px;
-  line-height: 1;
-}
-.stat-line__label {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.24em;
-  color: var(--dim);
-  text-transform: uppercase;
-}
-.attr-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.attr-row__name {
-  width: 82px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-.attr-row__bar {
-  flex: 1;
-  height: 8px;
-  background: var(--track);
-}
-.attr-row__fill {
-  height: 8px;
-  background: var(--ink);
-}
-.attr-row__fill--low {
-  background: var(--red);
-}
-.attr-row__val {
-  width: 34px;
-  text-align: right;
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--ink);
-}
-.attr-cell {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  padding: 12px 14px;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.attr-cell--sel {
-  background: var(--ink);
-  color: var(--on-ink);
-  border-color: var(--ink);
-}
-.attr-cell--off {
-  opacity: 0.45;
-  cursor: default;
-}
-.attr-cell__name {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.attr-cell__val {
-  font-family: var(--black);
-  font-size: 22px;
-  line-height: 1;
-}
-.attr-cell__owned {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  margin-top: 4px;
-}
-.preview-bar {
-  border-left: 2px solid var(--red);
-  padding: 12px 16px;
-  font-size: 13px;
-  line-height: 1.5;
-  text-align: left;
-}
-.totcell {
-  background: var(--paper);
-  border: 1px solid var(--rule);
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.screen__glow {
-  display: none;
-}
-.grain {
-  display: none;
-}
-.mono-ring--dim {
-  border-color: var(--dim);
-  color: var(--ink);
 }
 
 /* season result (4b/9b) */

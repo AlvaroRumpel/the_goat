@@ -43,7 +43,6 @@ export function SeasonResult({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} heavy />
-      <div className="grain" />
       <div className="result">
         <div className="strip strip--red result__banner">
           <div className="headline result__banner-title">{t(lang, 'run.' + season.playoffRun)}</div>

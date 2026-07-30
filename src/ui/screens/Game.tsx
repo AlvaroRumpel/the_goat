@@ -28,15 +28,14 @@ function OptionButton({ option, lang, onClick }: { option: MomentOption; lang: L
   const attrLabel = option.attr2
     ? `${t(lang, 'slot.' + option.attr)} + ${t(lang, 'slot.' + option.attr2)}`
     : t(lang, 'slot.' + option.attr)
-  const titleClass = option.risk === 'bold' ? 'display goldtext' : 'display'
+  const titleClass = option.risk === 'bold' ? 'headline headline--red' : 'headline'
   return (
     <button
       type="button"
-      className="card"
-      style={{ padding: 14, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4 }}
+      style={{ padding: 14, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4, border: '1px solid var(--rule)', background: 'var(--paper)' }}
       onClick={onClick}
     >
-      <span className={titleClass} style={{ fontSize: 16, color: option.risk === 'reckless' ? 'var(--danger)' : undefined }}>
+      <span className={titleClass} style={{ fontSize: 16, color: option.risk === 'reckless' ? 'var(--red)' : undefined }}>
         {t(lang, 'option.' + option.id)}
       </span>
       <span className="hint" style={{ textAlign: 'left' }}>
@@ -56,8 +55,8 @@ function GameHeader({ state }: { state: GameState }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <div className="kicker">{t(lang, 'game.kind.' + pg.context.kind)}</div>
-          <div className="kicker">{opp.id.toUpperCase()}</div>
+          <div className="mono-label">{t(lang, 'game.kind.' + pg.context.kind)}</div>
+          <div className="mono-label">{opp.id.toUpperCase()}</div>
         </div>
         {lastResult && <div className="hint">{t(lang, 'game.lastResult', { score: resultScoreText(lastResult) })}</div>}
       </div>
@@ -69,8 +68,8 @@ function GameHeader({ state }: { state: GameState }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <div className="kicker kicker--gold">{t(lang, 'game.round.' + pp.bracket.round)}</div>
-        <div className="kicker">{teamById(pp.opponentTeamId).id.toUpperCase()}</div>
+        <div className="mono-label mono-label--red">{t(lang, 'game.round.' + pp.bracket.round)}</div>
+        <div className="mono-label">{teamById(pp.opponentTeamId).id.toUpperCase()}</div>
       </div>
       {finals && (
         <div className="hint">
@@ -91,22 +90,21 @@ function MomentPanel({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <GameHeader state={state} />
 
         <div style={{ textAlign: 'center' }}>
-          <div className="display goldtext" style={{ fontSize: 40 }}>{us} : {them}</div>
+          <div className="headline headline--red" style={{ fontSize: 40 }}>{us} : {them}</div>
         </div>
 
         {lastOutcome && (
-          <div className={lastOutcome.success ? 'banner' : 'banner banner--bad'} style={{ padding: 12, textAlign: 'center' }}>
+          <div className={lastOutcome.success ? 'strip strip--red' : 'strip strip--ink'} style={{ margin: 0, padding: 12, textAlign: 'center' }}>
             {t(lang, lastOutcome.success ? 'moment.success' : 'moment.fail')}
           </div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="display" style={{ fontSize: 18, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
+          <div className="headline" style={{ fontSize: 18, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {moment.options.map(option => (
               <OptionButton
@@ -138,7 +136,6 @@ function SeriesScreen({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} heavy />
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'game.round.' + pp.bracket.round)}</div>
 

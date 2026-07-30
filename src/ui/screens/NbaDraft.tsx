@@ -17,8 +17,6 @@ export function NbaDraft({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
-      <div className="screen__glow" />
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div className="mono-label">{t(lang, 'nbadraft.called')}</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>

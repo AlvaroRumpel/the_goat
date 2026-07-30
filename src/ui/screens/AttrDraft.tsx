@@ -46,7 +46,6 @@ export function AttrDraft({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
           <div className="mono-label">{t(lang, 'draft.round', { n: state.draftRound + 1 })}</div>
@@ -182,7 +181,6 @@ function DraftDone({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
           <div className="mono-label">{t(lang, 'draft.done.headline')}</div>

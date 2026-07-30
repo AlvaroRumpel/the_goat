@@ -14,9 +14,6 @@ export function Home({ state, dispatch }: Props) {
 
   return (
     <div className="screen">
-      <div className="screen__glow" />
-      <div className="grain" />
-
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 18 }}>
         <span className="mono-label">{t(lang, 'home.edition')}</span>
         <div style={{ display: 'flex', gap: 1 }}>

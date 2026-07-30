@@ -54,32 +54,30 @@ export function Verdict({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} heavy />
-      <div className="screen__glow" style={{ transform: 'translateX(-50%) scale(1.4)' }} />
-      <div className="grain" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center' }}>
-        <div className="kicker">{t(lang, 'verdict.title')}</div>
-        <div className="display goldtext" style={{ fontSize: 64 }}>{t(lang, 'tier.' + tier)}</div>
+        <div className="mono-label">{t(lang, 'verdict.title')}</div>
+        <div className="headline headline--red" style={{ fontSize: 64 }}>{t(lang, 'tier.' + tier)}</div>
         <div className="hint">{t(lang, 'verdict.score', { n: score })}</div>
         <hr className="rule" style={{ width: '100%' }} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%' }}>
           <div className="totcell">
             <span className="stat-line__label">{t(lang, 'verdict.points')}</span>
-            <span className="display" style={{ fontSize: 24 }}>{totals.points}</span>
+            <span className="headline" style={{ fontSize: 24 }}>{totals.points}</span>
           </div>
           <div className="totcell">
             <span className="stat-line__label">{t(lang, 'verdict.seasons2')}</span>
-            <span className="display" style={{ fontSize: 24 }}>{totals.seasons}</span>
+            <span className="headline" style={{ fontSize: 24 }}>{totals.seasons}</span>
           </div>
           <div className="totcell">
             <span className="stat-line__label">{t(lang, 'verdict.rings')}</span>
-            <span className="display" style={{ fontSize: 24, color: counts.ring > 0 ? 'var(--gold-hi)' : undefined }}>
+            <span className="headline" style={{ fontSize: 24, color: counts.ring > 0 ? 'var(--red)' : undefined }}>
               {counts.ring}
             </span>
           </div>
           <div className="totcell">
             <span className="stat-line__label">{t(lang, 'verdict.mvps')}</span>
-            <span className="display" style={{ fontSize: 24, color: counts.mvp > 0 ? 'var(--gold-hi)' : undefined }}>
+            <span className="headline" style={{ fontSize: 24, color: counts.mvp > 0 ? 'var(--red)' : undefined }}>
               {counts.mvp}
             </span>
           </div>
@@ -93,7 +91,7 @@ export function Verdict({ state, dispatch }: Props) {
 
         {iconicMoments.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-            <div className="kicker kicker--gold">{t(lang, 'verdict.moments')} · +{verdict.iconicPoints}</div>
+            <div className="mono-label mono-label--red">{t(lang, 'verdict.moments')} · +{verdict.iconicPoints}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
               {iconicMoments.map((id, i) => (
                 <span key={i} className="chip">{t(lang, 'iconic.' + id)}</span>
@@ -110,11 +108,11 @@ export function Verdict({ state, dispatch }: Props) {
           ref={canvasRef}
           style={{
             width: '100%', maxWidth: 280, aspectRatio: '1080 / 1350',
-            border: '1px solid var(--border-gold)', borderRadius: 8,
+            border: '1px solid var(--red)', borderRadius: 8,
           }}
         />
 
-        <button type="button" className="btn btn--gold" style={{ width: '100%' }} onClick={handleShare}>
+        <button type="button" className="btn btn--primary" style={{ width: '100%' }} onClick={handleShare}>
           {t(lang, copied ? 'share.copied' : 'share.button')}
         </button>
         <button type="button" className="btn" style={{ width: '100%' }} onClick={() => dispatch({ type: 'RESET' })}>
