@@ -50,6 +50,16 @@ async function waitForServer(url, timeoutMs = 20000) {
   throw new Error(`dev server did not come up at ${url} within ${timeoutMs}ms`)
 }
 
+// Buttons that aren't the fixed chrome (CTA `.btn` variants, the CareerBar's
+// "CARREIRA ↗" topbar link) — i.e. the selectable row/card in whatever screen
+// is showing: attr-draft rows use a dedicated testid, but OfferCard (nba
+// draft / free agency offers) and Game's moment OptionButton render as bare
+// `<button>` with no distinguishing class, so this structural selector is the
+// stable way to grab "the first selectable option" on those screens.
+function firstOptionBtn(page) {
+  return page.locator('.screen button:not(.btn):not(.topbar__link)').first()
+}
+
 async function main() {
   const consoleErrors = []
   let server
@@ -83,42 +93,43 @@ async function main() {
     log('home')
     await page.screenshot({ path: `${SHOTS_DIR}/01-home.png` })
 
-    // Home has exactly one gold CTA button ("Começar carreira" / "Start career")
-    await page.locator('button.btn--gold').click()
+    // Home's CTA is now `.btn--ink` ("Nova carreira") — `.btn--gold` is gone.
+    await page.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
 
     log('draft: 8 steals')
     for (let i = 0; i < 8; i++) {
-      await page.locator('button.attr-cell:not(.attr-cell--off)').first().click()
-      await page.locator('button.btn--gold').click()
+      await page.locator('[data-testid="attr-row"]').first().click()
+      await page.locator('button.btn--primary').click()
       await page.waitForTimeout(50)
     }
     await page.screenshot({ path: `${SHOTS_DIR}/02-draft.png` })
 
     log('build confirm')
-    await page.locator('button.btn--gold').click()
+    await page.locator('button.btn--primary').click()
     await page.screenshot({ path: `${SHOTS_DIR}/03-build.png` })
 
-    log('nba draft: choose first offer')
-    await page.locator('.card').first().click()
+    log('nba draft: select first offer, confirm')
+    await firstOptionBtn(page).click()
+    await page.locator('button.btn--ink').click()
 
-    // Phase markers (both preseason focus buttons, OfferCard offers, AND moment
-    // options in Game.tsx all render as a bare `<button class="card">`, so the
-    // moment/series screens are told apart by their unique PT button text FIRST —
-    // checked before the generic button.card COUNT branches below, which stay
-    // language-agnostic across pt/en for the phases that don't have text markers:
-    //   keyGame/playoffGame (moment open): button "Simular jogo" (game.simulate) present
-    //   playoffGame (finals series screen): button "Simular série" (series.simAll) present
-    //   preseason:      4x button.card (focus choices)
-    //   freeAgency:     N offers as button.card (N < 4, from makeOffers)
+    // Phase markers (all offer/option rows across nbaDraft/freeAgency/moments
+    // are bare `<button>` with no shared class now that `.card` is gone), so
+    // phases are told apart by unique PT text/markers instead:
+    //   keyGame/playoffGame (moment open): button "Simular jogo" (game.simulate)
+    //   playoffGame (finals series screen): button /Simular o jogo/ (series.sim)
+    //   preseason:      text "NO QUE VOCÊ VAI TRABALHAR" (preseason.work)
+    //   freeAgency:     text "O CONTRATO ACABOU" (fa.over) — checked BEFORE the
+    //                   generic retire-button branch, since freeAgency can also
+    //                   show its own `.btn--outline-red` "hang it up" button
     //   tradeDecision/eventDecision: .modal-veil present
-    //   retireDecision: button.btn--danger present
-    //   seasonResult:   single button.btn--gold, no button.card
-    //   verdict:        none of the above
+    //   retireDecision: button.btn--outline-red present (pure retire screen)
+    //   seasonResult:   text "A TEMPORADA EM CINCO LINHAS" (result.lines)
+    //   verdict:        <canvas> present
     let seasons = 0
     let sawSeasonResultShot = false
     // Season 1 plays exactly one key game by deciding all 3 moments (option clicks);
     // every other key/playoff game (rest of season 1, every later season, every
-    // playoff round, finals) is skipped via "Simular jogo" / "Simular série".
+    // playoff round, finals) is skipped via "Simular jogo" / "Simular o jogo {n}".
     let decisionClicksLeft = 3
     const MAX_SEASONS = 40 // hard safety cap against infinite loop
     let iterations = 0
@@ -129,26 +140,26 @@ async function main() {
         exitCode = 1
         break
       }
-      await page.waitForSelector('.card, .modal-veil, button.btn--gold, button.btn--danger', { timeout: 10000 })
+      await page.waitForSelector('.screen', { timeout: 10000 })
 
       if (await page.locator('.modal-veil').count() > 0) {
         log('modal decision (trade/event): choose safe option')
-        // reject = plain "btn" (not btn--gold) inside the modal
-        await page.locator('.modal-veil button.btn:not(.btn--gold)').click()
+        // reject/stay = the `.btn--outline` inside the crossroads card
+        await page.locator('.modal-veil button.btn--outline').click()
         continue
       }
 
-      // Verdict also has a lone button.btn--gold (the share button), which would
-      // otherwise collide with the seasonResult branch below. Its <canvas> share
-      // card is the one marker unique to it — bail out of the loop, verdict is
-      // handled explicitly after.
+      // Verdict also has a lone `.btn--primary` (the share button), which would
+      // otherwise collide with other primary-CTA branches below. Its <canvas>
+      // share card is the one marker unique to it — bail out of the loop,
+      // verdict is handled explicitly after.
       if (await page.locator('canvas').count() > 0) break
 
-      const simulateGameBtn = page.locator('button.btn', { hasText: 'Simular jogo' })
+      const simulateGameBtn = page.locator('button', { hasText: 'Simular jogo' })
       if (await simulateGameBtn.count() > 0) {
         if (decisionClicksLeft > 0) {
           log(`keyGame moment: decide (${decisionClicksLeft} left)`)
-          await page.locator('button.card').first().click()
+          await firstOptionBtn(page).click()
           decisionClicksLeft--
         } else {
           log('keyGame/playoffGame: simulate')
@@ -157,74 +168,66 @@ async function main() {
         continue
       }
 
-      const simulateSeriesBtn = page.locator('button.btn', { hasText: 'Simular série' })
+      const simulateSeriesBtn = page.locator('button', { hasText: /Simular o jogo/ })
       if (await simulateSeriesBtn.count() > 0) {
         log('finals series screen: simulate rest of series')
         await simulateSeriesBtn.click()
         continue
       }
 
-      const cardBtnCount = await page.locator('button.card').count()
-      if (cardBtnCount === 4) {
+      if (await page.locator('text=NO QUE VOCÊ VAI TRABALHAR').count() > 0) {
         if (seasons === 1) {
           // Preseason for year 2: first offseason with league history behind it —
           // trades happen 2-4x/year so headlines are guaranteed present here.
           log('preseason (season 2): check league headlines present')
-          const newsVisible = await page.locator('.kicker', { hasText: 'Notícias da liga' }).count() > 0
+          const newsVisible = await page.locator('.mono-label', { hasText: 'A LIGA HOJE' }).count() > 0
           console.log(`[assert] year 2 headlines visible: ${newsVisible}`)
           if (!newsVisible) exitCode = 1
         }
-        log(`preseason (season ${seasons + 1}): choose focus scoring`)
-        await page.locator('button.card').first().click()
+        log(`preseason (season ${seasons + 1}): default focus, start season`)
+        await page.locator('button.btn--primary', { hasText: 'Começar a temporada' }).click()
         seasons++
         continue
       }
-      if (cardBtnCount > 0) {
-        log('freeAgency: choose first offer')
-        await page.locator('button.card').first().click()
+
+      if (await page.locator('text=O CONTRATO ACABOU').count() > 0) {
+        log('freeAgency: choose first offer, sign')
+        await firstOptionBtn(page).click()
+        await page.locator('button.btn--ink').click()
         continue
       }
 
-      if (await page.locator('button.btn--danger').count() > 0) {
+      if (await page.locator('button.btn--outline-red').count() > 0) {
         log('retireDecision: retire now')
-        await page.locator('button.btn--danger').click()
+        await page.locator('button.btn--outline-red').click()
         break
       }
 
-      if (await page.locator('button.btn--gold').count() > 0) {
+      if (await page.locator('text=A TEMPORADA EM CINCO LINHAS').count() > 0) {
         log(`seasonResult (season ${seasons}): advance`)
         if (!sawSeasonResultShot) {
           await page.screenshot({ path: `${SHOTS_DIR}/04-season-result.png` })
           sawSeasonResultShot = true
 
-          log('seasonResult: check Jogos-chave block (Resultado tab, default)')
-          const keyGamesVisible = await page.locator('.kicker', { hasText: 'Jogos-chave' }).count() > 0
-          console.log(`[assert] keygames block visible: ${keyGamesVisible}`)
-          if (!keyGamesVisible) exitCode = 1
+          log('seasonResult: check balanço-único asserts')
+          const livedVisible = await page.locator('text=JOGOS QUE VOCÊ VIVEU').count() > 0
+          console.log(`[assert] "jogos que você viveu" visible: ${livedVisible}`)
+          if (!livedVisible) exitCode = 1
 
-          log('seasonResult: check Tabela/Corridas/Você tabs')
-          await page.locator('.chip', { hasText: 'Tabela' }).click()
-          await page.waitForTimeout(50)
-          const standingsRows = await page.locator('span', { hasText: /^\d+-\d+$/ }).count()
-          console.log(`[assert] standings rows: ${standingsRows} (expect 30)`)
+          const trajectoryVisible = await page.locator('text=LIGA E TRAJETÓRIA').isVisible()
+          console.log(`[assert] "liga e trajetória" visible: ${trajectoryVisible}`)
+          if (!trajectoryVisible) exitCode = 1
+
+          log('seasonResult: open hub via CareerBar "CARREIRA ↗", check 30 standings rows, close')
+          await page.locator('.topbar__link', { hasText: 'CARREIRA' }).click()
+          await page.waitForSelector('.hub', { timeout: 5000 })
+          const standingsRows = await page.locator('.hub span', { hasText: /^\d+-\d+$/ }).count()
+          console.log(`[assert] hub standings rows: ${standingsRows} (expect 30)`)
           if (standingsRows !== 30) exitCode = 1
-
-          await page.locator('.chip', { hasText: 'Corridas' }).click()
-          await page.waitForTimeout(50)
-          const raceBlocks = await page.locator('.card').count()
-          console.log(`[assert] race blocks: ${raceBlocks} (expect 4)`)
-          if (raceBlocks !== 4) exitCode = 1
-
-          await page.locator('.chip', { hasText: 'Você' }).click()
-          await page.waitForTimeout(50)
-          const ovrVisible = await page.locator('text=OVR atual').first().isVisible()
-          console.log(`[assert] OVR visible on Você tab: ${ovrVisible}`)
-          if (!ovrVisible) exitCode = 1
-
-          await page.locator('.chip', { hasText: 'Resultado' }).click()
+          await page.locator('.hub .topbar__link', { hasText: 'FECHAR' }).click()
           await page.waitForTimeout(50)
         }
-        await page.locator('button.btn--gold').click()
+        await page.locator('button.btn--ink', { hasText: 'Avançar' }).click()
         continue
       }
 
@@ -237,8 +240,8 @@ async function main() {
     await page.waitForTimeout(300) // let canvas draw
     await page.screenshot({ path: `${SHOTS_DIR}/05-verdict.png` })
 
-    const tierVisible = await page.locator('.display.goldtext').first().isVisible()
-    const shareBtn = page.locator('button.btn--gold', { hasText: /./ }).last()
+    const tierVisible = await page.locator('.headline.headline--red').first().isVisible()
+    const shareBtn = page.locator('button.btn--primary')
     const shareVisible = await shareBtn.isVisible()
     console.log(`[assert] tier text visible: ${tierVisible}`)
     console.log(`[assert] share button visible: ${shareVisible}`)
@@ -248,7 +251,7 @@ async function main() {
     // iconic moment — the safe policy played here rarely triggers one (sweep is the
     // one exception), so absence alone isn't a failure; only assert it's visible when
     // ground truth (the save in localStorage) says the career actually has one.
-    const momentsTitleVisible = await page.locator('.kicker.kicker--gold', { hasText: 'Momentos' }).count() > 0
+    const momentsTitleVisible = await page.locator('.mono-label.mono-label--red', { hasText: 'Momentos' }).count() > 0
     const hasIconicMoments = await page.evaluate(() => {
       try {
         const raw = localStorage.getItem('thegoat:v4')
@@ -265,11 +268,28 @@ async function main() {
     await page.waitForTimeout(300)
 
     log('play again')
-    await page.locator('button.btn:not(.btn--gold)').last().click()
+    await page.locator('button', { hasText: 'Jogar de novo' }).click()
     await page.waitForTimeout(300)
-    const backAtHome = await page.locator('button.btn--gold').first().isVisible()
+    const backAtHome = await page.locator('button.btn--ink', { hasText: 'Nova carreira' }).first().isVisible()
     console.log(`[assert] back at home after play-again: ${backAtHome}`)
     if (!backAtHome) exitCode = 1
+
+    log('resume flow: start a career, steal once, reload, resume')
+    await page.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    await page.locator('[data-testid="attr-row"]').first().click()
+    await page.locator('button.btn--primary').click()
+    await page.reload()
+    await page.waitForTimeout(200)
+    const inProgressVisible = await page.locator('text=CARREIRA EM ANDAMENTO').isVisible()
+    const resumeVisible = await page.locator('text=RETOMAR').isVisible()
+    console.log(`[assert] "carreira em andamento" visible after reload: ${inProgressVisible}`)
+    console.log(`[assert] "retomar" visible after reload: ${resumeVisible}`)
+    if (!inProgressVisible || !resumeVisible) exitCode = 1
+    await page.locator('text=RETOMAR').click()
+    await page.waitForTimeout(200)
+    const backAtDraft = await page.locator('[data-testid="attr-row"]').first().isVisible()
+    console.log(`[assert] resumed back into draft: ${backAtDraft}`)
+    if (!backAtDraft) exitCode = 1
 
     await context.close()
 
