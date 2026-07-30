@@ -360,6 +360,8 @@ function closeRegularSeason(state: GameState, rng: Rng, calls: () => number): Ga
     games: Math.max(40, regular0.games - injuredCount * 10),
     ppg: clamp(Math.round((regular0.ppg + ppgDelta) * 10) / 10, 4, 38),
   }
+  // invariante do registro literal — ticker curto = bug de calendário, nunca prosseguir calado
+  if (cal.ticker.length !== 82) throw new Error('calendário incompleto: ' + cal.ticker.length)
   const wins = cal.ticker.filter(g => g.won).length
   const winPct = wins / 82
   const standings = simStandings({ league: state.league!, playerTeamId: finalOffer.teamId, playerWins: wins, rng })

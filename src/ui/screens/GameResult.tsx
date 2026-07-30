@@ -12,7 +12,6 @@ export function GameResult({ state, dispatch }: Props) {
   const lang = state.lang
   const { context, result, skipped } = state.lastGame!
   const pp = state.pendingPlayoffs
-  const finalsDecided = pp !== null && pp.bracket.round === 3 && (pp.seriesUs === 4 || pp.seriesThem === 4)
   const champion = pp !== null && pp.bracket.round === 3 && pp.seriesUs === 4
   const { us, them } = scoreOf(result.margin)
   const headlineKey = champion ? 'result.headline.champion' : result.won ? 'result.headline.win' : 'result.headline.loss'
@@ -65,7 +64,7 @@ export function GameResult({ state, dispatch }: Props) {
         )}
 
         <button type="button" className="btn btn--ink" style={{ marginTop: 'auto' }} onClick={() => dispatch({ type: 'CONTINUE' })}>
-          {t(lang, finalsDecided ? 'result.ceremony' : 'result.continue')}
+          {t(lang, champion ? 'result.ceremony' : 'result.continue')}
         </button>
       </div>
     </div>

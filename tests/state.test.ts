@@ -170,7 +170,12 @@ describe('gameReducer', () => {
       ...s,
       phase: 'tradeDecision',
       calendar: {
-        slots: [], nextSlot: 0, deadlineDone: false, ticker: [], played: 55, p: 0.5, effClutch: 75, autoRun: false,
+        slots: [], nextSlot: 0, deadlineDone: false, played: 55, p: 0.5, effClutch: 75, autoRun: false,
+        // 55 jogos já disputados (games 1..55) — precisa bater com `played` pra não
+        // disparar a invariante do registro literal (ticker.length !== 82) em closeRegularSeason
+        ticker: Array.from({ length: 55 }, (_, i) => (
+          { gameIndex: i + 1, won: i % 2 === 0, ourScore: 100, oppScore: 95, playerPts: 20, opponentTeamId: 'lal' }
+        )),
       },
       pendingRegular: {
         age: s.age, teamId: s.currentOffer!.teamId, games: 82, ppg: 20, rpg: 5, apg: 5,

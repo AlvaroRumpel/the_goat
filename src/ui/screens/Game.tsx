@@ -11,6 +11,8 @@ interface Props {
   dispatch: Dispatch<Action>
 }
 
+const MOMENT_CLOCK: Record<string, string> = { q2tactic: '2Q 01:30', q4pressure: '4Q 04:42', clutch: '4Q 00:21' }
+
 function liveMargin(pending: PendingGame): number {
   return pending.baseMargin + pending.outcomes.reduce((n, o) => n + o.delta, 0)
 }
@@ -61,19 +63,18 @@ function MomentPanel({ state, dispatch }: Props) {
   const { us, them } = scoreOf(liveMargin(pending))
   const ourId = (state.currentOffer?.teamId ?? state.pendingPlayoffs?.finalOffer.teamId ?? '').toUpperCase()
   const oppId = pending.context.opponentTeamId.toUpperCase()
-  const clock = pending.log.filter(e => e.fromDecision).length < 3
-    ? pending.log[pending.log.length - 1]?.clock ?? '1Q 12:00'
-    : '4Q 00:00'
+  const clock = pending.momentIndex < 3 ? MOMENT_CLOCK[pending.moments[pending.momentIndex].id] : '4Q 00:00'
 
   // teclas 1/2/3 (9c): escolhem a opção do momento aberto
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (state.hubOpen) return
       const i = ['1', '2', '3'].indexOf(e.key)
       if (i >= 0 && moment.options[i]) dispatch({ type: 'DECIDE_MOMENT', optionId: moment.options[i].id })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [moment, dispatch])
+  }, [moment, dispatch, state.hubOpen])
 
   return (
     <div className="screen">
@@ -100,10 +101,9 @@ function MomentPanel({ state, dispatch }: Props) {
           })}
         </div>
 
-        <button type="button" onClick={() => dispatch({ type: 'SKIP_GAME' })}
-          className="game-desktop-hint mono-label">
-          {t(lang, 'game.simulate')} · {t(lang, 'game.keys')}
-        </button>
+        <div className="game-desktop-hint mono-label">
+          {t(lang, 'game.keys')}
+        </div>
 
         <div className="game-side">
           <div className="game-moments">
