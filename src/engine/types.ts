@@ -151,6 +151,8 @@ export interface WatchedGameResult {
   won: boolean
   margin: number             // >0 = vitória
   playerPts: number
+  reb: number
+  ast: number
   outcomes: MomentOutcome[]
   injured: boolean           // lesão ocorreu neste jogo
   choke: boolean             // falhou clutch em jogo de eliminação
@@ -165,9 +167,34 @@ export interface PendingGame {
   outcomes: MomentOutcome[]
   baseMargin: number         // rolado no início
   winP: number               // P(vitória) implícita no baseMargin, com a política padrão
+  log: PlayEntry[]
 }
 
 export interface KeyGame { kind: WatchedGameKind; opponentTeamId: string }
+
+export interface CalendarSlot { gameIndex: number; keyGame: KeyGame }
+
+// entrada do walk da temporada (ticker do 6b); keyGame presente quando o jogo foi um
+// jogo-chave real (resultado literal no registro)
+export interface TickerGame {
+  gameIndex: number          // 1..82
+  won: boolean
+  ourScore: number
+  oppScore: number
+  playerPts: number
+  opponentTeamId: string
+  keyGame?: WatchedGameKind
+}
+
+// linha da coluna de lances (8a); `at` = minuto do jogo (0-48), ordena a coluna
+export interface PlayEntry {
+  at: number
+  clock: string              // '3Q 08:22'
+  textKey: string            // 'play.ambient.2.v1' | 'play.clutchThree.hit.v0' ...
+  params: Record<string, string | number>
+  score: { us: number; them: number }
+  fromDecision?: true
+}
 
 export interface SeasonResult extends Omit<RegularSeasonResult, 'tradeOffer'> {
   finalTeamId: string        // differs from teamId if trade accepted

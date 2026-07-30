@@ -129,7 +129,7 @@ export function startWatchedGame(input: {
   const winP = clamp((center + expectedDelta + MARGIN_NOISE - 0.5) / (2 * MARGIN_NOISE), 0, 1)
   // 1 call: ruído do jogo
   const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)
-  return { context, moments: makeMoments(context, rng), momentIndex: 0, outcomes: [], baseMargin, winP }
+  return { context, moments: makeMoments(context, rng), momentIndex: 0, outcomes: [], baseMargin, winP, log: [] }
 }
 
 export function applyMoment(
@@ -192,7 +192,7 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
   if (won && baseMargin <= -15) iconics.push('comeback')
   if (playerPts >= 55 && (context.kind === 'rivalry' || context.kind === 'seedRace' || context.kind === 'special')) iconics.push('bigNight')
 
-  return { won, margin, playerPts, outcomes, injured, choke, iconics, winP }
+  return { won, margin, playerPts, reb: 0, ast: 0, outcomes, injured, choke, iconics, winP }
 }
 
 // menor índice em TEAMS = desempate vencedor (nunca rng em comparator)
