@@ -6,6 +6,7 @@ import { NbaDraft } from './ui/screens/NbaDraft'
 import { Season } from './ui/screens/Season'
 import { Verdict } from './ui/screens/Verdict'
 import { Game } from './ui/screens/Game'
+import { GameResult } from './ui/screens/GameResult'
 import { Hub } from './ui/screens/Hub'
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
     p === 'nbaDraft' ? <NbaDraft state={state} dispatch={dispatch} /> :
     p === 'verdict' ? <Verdict state={state} dispatch={dispatch} /> :
     p === 'keyGame' || p === 'playoffGame' ? <Game state={state} dispatch={dispatch} /> :
+    p === 'gameResult' ? <GameResult state={state} dispatch={dispatch} /> :
     <Season state={state} dispatch={dispatch} />
   return (
     <>
