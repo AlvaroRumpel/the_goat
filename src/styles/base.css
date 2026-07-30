@@ -643,11 +643,23 @@ button {
 .moment-card { flex: 1; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
 .moment-card--done { background: var(--paper-3); border: 1px solid var(--rule); opacity: 0.7; }
 .moment-card--now { border: 2px solid var(--red); }
+.game-desktop-hint { display: none; }
+/* mobile (8a): .game-side vira "contents" pra tira/decisão entrarem direto no flex do
+   .game-layout e respeitarem a ordem placar → tira → lances → decisão. Escopado a <900px
+   pra não vazar `order` pro grid do desktop (auto-placement usa order na fila inteira). */
+@media (max-width: 899px) {
+  .game-side { display: contents; }
+  .game-score { order: 0; }
+  .game-moments { order: 1; }
+  .game-plays { order: 2; }
+  .game-decision { order: 3; }
+}
 @media (min-width: 900px) {
   .game-layout { display: grid; grid-template-columns: 1fr 460px; grid-template-rows: auto 1fr;
     column-gap: 0; }
   .game-score { grid-column: 1; }
   .game-plays { grid-column: 1; }
+  .game-desktop-hint { display: block; grid-column: 1; text-align: center; padding: 10px 0 0; }
   .game-side { grid-column: 2; grid-row: 1 / span 2; border-left: 1px solid var(--rule);
     padding-left: 24px; margin-left: 24px; display: flex; flex-direction: column; gap: 18px; }
   .game-side .moment-strip { flex-direction: column; }

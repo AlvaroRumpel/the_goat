@@ -100,8 +100,13 @@ function MomentPanel({ state, dispatch }: Props) {
           })}
         </div>
 
+        <button type="button" onClick={() => dispatch({ type: 'SKIP_GAME' })}
+          className="game-desktop-hint mono-label">
+          {t(lang, 'game.simulate')} · {t(lang, 'game.keys')}
+        </button>
+
         <div className="game-side">
-          <div>
+          <div className="game-moments">
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span className="mono-label">{t(lang, 'game.momentsLabel')}</span>
               <span className="mono-label mono-label--red">{t(lang, 'game.momentsCount', { n: pending.momentIndex + (pending.momentIndex < 3 ? 1 : 0) })}</span>
