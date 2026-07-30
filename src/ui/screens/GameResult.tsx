@@ -15,6 +15,9 @@ export function GameResult({ state, dispatch }: Props) {
   const champion = pp !== null && pp.bracket.round === 3 && pp.seriesUs === 4
   const { us, them } = scoreOf(result.margin)
   const headlineKey = champion ? 'result.headline.champion' : result.won ? 'result.headline.win' : 'result.headline.loss'
+  const yourImpact = result.outcomes.reduce((n, o) => n + o.delta, 0)
+  const teamImpact = result.margin - yourImpact
+  const signed = (n: number) => (n >= 0 ? '+' : '') + n
 
   return (
     <div className="screen">
@@ -40,6 +43,10 @@ export function GameResult({ state, dispatch }: Props) {
         </div>
         <hr className="rule" />
 
+        <div className="hint" style={{ textAlign: 'center' }}>
+          {t(lang, 'result.impact', { you: signed(yourImpact), team: signed(teamImpact) })}
+        </div>
+
         {!skipped && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div className="mono-label">{t(lang, 'result.decided')}</div>
@@ -63,6 +70,10 @@ export function GameResult({ state, dispatch }: Props) {
             ))}
             <div className="mono" style={{ fontSize: 10, color: 'var(--on-red-dim)' }}>{t(lang, 'result.iconicPts')}</div>
           </div>
+        )}
+
+        {context.kind === 'playoff' && (
+          <div className="hint" style={{ textAlign: 'center' }}>{t(lang, 'result.pivotalNote')}</div>
         )}
 
         <button type="button" className="btn btn--ink" style={{ marginTop: 'auto' }} onClick={() => dispatch({ type: 'CONTINUE' })}>
