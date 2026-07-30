@@ -70,6 +70,12 @@ export function performanceRatio(seasons: SeasonResult[]): number | null {
   return peak > 0 ? last / peak : null
 }
 
+// Idade mínima pra oferecer aposentadoria por queda de produção — antes disso o
+// jogador ainda está subindo a curva (ageMultiplier só bate 1.0 aos 26); sem essa
+// trava uma temporada de estreia com sorte vira "pico" e qualquer ano normal depois
+// parece queda de 25%+, mesmo o jogador ainda melhorando (achado em playtest, C3).
+export const RETIRE_MIN_AGE = 28
+
 // strength: vem de rosterStrength(league, teamId) — força de elenco real (spec §2).
 // O jogador NÃO entra no roster passado (a fórmula já soma overallEff * 0.45 à parte).
 export function computeWinPct(input: {

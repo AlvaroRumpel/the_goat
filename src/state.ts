@@ -3,7 +3,8 @@ import { autoResolve, INTERACTIVE_EVENTS, rollEvents } from './engine/events'
 import { drawPlayer, resolveBuild } from './engine/draft'
 import { draftPickNumber, makeOffers } from './engine/offers'
 import {
-  ageMultiplier, computeTitleProb, computeWinPct, effectiveOverall, finishSeason, performanceRatio, simRegularSeason,
+  ageMultiplier, computeTitleProb, computeWinPct, effectiveOverall, finishSeason, performanceRatio,
+  RETIRE_MIN_AGE, simRegularSeason,
 } from './engine/season'
 import { advanceOffseason, ROUND_RUN, rosterStrength, simAwards, simBracket, simNpcLines, simStandings } from './engine/league'
 import {
@@ -766,7 +767,7 @@ function reduce(state: GameState, action: Action): GameState {
       }
 
       const ratio = performanceRatio(state.career.seasons)
-      const declining = ratio !== null && ratio < 0.75
+      const declining = ratio !== null && ratio < 0.75 && age >= RETIRE_MIN_AGE
       if (age >= 31 || declining) return { ...base, phase: 'retireDecision' }
 
       return { ...base, phase: 'preseason' }

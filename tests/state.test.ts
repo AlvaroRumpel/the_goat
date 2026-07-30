@@ -316,6 +316,21 @@ describe('aposentadoria por queda', () => {
     const next = gameReducer(s, { type: 'ADVANCE' })
     expect(next.phase).toBe('retireDecision')
   })
+  test('ADVANCE NÃO oferece aposentadoria por queda antes de RETIRE_MIN_AGE, mesmo com ratio < 0.75', () => {
+    let s = playToSeasonResult()
+    s = {
+      ...s,
+      age: 23, contractYearsLeft: 3,
+      career: {
+        ...s.career,
+        seasons: [30, 31, 29, 28, 15].map((ppg, i) => ({
+          ...s.career.seasons[0], ppg, age: 19 + i,
+        })),
+      },
+    }
+    const next = gameReducer(s, { type: 'ADVANCE' })
+    expect(next.phase).toBe('preseason')
+  })
   test('sem declínio e < 31 segue para preseason', () => {
     let s = playToSeasonResult()
     s = { ...s, age: 25, contractYearsLeft: 3 }

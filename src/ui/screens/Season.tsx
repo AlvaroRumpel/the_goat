@@ -2,7 +2,7 @@ import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t, type Lang } from '../../i18n'
 import { teamById } from '../../data/teams'
-import { effectiveOverall, performanceRatio } from '../../engine/season'
+import { effectiveOverall, performanceRatio, RETIRE_MIN_AGE } from '../../engine/season'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus, Headline } from '../../engine/types'
 import { OfferCard, TeamSymbol } from '../components/OfferCard'
@@ -240,7 +240,7 @@ function FreeAgency({ state, dispatch }: Props) {
           {t(lang, 'nbadraft.sign', { team: `${team.city} ${team.name}` })}
         </button>
 
-        {(state.age >= 31 || heavyDecline) && (
+        {(state.age >= 31 || (heavyDecline && state.age >= RETIRE_MIN_AGE)) && (
           <button
             type="button"
             className="btn btn--outline btn--outline-red"
