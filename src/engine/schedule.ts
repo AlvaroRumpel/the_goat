@@ -1,9 +1,12 @@
-import type { CalendarSlot, KeyGame, Rng } from './types'
+import { TEAMS, teamById } from '../data/teams'
+import { rosterStrength } from './league'
+import type { CalendarSlot, KeyGame, LeagueState, Rng, TickerGame } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export const DEADLINE_GAME = 55        // pausa da encruzilhada de trade (spec §2, decisão 3)
 export const CALENDAR_RNG_CALLS = 4    // 1 jitter por posição, folga fixa com 3 jogos
+export const STRETCH_CALLS_PER_GAME = 4   // vitória, margem, pontos, adversário
 
 // Âncoras POR POSIÇÃO na saída de selectKeyGames: [rivalry, seedRace, special, rivalry extra].
 // seedRace clampado a [49, 54] para nunca colidir com o deadline (55).
@@ -20,4 +23,43 @@ export function buildCalendar(keyGames: KeyGame[], rng: Rng): { slots: CalendarS
   }
   slots.sort((a, b) => a.gameIndex - b.gameIndex)
   return { slots, deadlineIndex: DEADLINE_GAME }
+}
+
+// Walk do trecho [from, to] (1-based, inclusivo). `p` = taxa-alvo do segmento
+// (computeWinPct — fórmula-contrato intocada, aqui ela vira alvo do Bernoulli).
+// Placares e pontos são cosméticos; o `won` é o que conta no registro.
+export function simStretch(input: {
+  from: number; to: number; p: number; ppg: number; playerTeamId: string; rng: Rng
+}): TickerGame[] {
+  const { from, to, p, ppg, playerTeamId, rng } = input
+  const others = TEAMS.filter(t => t.id !== playerTeamId)
+  const out: TickerGame[] = []
+  for (let g = from; g <= to; g++) {
+    const won = rng.chance(p)                                        // call 1
+    const margin = 1 + Math.floor(rng.next() * 17)                   // call 2: 1..17
+    const playerPts = Math.max(2, Math.round(ppg + (rng.next() * 12 - 6)))  // call 3
+    const opp = rng.pick(others)                                     // call 4
+    const base = 98 + ((g * 7) % 13)                                 // variedade sem call
+    out.push({
+      gameIndex: g, won,
+      ourScore: base + (won ? margin : 0),
+      oppScore: base + (won ? 0 : margin),
+      playerPts, opponentTeamId: opp.id,
+    })
+  }
+  return out
+}
+
+// Posição projetada na conferência para o 6b — espelha a expectativa determinística de
+// simStandings (41 + (strength − mean) × 1.3), SEM o jitter (sem rng, é só display).
+export function projectedSeed(league: LeagueState, playerTeamId: string, playerWinPct: number): number {
+  const strengths = new Map(TEAMS.map(t => [t.id, rosterStrength(league, t.id)]))
+  const mean = [...strengths.values()].reduce((n, v) => n + v, 0) / 30
+  const conf = teamById(playerTeamId).conf
+  const playerWins = playerWinPct * 82
+  const better = TEAMS.filter(t =>
+    t.conf === conf && t.id !== playerTeamId
+    && 41 + (strengths.get(t.id)! - mean) * 1.3 > playerWins,
+  ).length
+  return better + 1
 }

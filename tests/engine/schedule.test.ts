@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
-import { buildCalendar, CALENDAR_RNG_CALLS, DEADLINE_GAME } from '../../src/engine/schedule'
+import { buildCalendar, CALENDAR_RNG_CALLS, DEADLINE_GAME, simStretch, STRETCH_CALLS_PER_GAME, projectedSeed } from '../../src/engine/schedule'
+import { initLeague } from '../../src/data/league'
 import type { KeyGame, Rng } from '../../src/engine/types'
 
 function countedRng(seed: number): { rng: Rng; calls: () => number } {
@@ -49,5 +50,44 @@ describe('buildCalendar', () => {
       buildCalendar(games, rng)
       expect(calls()).toBe(CALENDAR_RNG_CALLS)
     }
+  })
+})
+
+describe('simStretch', () => {
+  test('gera um jogo por índice com contrato de 4 calls/jogo', () => {
+    const { rng, calls } = countedRng(3)
+    const games = simStretch({ from: 5, to: 16, p: 0.6, ppg: 24, playerTeamId: 'okc', rng })
+    expect(games).toHaveLength(12)
+    expect(calls()).toBe(12 * STRETCH_CALLS_PER_GAME)
+    expect(games.map(g => g.gameIndex)).toEqual(Array.from({ length: 12 }, (_, i) => 5 + i))
+    for (const g of games) {
+      expect(g.opponentTeamId).not.toBe('okc')
+      expect(g.won ? g.ourScore > g.oppScore : g.oppScore > g.ourScore).toBe(true)
+      expect(g.playerPts).toBeGreaterThanOrEqual(2)
+    }
+  })
+  test('from > to → vazio, zero calls', () => {
+    const { rng, calls } = countedRng(3)
+    expect(simStretch({ from: 10, to: 9, p: 0.6, ppg: 20, playerTeamId: 'okc', rng })).toEqual([])
+    expect(calls()).toBe(0)
+  })
+  test('taxa de vitória converge para p', () => {
+    const { rng } = countedRng(11)
+    const games = simStretch({ from: 1, to: 82, p: 0.7, ppg: 25, playerTeamId: 'okc', rng })
+    const wins = games.filter(g => g.won).length
+    expect(wins / 82).toBeGreaterThan(0.55)
+    expect(wins / 82).toBeLessThan(0.85)
+  })
+})
+
+describe('projectedSeed', () => {
+  test('determinístico, 1..15, monotônico no winPct', () => {
+    const league = initLeague()
+    const high = projectedSeed(league, 'okc', 0.85)
+    const low = projectedSeed(league, 'okc', 0.20)
+    expect(high).toBeGreaterThanOrEqual(1)
+    expect(low).toBeLessThanOrEqual(15)
+    expect(high).toBeLessThanOrEqual(low)
+    expect(projectedSeed(league, 'okc', 0.85)).toBe(high)   // sem rng
   })
 })
