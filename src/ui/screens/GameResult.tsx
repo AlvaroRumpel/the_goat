@@ -58,7 +58,9 @@ export function GameResult({ state, dispatch }: Props) {
         {result.iconics.length > 0 && (
           <div className="strip strip--red" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'result.iconic')}</div>
-            <div className="headline" style={{ fontSize: 19 }}>{t(lang, 'iconic.' + result.iconics[0])}</div>
+            {result.iconics.map((id, i) => (
+              <div key={i} className="headline" style={{ fontSize: 19 }}>{t(lang, 'iconic.' + id)}</div>
+            ))}
             <div className="mono" style={{ fontSize: 10, color: 'var(--on-red-dim)' }}>{t(lang, 'result.iconicPts')}</div>
           </div>
         )}
