@@ -194,6 +194,35 @@ describe('gameReducer', () => {
     expect(loaded.pendingEvents).toBeNull()
     expect(() => gameReducer(loaded, { type: 'TRADE_DECISION', accept: false })).not.toThrow()
   })
+  test('RETIRE_DECISION e aposentadoria por idade computam e guardam verdict uma vez', () => {
+    let s = playToBuild()
+    s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+    let guard = 0
+    while (s.phase !== 'retireDecision' && guard++ < 200) {
+      if (s.phase === 'preseason') s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'health' })
+      else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
+      else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+      else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+      else if (s.phase === 'seasonAdvance' || s.phase === 'keyGame' || s.phase === 'gameResult' || s.phase === 'playoffGame') s = skipGames(s)
+      else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+      else break
+    }
+    expect(s.phase).toBe('retireDecision')
+    expect(s.verdict).toBeNull()
+    const retired = gameReducer(s, { type: 'RETIRE_DECISION', retire: true })
+    expect(retired.phase).toBe('verdict')
+    expect(retired.verdict).not.toBeNull()
+    expect(retired.verdict!.score).toBeGreaterThanOrEqual(0)
+  })
+  test('save legado sem verdict em phase verdict recebe backfill no loadState', () => {
+    let s = playToBuild()
+    const legacy: Record<string, unknown> = { ...s, phase: 'verdict' }
+    delete legacy.verdict
+    localStorage.setItem('thegoat:v5', JSON.stringify(legacy))
+    const loaded = loadState()!
+    expect(loaded.verdict).not.toBeNull()
+    expect(loaded.verdict!.tier).toBeTruthy()
+  })
 })
 
 describe('eventDecision', () => {

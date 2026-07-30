@@ -16,11 +16,12 @@ import {
 import { buildCalendar, DEADLINE_GAME, simStretch } from './engine/schedule'
 import { initLeague } from './data/league'
 import { teamById } from './data/teams'
+import { computeVerdict } from './engine/verdict'
 import type { Lang } from './i18n'
 import type {
   Award, AwardRace, Build, CalendarSlot, Career, DraftPick, EventChoice, Focus, GameEventId, Headline,
   IconicMomentId, KeyGame, LeagueSeasonOutcome, LeagueState, NpcLine, Offer, PendingGame, PlayoffRun, RaceAward,
-  RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding, TickerGame, WatchedGameContext,
+  RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding, TickerGame, Verdict, WatchedGameContext,
   WatchedGameResult,
 } from './engine/types'
 
@@ -111,6 +112,7 @@ export interface GameState {
   lastGame: LastGame | null         // último jogo-chave resolvido, aguardando CONTINUE
   hubOpen: boolean
   resumePhase: Phase | null
+  verdict: Verdict | null
 }
 
 export type Action =
@@ -194,6 +196,7 @@ export function initialState(lang: Lang = 'pt'): GameState {
     lastGame: null,
     hubOpen: false,
     resumePhase: null,
+    verdict: null,
   }
 }
 
@@ -747,7 +750,7 @@ function reduce(state: GameState, action: Action): GameState {
       ]
       const base = { ...state, age, contractYearsLeft, league, headlines, leagueHistory, rngCalls: calls() }
 
-      if (age > 40) return { ...base, phase: 'verdict' }
+      if (age > 40) return { ...base, phase: 'verdict', verdict: computeVerdict(base.career) }
 
       if (contractYearsLeft === 0) {
         const offers = makeOffers(rng, state.currentOffer?.teamId, outcome.standings)
@@ -765,7 +768,8 @@ function reduce(state: GameState, action: Action): GameState {
       // Reachable from 'retireDecision' (continue/stop) and 'freeAgency' (stop only,
       // when a contract-expiry year lands at age 31+ — see FreeAgency screen).
       if (!action.retire && state.phase === 'freeAgency') return state
-      return { ...state, phase: action.retire ? 'verdict' : 'preseason' }
+      if (!action.retire) return { ...state, phase: 'preseason' }
+      return { ...state, phase: 'verdict', verdict: computeVerdict(state.career) }
     }
 
     case 'OPEN_HUB':
@@ -829,6 +833,8 @@ export function loadState(): GameState | null {
     parsed.lastGame = parsed.lastGame ?? null
     parsed.hubOpen = parsed.hubOpen ?? false
     parsed.resumePhase = parsed.resumePhase ?? null
+    const effectiveVerdictPhase = (parsed.resumePhase ?? parsed.phase) === 'verdict'
+    parsed.verdict = parsed.verdict ?? (effectiveVerdictPhase ? computeVerdict(parsed.career) : null)
     return parsed as GameState
   } catch {
     return null
