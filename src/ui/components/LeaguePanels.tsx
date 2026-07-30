@@ -1,7 +1,6 @@
 import { t, type Lang } from '../../i18n'
 import { effectiveOverall } from '../../engine/season'
-import { teamById } from '../../data/teams'
-import type { AwardRace, LeagueSeasonOutcome, LeagueState, RaceAward, TeamStanding } from '../../engine/types'
+import type { AwardRace, TeamStanding } from '../../engine/types'
 import type { GameState } from '../../state'
 
 export function sortStandings(entries: TeamStanding[]): TeamStanding[] {
@@ -72,41 +71,6 @@ export function RacesPanel(props: { races: AwardRace[]; lang: Lang; scale?: numb
           })}
         </div>
       ))}
-    </div>
-  )
-}
-
-const RACE_AWARDS: RaceAward[] = ['mvp', 'dpoy', 'roy', 'mip']
-
-export function CeremonyPanel(props: { outcome: LeagueSeasonOutcome; league: LeagueState; lang: Lang }) {
-  const { outcome, league, lang } = props
-  const { winners, championTeamId, playerRun } = outcome
-  const team = teamById(championTeamId)
-
-  const nameOf = (award: RaceAward): string => {
-    const id = winners[award]
-    if (!id) return '—'
-    if (id === 'you') return t(lang, 'races.you')
-    return league.players.find(p => p.id === id)?.name ?? '—'
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div className="mono-label mono-label--red">{t(lang, 'ceremony.title')}</div>
-      <div className="strip strip--red" style={{ margin: 0, padding: 16, textAlign: 'center' }}>
-        <span className="headline headline--red" style={{ fontSize: 18 }}>
-          {t(lang, 'ceremony.champion', { team: `${team.city} ${team.name}` })}
-        </span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {RACE_AWARDS.map(award => (
-          <div key={award} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-            <span className="hint">{t(lang, 'award.' + award)}</span>
-            <span>{nameOf(award)}</span>
-          </div>
-        ))}
-      </div>
-      <div className="hint" style={{ textAlign: 'center' }}>{t(lang, 'run.' + playerRun)}</div>
     </div>
   )
 }

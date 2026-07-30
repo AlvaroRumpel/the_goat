@@ -1,4 +1,4 @@
-import type { Dispatch } from 'react'
+import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
@@ -23,6 +23,12 @@ export function SeasonResult({ state, dispatch }: Props) {
   const outcome = state.seasonOutcome!
   const year = 2026 + state.career.seasons.length
   const championTeam = teamById(outcome.championTeamId)
+  const [view, setView] = useState<'ceremony' | 'balance'>('ceremony')
+  const mvpId = outcome.winners.mvp
+  const mvpName = mvpId === 'you' ? t(lang, 'races.you') : mvpId ? state.league!.players.find(p => p.id === mvpId)?.name ?? '—' : '—'
+  const mvpLine = mvpId === 'you'
+    ? { ppg: season.ppg, rpg: season.rpg, apg: season.apg }
+    : outcome.lines.find(l => l.playerId === mvpId) ?? { ppg: 0, rpg: 0, apg: 0 }
 
   const nameOf = (award: RaceAward): string => {
     const id = outcome.winners[award]
@@ -39,6 +45,44 @@ export function SeasonResult({ state, dispatch }: Props) {
       ? t(lang, 'result.confPos', { seed: season.seed, conf: t(lang, 'standings.' + playerConf) })
       : null,
   ].filter(Boolean)
+
+  if (view === 'ceremony') {
+    return (
+      <div className="screen">
+        <CareerBar state={state} dispatch={dispatch} heavy />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center', flex: 1, justifyContent: 'center' }}>
+          <div className="mono-label">{t(lang, 'ceremony.title')} · {year}</div>
+          <hr className="rule--double" style={{ width: '100%' }} />
+          <div className="mono-label mono-label--red">{t(lang, 'ceremony.mvpLabel')}</div>
+          <div className="mono-ring" style={{ width: 64, height: 64, fontSize: 20 }}>{mvpName.slice(0, 2).toUpperCase()}</div>
+          <div className="headline headline--red" style={{ fontSize: 34 }}>{mvpName}</div>
+          <div className="mono">{t(lang, 'ceremony.line', { ppg: mvpLine.ppg, rpg: mvpLine.rpg, apg: mvpLine.apg })}</div>
+          <hr className="rule--double" style={{ width: '100%' }} />
+
+          <div className="mono-label">{t(lang, 'result.honors')}</div>
+          <div className="result__honors" style={{ width: '100%' }}>
+            <div className="result__honor-row">
+              <span>{t(lang, 'result.champion')}</span>
+              <span style={{ color: 'var(--red)', fontWeight: 700 }}>{championTeam.city} {championTeam.name}</span>
+            </div>
+            {RACE_AWARDS.map(award => (
+              <div key={award} className="result__honor-row">
+                <span className="hint">{t(lang, 'award.' + award)}</span>
+                <span>{nameOf(award)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="strip strip--red" style={{ width: '100%' }}>
+            <span className="headline" style={{ fontSize: 17 }}>{t(lang, 'run.' + season.playoffRun)}</span>
+          </div>
+        </div>
+        <button type="button" className="btn btn--ink" onClick={() => setView('balance')}>
+          {t(lang, 'ceremony.viewBalance')}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="screen">
