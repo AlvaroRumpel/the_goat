@@ -109,13 +109,16 @@ describe('playoffs pausáveis', () => {
     expect(s.rngCalls).toBeGreaterThan(before)   // o roll da série é consumido AQUI
     expect(['playoffGame', 'seasonResult']).toContain(s.phase)
   })
+  // 30000ms (era o default de 5s): reachFinals(100) varre até 60 seeds procurando uma
+  // final — a recalibração da Task 11 (variância do walk) desloca esse ponto e a busca
+  // pode passar do timeout padrão em máquinas mais lentas. Robustez de teste, não trava.
   test('finais: contadores da série já atualizados na tela de resultado', () => {
     let s = reachFinals(100)
     s = gameReducer(s, { type: 'SKIP_GAME' })
     expect(s.phase).toBe('gameResult')
     const pp = s.pendingPlayoffs!
     expect(pp.seriesUs + pp.seriesThem).toBe(1)
-  })
+  }, 30000)
   test('SKIP_SERIES não pausa em gameResult (direto ao desfecho da série)', () => {
     let s = reachFinalsSeriesScreen(100)
     expect(s.phase).toBe('playoffGame')
@@ -123,7 +126,7 @@ describe('playoffs pausáveis', () => {
     s = gameReducer(s, { type: 'SKIP_SERIES' })
     expect(['playoffGame', 'seasonResult']).toContain(s.phase)
     expect(s.phase === 'seasonResult' || s.pendingPlayoffs!.bracket.round === 3).toBe(true)
-  })
+  }, 30000)
 
   test('temporada completa em auto chega em seasonResult com outcome coerente', () => {
     let found = false

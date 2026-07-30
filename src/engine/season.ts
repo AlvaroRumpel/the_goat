@@ -92,7 +92,14 @@ export function computeWinPct(input: {
 }
 
 export function computeTitleProb(winPct: number, effClutch: number): number {
-  return clamp((winPct - 0.5) * 0.22 + (effClutch - 75) * 0.0015, 0.01, 0.16)
+  // Calibração(c2) — Task 11: builds de elite (99) quase sempre batem no clamp de
+  // winPct (0.85), então o excesso acima de 0.5 era constante ~0.35 e o termo de
+  // winPct virava um piso alto de titleProb para toda build de overall alto (90-99),
+  // empurrando a cauda de anéis que faz goatRate(99) passar de 0.02 (medido: 0.0217
+  // em N=600). 0.22 → 0.195 e 0.0015 → 0.0013: reduz esse piso ~10-13% sem mexer no
+  // floor/cap (0.01/0.16, nunca atingido nesta faixa de winPct/effClutch). Builds
+  // fracas (winPct perto de 0.5) quase não sentem — a trava 83/79 tem folga grande.
+  return clamp((winPct - 0.5) * 0.195 + (effClutch - 75) * 0.0013, 0.01, 0.16)
 }
 
 export function finishSeason(input: {
