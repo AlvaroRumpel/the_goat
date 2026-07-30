@@ -624,3 +624,32 @@ button {
     display: block;
   }
 }
+
+/* --- tela de jogo (8a/9c) --- */
+.game-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.game-score { background: var(--ink); color: var(--on-ink); padding: 13px 22px; margin: 0 -22px;
+  display: flex; align-items: center; justify-content: space-between; }
+.game-plays { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
+  gap: 10px; padding: 14px 0; }
+.game-play { display: flex; gap: 12px; align-items: baseline; }
+.game-play--decision { border-left: 2px solid var(--red); margin-left: -12px; padding-left: 10px; }
+.game-decision { background: var(--ink); color: var(--on-ink); margin: 0 -22px; margin-top: auto;
+  padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+.game-decision__options { display: flex; flex-direction: column; gap: 1px; background: var(--ink-3); }
+.game-option { background: var(--ink-2); color: var(--on-ink); padding: 12px 14px; text-align: left;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border: 0; }
+.game-option--bold { background: var(--paper); color: var(--ink); }
+.moment-strip { display: flex; gap: 8px; }
+.moment-card { flex: 1; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.moment-card--done { background: var(--paper-3); border: 1px solid var(--rule); opacity: 0.7; }
+.moment-card--now { border: 2px solid var(--red); }
+@media (min-width: 900px) {
+  .game-layout { display: grid; grid-template-columns: 1fr 460px; grid-template-rows: auto 1fr;
+    column-gap: 0; }
+  .game-score { grid-column: 1; }
+  .game-plays { grid-column: 1; }
+  .game-side { grid-column: 2; grid-row: 1 / span 2; border-left: 1px solid var(--rule);
+    padding-left: 24px; margin-left: 24px; display: flex; flex-direction: column; gap: 18px; }
+  .game-side .moment-strip { flex-direction: column; }
+  .game-side .game-decision { margin: auto 0 0; }
+}

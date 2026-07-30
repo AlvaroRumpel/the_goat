@@ -1,8 +1,8 @@
-import type { Dispatch } from 'react'
+import { useEffect, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
-import { t, type Lang } from '../../i18n'
+import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
-import type { MomentOption, PendingGame, WatchedGameResult } from '../../engine/types'
+import type { PendingGame, WatchedGameResult } from '../../engine/types'
 import { scoreOf } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 
@@ -18,28 +18,6 @@ function liveMargin(pending: PendingGame): number {
 export function resultScoreText(r: WatchedGameResult): string {
   const { us, them } = scoreOf(r.margin)
   return `${us}-${them}`
-}
-
-function OptionButton({ option, lang, onClick }: { option: MomentOption; lang: Lang; onClick: () => void }) {
-  const attrLabel = option.attr2
-    ? `${t(lang, 'slot.' + option.attr)} + ${t(lang, 'slot.' + option.attr2)}`
-    : t(lang, 'slot.' + option.attr)
-  const titleClass = option.risk === 'bold' ? 'headline headline--red' : 'headline'
-  return (
-    <button
-      type="button"
-      style={{ padding: 14, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4, border: '1px solid var(--rule)', background: 'var(--paper)' }}
-      onClick={onClick}
-    >
-      <span className={titleClass} style={{ fontSize: 16, color: option.risk === 'reckless' ? 'var(--red)' : undefined }}>
-        {t(lang, 'option.' + option.id)}
-      </span>
-      <span className="hint" style={{ textAlign: 'left' }}>
-        {attrLabel} · {t(lang, 'risk.' + option.risk)}
-        {option.injuryRisk !== undefined ? ` · ${t(lang, 'risk.injury')}` : ''}
-      </span>
-    </button>
-  )
 }
 
 function GameHeader({ state }: { state: GameState }) {
@@ -81,41 +59,100 @@ function MomentPanel({ state, dispatch }: Props) {
   const pending = state.pendingGame!
   const moment = pending.moments[pending.momentIndex]
   const { us, them } = scoreOf(liveMargin(pending))
-  const lastOutcome = pending.outcomes.at(-1)
+  const ourId = (state.currentOffer?.teamId ?? state.pendingPlayoffs?.finalOffer.teamId ?? '').toUpperCase()
+  const oppId = pending.context.opponentTeamId.toUpperCase()
+  const clock = pending.log.filter(e => e.fromDecision).length < 3
+    ? pending.log[pending.log.length - 1]?.clock ?? '1Q 12:00'
+    : '4Q 00:00'
+
+  // teclas 1/2/3 (9c): escolhem a opção do momento aberto
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const i = ['1', '2', '3'].indexOf(e.key)
+      if (i >= 0 && moment.options[i]) dispatch({ type: 'DECIDE_MOMENT', optionId: moment.options[i].id })
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [moment, dispatch])
 
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <GameHeader state={state} />
-
-        <div style={{ textAlign: 'center' }}>
-          <div className="headline headline--red" style={{ fontSize: 40 }}>{us} : {them}</div>
+      <GameHeader state={state} />
+      <div className="game-layout">
+        <div className="game-score">
+          <span className="headline" style={{ fontSize: 26 }}>{us}<span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginLeft: 6 }}>{ourId}</span></span>
+          <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent-warm)' }}>{clock}</span>
+          <span className="headline" style={{ fontSize: 26 }}><span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginRight: 6 }}>{oppId}</span>{them}</span>
         </div>
 
-        {lastOutcome && (
-          <div className={lastOutcome.success ? 'strip strip--red' : 'strip strip--ink'} style={{ margin: 0, padding: 12, textAlign: 'center' }}>
-            {t(lang, lastOutcome.success ? 'moment.success' : 'moment.fail')}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="headline" style={{ fontSize: 18, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {moment.options.map(option => (
-              <OptionButton
-                key={option.id}
-                option={option}
-                lang={lang}
-                onClick={() => dispatch({ type: 'DECIDE_MOMENT', optionId: option.id })}
-              />
-            ))}
-          </div>
+        <div className="game-plays">
+          {pending.log.map((e, i, arr) => {
+            const opacity = [0.28, 0.42, 0.58, 0.75, 1][Math.max(0, 4 - (arr.length - 1 - i))]
+            const behind = e.score.us < e.score.them
+            return (
+              <div key={i} className={e.fromDecision ? 'game-play game-play--decision' : 'game-play'} style={{ opacity }}>
+                <span className="mono" style={{ fontSize: 12, width: 64, whiteSpace: 'nowrap', flexShrink: 0 }}>{e.clock}</span>
+                <span style={{ fontSize: 12, lineHeight: 1.4, flex: 1 }}>{t(lang, e.textKey, e.params)}</span>
+                <span className="mono" style={{ fontSize: 12, color: behind ? 'var(--red)' : undefined }}>{e.score.us}–{e.score.them}</span>
+              </div>
+            )
+          })}
         </div>
 
-        <button type="button" className="btn" onClick={() => dispatch({ type: 'SKIP_GAME' })}>
-          {t(lang, 'game.simulate')}
-        </button>
+        <div className="game-side">
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="mono-label">{t(lang, 'game.momentsLabel')}</span>
+              <span className="mono-label mono-label--red">{t(lang, 'game.momentsCount', { n: pending.momentIndex + (pending.momentIndex < 3 ? 1 : 0) })}</span>
+            </div>
+            <div className="moment-strip" style={{ marginTop: 8 }}>
+              {pending.moments.map((m, i) => {
+                const done = pending.outcomes[i]
+                if (done) {
+                  return (
+                    <div key={m.id} className="moment-card moment-card--done">
+                      <div style={{ height: 3, background: done.delta > 0 ? 'var(--ink)' : 'var(--red)' }} />
+                      <span className="mono-label">{t(lang, 'moment.' + m.id + '.label')}</span>
+                      <span className="mono" style={{ fontSize: 12 }}>{done.delta > 0 ? `+${done.delta}` : done.delta}</span>
+                    </div>
+                  )
+                }
+                const now = i === pending.momentIndex
+                return (
+                  <div key={m.id} className={now ? 'moment-card moment-card--now' : 'moment-card'}>
+                    <span className={now ? 'mono-label mono-label--red' : 'mono-label'}>{t(lang, 'moment.' + m.id + '.label')}</span>
+                    {now && <span className="headline" style={{ fontSize: 13 }}>{t(lang, 'game.now')}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="game-decision">
+            <div style={{ fontSize: 17, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
+            <div className="game-decision__options">
+              {moment.options.map((option, i) => (
+                <button key={option.id} type="button"
+                  className={option.risk === 'bold' ? 'game-option game-option--bold' : 'game-option'}
+                  onClick={() => dispatch({ type: 'DECIDE_MOMENT', optionId: option.id })}>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>
+                    <span className="mono" style={{ fontSize: 10, marginRight: 8, opacity: 0.6 }}>{i + 1}</span>
+                    {t(lang, 'option.' + option.id)}
+                    {option.risk !== 'safe' && <span className="mono" style={{ fontSize: 9, color: 'var(--red)', marginLeft: 8 }}>{t(lang, 'risk.' + option.risk).toUpperCase()}</span>}
+                  </span>
+                  <span className="mono" style={{ fontSize: 10, color: option.risk === 'bold' ? 'var(--dim)' : 'var(--on-ink-dim)' }}>
+                    {t(lang, 'slot.' + option.attr)}{option.injuryRisk !== undefined ? ` · ${t(lang, 'risk.injury')}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button type="button" onClick={() => dispatch({ type: 'SKIP_GAME' })}
+              className="mono-label" style={{ background: 'none', border: 0, color: 'var(--on-ink-dim)', textAlign: 'center', cursor: 'pointer' }}>
+              {t(lang, 'game.simulate')}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
