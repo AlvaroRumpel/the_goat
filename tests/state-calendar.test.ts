@@ -217,3 +217,36 @@ describe('temporada regular no calendário', () => {
     expect(b).toEqual(a)
   })
 })
+
+describe('RUN_TO_PLAYOFFS', () => {
+  test('fecha a regular sem passar por keyGame/gameResult; key games contam no registro', () => {
+    let s = startState(42)
+    s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+    if (s.phase === 'eventDecision') s = step(s, { type: 'EVENT_DECISION', choice: 'b' })
+    expect(s.phase).toBe('seasonAdvance')
+    const totalSlots = s.calendar!.slots.length
+    s = step(s, { type: 'RUN_TO_PLAYOFFS' })
+    // pode pausar no deadline; resolve e segue
+    if (s.phase === 'tradeDecision') s = step(s, { type: 'TRADE_DECISION', accept: false })
+    expect(s.phase === 'playoffGame' || s.phase === 'seasonResult').toBe(true)
+    expect(s.keyGameResults).toHaveLength(totalSlots)
+  })
+
+  test('autoRun sobrevive à pausa do deadline', () => {
+    for (let seed = 1; seed < 300; seed++) {
+      let s = startState(seed)
+      s.career = { seasons: [fakeSeason(), fakeSeason()], fame: 0 }
+      s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+      if (s.phase === 'eventDecision') s = step(s, { type: 'EVENT_DECISION', choice: 'b' })
+      if (s.phase !== 'seasonAdvance') continue
+      s = step(s, { type: 'RUN_TO_PLAYOFFS' })
+      if (s.phase !== 'tradeDecision') continue      // seed sem tradeOffer — tenta outra
+      expect(s.calendar!.autoRun).toBe(true)
+      s = step(s, { type: 'TRADE_DECISION', accept: true })
+      // depois do trade o autoRun continua até o fim — sem parar em seasonAdvance
+      expect(s.phase === 'playoffGame' || s.phase === 'seasonResult').toBe(true)
+      return
+    }
+    throw new Error('nenhuma seed pausou o autoRun no deadline em 300 tentativas')
+  })
+})
