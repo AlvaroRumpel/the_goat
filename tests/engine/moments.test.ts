@@ -199,3 +199,36 @@ describe('jogo', () => {
     expect(a.ast).toBeGreaterThanOrEqual(1); expect(a.ast).toBeLessThanOrEqual(18)
   })
 })
+
+import { SITUATIONS, SLOT_SEQUENCE, ALL_OPTION_IDS } from '../../src/engine/moments'
+
+describe('catálogo de situações', () => {
+  test('5 slots na ordem cronológica, clutch por último', () => {
+    expect(SLOT_SEQUENCE).toEqual(['openTone', 'q2tactic', 'q3swing', 'q4pressure', 'clutch'])
+  })
+  test('cada slot tem 5 situações; cada situação tem 2-3 opções e exatamente uma safe', () => {
+    for (const slot of SLOT_SEQUENCE) {
+      const pool = SITUATIONS[slot]
+      expect(pool).toHaveLength(5)
+      for (const options of pool) {
+        expect(options.length).toBeGreaterThanOrEqual(2)
+        expect(options.length).toBeLessThanOrEqual(3)
+        expect(options.filter(o => o.risk === 'safe')).toHaveLength(1)
+        expect(new Set(options.map(o => o.id)).size).toBe(options.length)
+      }
+    }
+  })
+  test('um id de opção nunca tem dois riscos/atributos diferentes no catálogo', () => {
+    const byId = new Map<string, string>()
+    for (const slot of SLOT_SEQUENCE) {
+      for (const options of SITUATIONS[slot]) {
+        for (const o of options) {
+          const sig = `${o.risk}|${o.attr}|${o.attr2 ?? ''}|${o.injuryRisk ?? ''}`
+          if (byId.has(o.id)) expect(byId.get(o.id)).toBe(sig)
+          else byId.set(o.id, sig)
+        }
+      }
+    }
+    expect(ALL_OPTION_IDS.length).toBe(byId.size)
+  })
+})

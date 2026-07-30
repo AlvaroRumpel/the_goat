@@ -3,7 +3,7 @@ import { rosterStrength } from './league'
 import { TEAMS, teamById } from '../data/teams'
 import type {
   Build, IconicMomentId, KeyGame, LeagueState, Moment, MomentOption, MomentOutcome, MomentRisk,
-  PendingGame, PlayEntry, Rng, TeamStanding, WatchedGameContext, WatchedGameResult,
+  PendingGame, PlayEntry, Rng, SlotKey, TeamStanding, WatchedGameContext, WatchedGameResult,
 } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -14,9 +14,6 @@ export const GAME_RNG_CALLS = 21   // contrato: 1 baseMargin + 3 makeMoments + 4
 export function scoreOf(margin: number): { us: number; them: number } {
   return { us: Math.round(100 + margin / 2), them: Math.round(100 - margin / 2) }
 }
-
-const AMBIENT_AT = [5, 14, 27, 38]
-const MOMENT_AT: Record<string, number> = { q2tactic: 22.5, q4pressure: 43.3, clutch: 47.65 }
 
 function clockOf(at: number): string {
   const q = Math.min(4, Math.floor(at / 12) + 1)
@@ -34,28 +31,81 @@ function logScore(baseMargin: number, deltas: number, at: number, jitter = 0): {
   return { us: Math.max(0, Math.round(base + margin / 2)), them: Math.max(0, Math.round(base - margin / 2)) }
 }
 
-// Catálogo fixo de opções por momento (constantes calibráveis).
-const MOMENT_OPTIONS: Record<string, MomentOption[]> = {
+export const SLOT_SEQUENCE: SlotKey[] = ['openTone', 'q2tactic', 'q3swing', 'q4pressure', 'clutch']
+
+// Opções canônicas. Um id aparece em várias situações, sempre com o MESMO risco e
+// atributo — é o que permite reaproveitar as falas de i18n (play.<id>.hit/miss).
+const O = {
+  // openTone
+  setTempo:    { id: 'setTempo',    attr: 'passing',   risk: 'safe' },
+  bodyUp:      { id: 'bodyUp',      attr: 'defense',   risk: 'safe' },
+  firstStrike: { id: 'firstStrike', attr: 'finishing', attr2: 'three',     risk: 'bold' },
+  earlyIso:    { id: 'earlyIso',    attr: 'handles',   attr2: 'finishing', risk: 'bold' },
+  // q2tactic
+  feedHot:     { id: 'feedHot',     attr: 'passing',   risk: 'safe' },
+  spaceFloor:  { id: 'spaceFloor',  attr: 'three',     risk: 'safe' },
+  takeOver:    { id: 'takeOver',    attr: 'finishing', attr2: 'handles',   risk: 'bold' },
+  // q3swing
+  steadyShip:  { id: 'steadyShip',  attr: 'clutch',    risk: 'safe' },
+  answerRun:   { id: 'answerRun',   attr: 'three',     attr2: 'finishing', risk: 'bold' },
+  gambleSteal: { id: 'gambleSteal', attr: 'defense',   risk: 'reckless' },
+  // q4pressure
+  lockDefense: { id: 'lockDefense', attr: 'defense',   risk: 'safe' },
+  drawFoul:    { id: 'drawFoul',    attr: 'finishing', risk: 'safe' },
+  pushPace:    { id: 'pushPace',    attr: 'physical',  attr2: 'finishing', risk: 'bold' },
+  isoClosing:  { id: 'isoClosing',  attr: 'handles',   attr2: 'clutch',    risk: 'bold' },
+  playHurt:    { id: 'playHurt',    attr: 'physical',  risk: 'reckless', injuryRisk: 0.08 },
+  // clutch
+  safePass:    { id: 'safePass',    attr: 'passing',   attr2: 'clutch',    risk: 'safe' },
+  postSeal:    { id: 'postSeal',    attr: 'physical',  attr2: 'clutch',    risk: 'safe' },
+  clutchThree: { id: 'clutchThree', attr: 'three',     attr2: 'clutch',    risk: 'bold' },
+  attackRim:   { id: 'attackRim',   attr: 'finishing', attr2: 'clutch',    risk: 'reckless' },
+  stepBack:    { id: 'stepBack',    attr: 'handles',   attr2: 'clutch',    risk: 'reckless' },
+} as const satisfies Record<string, MomentOption>
+
+// 5 situações por slot. O índice da situação vira a chave i18n: moment.<slot>.s<i>.
+export const SITUATIONS: Record<SlotKey, MomentOption[][]> = {
+  openTone: [
+    [O.setTempo, O.firstStrike],
+    [O.bodyUp, O.earlyIso],
+    [O.setTempo, O.earlyIso, O.firstStrike],
+    [O.bodyUp, O.firstStrike],
+    [O.setTempo, O.earlyIso],
+  ],
   q2tactic: [
-    { id: 'feedHot', attr: 'passing', risk: 'safe' },
-    { id: 'takeOver', attr: 'finishing', attr2: 'handles', risk: 'bold' },
+    [O.feedHot, O.takeOver],
+    [O.spaceFloor, O.earlyIso],
+    [O.feedHot, O.takeOver, O.earlyIso],
+    [O.spaceFloor, O.takeOver],
+    [O.feedHot, O.firstStrike],
+  ],
+  q3swing: [
+    [O.steadyShip, O.answerRun],
+    [O.bodyUp, O.answerRun, O.gambleSteal],
+    [O.spaceFloor, O.answerRun],
+    [O.steadyShip, O.takeOver, O.gambleSteal],
+    [O.bodyUp, O.answerRun],
   ],
   q4pressure: [
-    { id: 'lockDefense', attr: 'defense', risk: 'safe' },
-    { id: 'pushPace', attr: 'physical', attr2: 'finishing', risk: 'bold' },
-    { id: 'playHurt', attr: 'physical', risk: 'reckless', injuryRisk: 0.08 },
+    [O.lockDefense, O.pushPace, O.playHurt],
+    [O.drawFoul, O.isoClosing],
+    [O.lockDefense, O.isoClosing, O.gambleSteal],
+    [O.steadyShip, O.pushPace, O.playHurt],
+    [O.drawFoul, O.pushPace],
   ],
   clutch: [
-    { id: 'safePass', attr: 'passing', attr2: 'clutch', risk: 'safe' },
-    { id: 'clutchThree', attr: 'three', attr2: 'clutch', risk: 'bold' },
-    { id: 'attackRim', attr: 'finishing', attr2: 'clutch', risk: 'reckless' },
+    [O.safePass, O.clutchThree, O.attackRim],
+    [O.postSeal, O.clutchThree, O.stepBack],
+    [O.safePass, O.isoClosing, O.stepBack],
+    [O.drawFoul, O.clutchThree, O.attackRim],
+    [O.postSeal, O.isoClosing, O.attackRim],
   ],
 }
 
+export const ALL_OPTION_IDS: string[] = Object.values(O).map(o => o.id)
+
 // ids de opção são únicos no catálogo inteiro — o outcome guarda só o optionId
-const RISK_OF = new Map<string, MomentRisk>(
-  Object.values(MOMENT_OPTIONS).flat().map(o => [o.id, o.risk]),
-)
+const RISK_OF = new Map<string, MomentRisk>(Object.values(O).map(o => [o.id, o.risk]))
 
 // prob base por risco + impacto por risco (constantes calibráveis).
 // bold tem attrW MAIOR que safe: é aposta ruim para build fraca e boa para build de

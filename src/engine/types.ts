@@ -108,6 +108,8 @@ export interface RegularSeasonResult {
 
 export type MomentRisk = 'safe' | 'bold' | 'reckless'
 
+export type SlotKey = 'openTone' | 'q2tactic' | 'q3swing' | 'q4pressure' | 'clutch'
+
 export interface MomentOption {
   id: string                 // 'safePass' | 'boldThree' | 'attackRim' | 'playHurt' | ...
   attr: SlotId
@@ -117,10 +119,12 @@ export interface MomentOption {
 }
 
 export interface Moment {
-  id: string                 // 'q2tactic' | 'q4pressure' | 'clutch'
-  situationKey: string       // chave i18n: 'moment.q2tactic.desc' etc.
-  params: Record<string, string | number>   // { opp: 'BOS', diff: 4 }
-  options: MomentOption[]    // 2-3
+  id: SlotKey
+  situationKey: string       // 'moment.q2tactic.s3'
+  at: number                 // minuto do jogo (0-48)
+  clock: string              // '2Q 01:30'
+  params: Record<string, string | number>
+  options: MomentOption[]    // 2-3, exatamente uma safe
 }
 
 export type WatchedGameKind = 'rivalry' | 'seedRace' | 'special' | 'playoff' | 'finals'
@@ -136,11 +140,12 @@ export interface WatchedGameContext {
 }
 
 export interface MomentOutcome {
-  momentId: string
+  momentId: SlotKey
   optionId: string
   success: boolean
   injury: boolean
-  delta: number              // contribuição ao margin
+  delta: number              // JÁ PONDERADO por 3/n — some direto, nunca reponderar
+  clock: string              // '4Q 00:21' — a GameResult só recebe outcomes
 }
 
 export type IconicMomentId =
@@ -158,15 +163,17 @@ export interface WatchedGameResult {
   choke: boolean             // falhou clutch em jogo de eliminação
   iconics: IconicMomentId[]  // detectados neste jogo (sweep é detectado na série, fora daqui)
   winP: number               // P(vitória) do jogo ANTES dos momentos, na política padrão
+  expectedDelta: number      // E[Σ deltas] deste jogo (keyGameEffects centra nele)
 }
 
 export interface PendingGame {
   context: WatchedGameContext
-  moments: Moment[]          // 3, gerados no início do jogo
-  momentIndex: number        // próximo momento a resolver (0-3)
+  moments: Moment[]          // 2-5, sorteados no início do jogo
+  momentIndex: number        // próximo momento a resolver (0..moments.length)
   outcomes: MomentOutcome[]
-  baseMargin: number         // rolado no início
-  winP: number               // P(vitória) implícita no baseMargin, com a política padrão
+  baseMargin: number
+  winP: number
+  expectedDelta: number      // E[Σ deltas] da política padrão PARA ESTES momentos
   log: PlayEntry[]
 }
 
@@ -193,6 +200,7 @@ export interface PlayEntry {
   textKey: string            // 'play.ambient.2.v1' | 'play.clutchThree.hit.v0' ...
   params: Record<string, string | number>
   score: { us: number; them: number }
+  jitter: number             // ruído visual da linha; preservado para reescorar o log
   fromDecision?: true
 }
 
