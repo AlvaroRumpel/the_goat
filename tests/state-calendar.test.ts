@@ -5,7 +5,7 @@ import { makeOffers } from '../src/engine/offers'
 import { createRng } from '../src/engine/rng'
 import { initLeague } from '../src/data/league'
 import { SLOT_ORDER, type Build, type Rng, type SeasonResult, type SlotId } from '../src/engine/types'
-import { DEADLINE_GAME } from '../src/engine/schedule'
+import { DEADLINE_GAME, simStretch } from '../src/engine/schedule'
 
 function flatBuild(overall: number): Build {
   const attrs = Object.fromEntries(SLOT_ORDER.map(s => [s, overall])) as Record<SlotId, number>
@@ -30,6 +30,15 @@ function startState(seed: number): GameState {
   }
 }
 function step(s: GameState, a: Action): GameState { return gameReducer(s, a) }
+
+// mesma reconstrução de makeCountedRng em state.ts: recria o rng do seed e avança (skip)
+// calls — usado para replicar, no teste, exatamente o que advanceCalendar consumiria a
+// seguir a partir de um snapshot pausado.
+function rngAt(seed: number, skip: number): Rng {
+  const rng = createRng(seed)
+  for (let i = 0; i < skip; i++) rng.next()
+  return rng
+}
 
 // SeasonResult mínimo válido — usado para forçar career.seasons.length >= 2 (canTrade)
 function fakeSeason(): SeasonResult {
@@ -85,13 +94,43 @@ describe('temporada regular no calendário', () => {
   })
 
   test('registro literal: wins do fim da regular = ticker wins; ticker cobre 82 jogos', () => {
+    // calendar.played === 82 nunca é um estado pausado observável: o trecho final
+    // (do último key game até o jogo 82) e o fechamento da temporada acontecem dentro
+    // do MESMO dispatch (advanceCalendar → closeRegularSeason), sem devolver o
+    // intermediário. Por isso capturamos o ÚLTIMO snapshot pausado com calendar (o
+    // gameResult do último key game) e reconstruímos a cauda com o MESMO simStretch
+    // exportado, a partir do mesmo (seed, rngCalls) — replay determinístico, não
+    // reimplementação da lógica de controle.
     let s = startState(42)
-    let last82: GameState | null = null
+    let lastWithCalendar: GameState | null = null
     s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
-    s = runRegular(s, cur => { if (cur.calendar?.played === 82) last82 = cur })
-    // ao fechar (playoffGame ou seasonResult) o calendar já morreu; capturamos antes
+    s = runRegular(s, cur => { if (cur.calendar) lastWithCalendar = cur })
     expect(s.phase === 'playoffGame' || s.phase === 'seasonResult').toBe(true)
     expect(s.calendar).toBeNull()
+    expect(lastWithCalendar).not.toBeNull()
+    const cal = lastWithCalendar!.calendar!
+    // no snapshot capturado não sobra key game nem deadline pendente — só falta a
+    // cauda até o jogo 82, exatamente o que advanceCalendar roda antes de fechar
+    expect(cal.nextSlot).toBe(cal.slots.length)
+    expect(cal.deadlineDone).toBe(true)
+    const tail = simStretch({
+      from: cal.played + 1, to: 82, p: cal.p, ppg: lastWithCalendar!.pendingRegular!.ppg,
+      playerTeamId: lastWithCalendar!.currentOffer!.teamId,
+      rng: rngAt(lastWithCalendar!.seed, lastWithCalendar!.rngCalls),
+    })
+    expect(cal.ticker.length + tail.length).toBe(82)
+    const literalWins = cal.ticker.filter(g => g.won).length + tail.filter(g => g.won).length
+
+    // segue até seasonResult (via playoffs, se houver) pra expor seasonOutcome.standings —
+    // closeRegularSeason usa exatamente esse `wins` como playerWins do simStandings
+    let guard = 0
+    while (s.phase !== 'seasonResult' && guard++ < 60) {
+      s = s.pendingGame ? step(s, { type: 'SKIP_GAME' }) : step(s, { type: 'SKIP_SERIES' })
+    }
+    expect(s.phase).toBe('seasonResult')
+    const finalTeamId = s.career.seasons.at(-1)!.finalTeamId
+    const row = s.seasonOutcome!.standings.find(st => st.teamId === finalTeamId)!
+    expect(row.wins).toBe(literalWins)
   })
 
   test('deadline: com tradeOffer, pausa em tradeDecision com played = 55', () => {
@@ -148,5 +187,33 @@ describe('temporada regular no calendário', () => {
     const b = step(structuredClone(s), { type: 'CONTINUE' })
     expect(b.calendar).toEqual(a.calendar)
     expect(b.rngCalls).toBe(a.rngCalls)
+  })
+
+  // structuredClone é mais fiel que o storage real — round-trip via JSON.stringify/parse
+  // (o que o localStorage de fato faz) precisa dar o mesmo replay nas duas pausas novas.
+  test('round-trip JSON (localStorage real) na pausa de seasonAdvance reproduz o estado', () => {
+    let s = startState(44)
+    s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+    if (s.phase === 'eventDecision') s = step(s, { type: 'EVENT_DECISION', choice: 'b' })
+    expect(s.phase).toBe('seasonAdvance')
+    const revived = JSON.parse(JSON.stringify(s)) as GameState
+    expect(revived).toEqual(s)
+    const a = step(s, { type: 'TAKE_NEXT_GAME' })
+    const b = step(revived, { type: 'TAKE_NEXT_GAME' })
+    expect(b).toEqual(a)
+  })
+
+  test('round-trip JSON (localStorage real) na pausa de gameResult reproduz o estado', () => {
+    let s = startState(44)
+    s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+    if (s.phase === 'eventDecision') s = step(s, { type: 'EVENT_DECISION', choice: 'b' })
+    s = step(s, { type: 'TAKE_NEXT_GAME' })
+    s = step(s, { type: 'SKIP_GAME' })
+    expect(s.phase).toBe('gameResult')
+    const revived = JSON.parse(JSON.stringify(s)) as GameState
+    expect(revived).toEqual(s)
+    const a = step(s, { type: 'CONTINUE' })
+    const b = step(revived, { type: 'CONTINUE' })
+    expect(b).toEqual(a)
   })
 })
