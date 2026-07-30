@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
-import { computeVerdict } from '../../engine/verdict'
 import type { Award } from '../../engine/types'
 import { drawShareCard, shareText } from '../share'
 import { CareerBar } from '../components/CareerBar'
@@ -15,7 +14,7 @@ const AWARDS: Award[] = ['allstar', 'mvp', 'dpoy', 'scoring', 'fmvp', 'ring']
 
 export function Verdict({ state, dispatch }: Props) {
   const lang = state.lang
-  const verdict = computeVerdict(state.career)
+  const verdict = state.verdict!
   const { totals, counts, tier, score } = verdict
   const iconicMoments = state.career.seasons.flatMap(s => s.iconicMoments ?? [])
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -52,72 +51,72 @@ export function Verdict({ state, dispatch }: Props) {
   }
 
   return (
-    <div className="screen">
+    <div className="screen verdict-screen">
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center' }}>
-        <div className="mono-label">{t(lang, 'verdict.title')}</div>
-        <div className="headline headline--red" style={{ fontSize: 64 }}>{t(lang, 'tier.' + tier)}</div>
-        <div className="hint">{t(lang, 'verdict.score', { n: score })}</div>
-        <hr className="rule" style={{ width: '100%' }} />
+        <div className="verdict-layer verdict-layer--1" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%' }}>
+          <div className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.title')}</div>
+          <div className="headline" style={{ fontSize: 64 }}>{t(lang, 'tier.' + tier)}</div>
+          <div className="mono" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.score', { n: score })}</div>
+          <hr className="rule--double" style={{ width: '100%' }} />
+        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, width: '100%' }}>
-          <div className="totcell">
-            <span className="stat-line__label">{t(lang, 'verdict.points')}</span>
-            <span className="headline" style={{ fontSize: 24 }}>{totals.points}</span>
+        <div className="verdict-layer verdict-layer--2 verdict-totals">
+          <div className="verdict-total">
+            <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.points')}</span>
+            <span className="headline" style={{ fontSize: 26 }}>{totals.points}</span>
           </div>
-          <div className="totcell">
-            <span className="stat-line__label">{t(lang, 'verdict.seasons2')}</span>
-            <span className="headline" style={{ fontSize: 24 }}>{totals.seasons}</span>
+          <div className="verdict-total">
+            <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.seasons2')}</span>
+            <span className="headline" style={{ fontSize: 26 }}>{totals.seasons}</span>
           </div>
-          <div className="totcell">
-            <span className="stat-line__label">{t(lang, 'verdict.rings')}</span>
-            <span className="headline" style={{ fontSize: 24, color: counts.ring > 0 ? 'var(--red)' : undefined }}>
-              {counts.ring}
-            </span>
+          <div className="verdict-total">
+            <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.rings')}</span>
+            <span className="headline" style={{ fontSize: 26 }}>{counts.ring}</span>
           </div>
-          <div className="totcell">
-            <span className="stat-line__label">{t(lang, 'verdict.mvps')}</span>
-            <span className="headline" style={{ fontSize: 24, color: counts.mvp > 0 ? 'var(--red)' : undefined }}>
-              {counts.mvp}
-            </span>
+          <div className="verdict-total">
+            <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.mvps')}</span>
+            <span className="headline" style={{ fontSize: 26 }}>{counts.mvp}</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+        <div className="verdict-layer verdict-layer--2" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
           {AWARDS.filter(a => counts[a] > 0).map(a => (
-            <span key={a} className="chip">{counts[a]}× {t(lang, 'award.' + a)}</span>
+            <span key={a} className="chip" style={{ borderColor: 'var(--on-red-dim)', color: 'var(--on-red)' }}>
+              {counts[a]}× {t(lang, 'award.' + a)}
+            </span>
           ))}
         </div>
 
-        {iconicMoments.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-            <div className="mono-label mono-label--red">{t(lang, 'verdict.moments')} · +{verdict.iconicPoints}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-              {iconicMoments.map((id, i) => (
-                <span key={i} className="chip">{t(lang, 'iconic.' + id)}</span>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="verdict-layer verdict-layer--3" style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+          {iconicMoments.length > 0 && (
+            <>
+              <div className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.moments')} · +{verdict.iconicPoints}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {iconicMoments.map((id, i) => (
+                  <span key={i} className="chip" style={{ borderColor: 'var(--on-red-dim)', color: 'var(--on-red)' }}>{t(lang, 'iconic.' + id)}</span>
+                ))}
+              </div>
+            </>
+          )}
+          {verdict.chokes > 0 && (
+            <span className="chip" style={{ borderColor: 'var(--on-red-dim)', color: 'var(--on-red-dim)', opacity: 0.72 }}>
+              {t(lang, 'verdict.chokes', { n: verdict.chokes })}
+            </span>
+          )}
 
-        {verdict.chokes > 0 && (
-          <span className="chip chip--dim">{t(lang, 'verdict.chokes', { n: verdict.chokes })}</span>
-        )}
+          <canvas
+            ref={canvasRef}
+            style={{ width: '100%', maxWidth: 280, aspectRatio: '1080 / 1350', border: '1px solid var(--on-red-dim)', borderRadius: 8, margin: '0 auto' }}
+          />
 
-        <canvas
-          ref={canvasRef}
-          style={{
-            width: '100%', maxWidth: 280, aspectRatio: '1080 / 1350',
-            border: '1px solid var(--red)', borderRadius: 8,
-          }}
-        />
-
-        <button type="button" className="btn btn--primary" style={{ width: '100%' }} onClick={handleShare}>
-          {t(lang, copied ? 'share.copied' : 'share.button')}
-        </button>
-        <button type="button" className="btn" style={{ width: '100%' }} onClick={() => dispatch({ type: 'RESET' })}>
-          {t(lang, 'share.again')}
-        </button>
+          <button type="button" className="btn btn--primary" style={{ width: '100%' }} onClick={handleShare}>
+            {t(lang, copied ? 'share.copied' : 'share.button')}
+          </button>
+          <button type="button" className="btn btn--outline" style={{ width: '100%' }} onClick={() => dispatch({ type: 'RESET' })}>
+            {t(lang, 'share.again')}
+          </button>
+        </div>
       </div>
     </div>
   )

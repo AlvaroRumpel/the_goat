@@ -693,3 +693,42 @@ button {
 .retire-decline__bar--late {
   background: var(--red);
 }
+
+/* veredito (3d) — única tela integralmente vermelha */
+.verdict-screen {
+  background: var(--red);
+  color: var(--on-red);
+}
+.verdict-screen .btn--primary {
+  background: var(--paper);
+  color: var(--red);
+}
+.verdict-screen .btn--outline {
+  border-color: var(--on-red-dim);
+  color: var(--on-red-dim);
+}
+.verdict-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--red-soft);
+  width: 100%;
+}
+.verdict-total {
+  background: var(--red);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.verdict-layer {
+  opacity: 0;
+  animation: verdict-fade-in 240ms ease-out forwards;
+}
+.verdict-layer--1 { animation-delay: 0ms; }
+.verdict-layer--2 { animation-delay: 200ms; }
+.verdict-layer--3 { animation-delay: 400ms; }
+@keyframes verdict-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
