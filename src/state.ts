@@ -173,21 +173,21 @@ export function initialState(lang: Lang = 'pt'): GameState {
 }
 
 // Ordem fixa de consumo de rng POR DISPATCH (replay do save depende dela; o custo de
-// um jogo assistido é fixo — GAME_RNG_CALLS = 10 — decidindo ou pulando):
-// PLAY_SEASON: rollEvents → selectKeyGames(3) → startWatchedGame(4) → pausa (fase keyGame).
-// DECIDE_MOMENT/SKIP_GAME em keyGame: applyMoment(2×N) → [próximo jogo: startWatchedGame(4)] →
+// um jogo assistido é fixo — GAME_RNG_CALLS = 21 — decidindo ou pulando):
+// PLAY_SEASON: rollEvents → selectKeyGames(3) → startWatchedGame(12) → pausa (fase keyGame).
+// DECIDE_MOMENT/SKIP_GAME em keyGame: applyMoment(3×N) → [próximo jogo: startWatchedGame(12)] →
 //   pausa de novo, ou (fila vazia) runSeasonSim: simRegularSeason → winPct → standings →
 //   lines → [pausa tradeDecision] → concludeSeason.
 // TRADE_DECISION / fim da fila: concludeSeason: [winPct do time final, só se trocou] →
 //   simAwards → sem seed: simBracket → finishSeason (seasonResult);
-//   com seed: enterRound (npcRound das séries NPC + startWatchedGame(4)) → pausa (playoffGame).
-// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(2×N) →
-//   rounds 0-2: chance(shifted) → venceu: enterRound (npcRound + startWatchedGame(4)) →
+//   com seed: enterRound (npcRound das séries NPC + startWatchedGame(12)) → pausa (playoffGame).
+// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(3×N) →
+//   rounds 0-2: chance(shifted) → venceu: enterRound (npcRound + startWatchedGame(12)) →
 //     pausa; perdeu: resolveRest → finishSeason (seasonResult).
 //   finais: sem roll de série — 4ª vitória/derrota fecha (finishSeason), senão pausa na
 //     tela de série sem consumir rng.
-// ADVANCE_GAME: startWatchedGame(4) → pausa. SKIP_SERIES: repete [startWatchedGame(4) +
-//   applyMoment(6)] por jogo até a série fechar → finishSeason.
+// ADVANCE_GAME: startWatchedGame(12) → pausa. SKIP_SERIES: repete [startWatchedGame(12) +
+//   applyMoment(9)] por jogo até a série fechar → finishSeason.
 
 // Efeitos dos jogos-chave (FORA das fórmulas-contrato — deltas de state layer, não da
 // forma das fórmulas de season.ts): até ±0.04 de winPct, ±0.5 de ppg e desgaste de

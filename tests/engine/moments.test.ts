@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
   GAME_RNG_CALLS, applyMoment, autoResolveGame, defaultOption, expectedAutoDelta, finishWatchedGame,
-  makeMoments, resolveMoment, startWatchedGame,
+  makeMoments, resolveMoment, scoreOf, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
 
@@ -10,6 +10,7 @@ const build = (ovr: number): Build => ({
   attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>,
   picks: [], archetype: 'SF', overall: ovr,
 })
+const flatBuild = build
 const ctx: WatchedGameContext = { kind: 'rivalry', opponentTeamId: 'bos' }
 
 function countedRng(seed: number) {
@@ -28,7 +29,7 @@ describe('contrato de rng calls', () => {
   test('jogo completo assistido = exatamente GAME_RNG_CALLS', () => {
     const { rng, calls } = countedRng(1)
     let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, rng })
-    expect(calls()).toBe(4)
+    expect(calls()).toBe(12)   // 1 baseMargin + 3 makeMoments + 4×2 ambientação
     for (let i = 0; i < 3; i++) g = applyMoment(g, g.moments[g.momentIndex].options[0], build(90), 27, rng)
     expect(calls()).toBe(GAME_RNG_CALLS)
     expect(g.momentIndex).toBe(3)
@@ -141,5 +142,60 @@ describe('jogo', () => {
       if (finishWatchedGame(g, build(85), 27).won) wins++
     }
     expect(wins / 200).toBeGreaterThan(0.7)
+  })
+  test('log: 4 linhas de ambientação no início, 7 ao final, ordenadas por at', () => {
+    const { rng } = countedRng(5)
+    const b = flatBuild(85)
+    let g = startWatchedGame({
+      context: { kind: 'rivalry', opponentTeamId: 'bos' },
+      ourStrength: 75, oppStrength: 72, rng,
+      expectedDelta: expectedAutoDelta(b, 25),
+    })
+    expect(g.log).toHaveLength(4)
+    expect(g.log.every(e => !e.fromDecision)).toBe(true)
+    while (g.momentIndex < 3) g = applyMoment(g, defaultOption(g.moments[g.momentIndex]), b, 25, rng)
+    expect(g.log).toHaveLength(7)
+    expect(g.log.filter(e => e.fromDecision)).toHaveLength(3)
+    const ats = g.log.map(e => e.at)
+    expect([...ats].sort((a, b) => a - b)).toEqual(ats)
+  })
+  test('contrato: jogo completo consome GAME_RNG_CALLS (21)', () => {
+    const { rng, calls } = countedRng(5)
+    const b = flatBuild(85)
+    let g = startWatchedGame({
+      context: { kind: 'seedRace', opponentTeamId: 'den' },
+      ourStrength: 75, oppStrength: 72, rng, expectedDelta: expectedAutoDelta(b, 25),
+    })
+    g = autoResolveGame(g, b, 25, rng)
+    expect(calls()).toBe(GAME_RNG_CALLS)
+    expect(GAME_RNG_CALLS).toBe(21)
+  })
+  test('placar da última linha do log consistente com a margem final', () => {
+    const { rng } = countedRng(9)
+    const b = flatBuild(90)
+    let g = startWatchedGame({
+      context: { kind: 'special', opponentTeamId: 'lal' },
+      ourStrength: 78, oppStrength: 70, rng, expectedDelta: expectedAutoDelta(b, 27),
+    })
+    g = autoResolveGame(g, b, 27, rng)
+    const r = finishWatchedGame(g, b, 27)
+    const last = g.log[g.log.length - 1]
+    const final = scoreOf(r.margin)
+    expect(Math.abs(last.score.us - final.us)).toBeLessThanOrEqual(2)
+    expect(Math.abs(last.score.them - final.them)).toBeLessThanOrEqual(2)
+  })
+  test('reb/ast determinísticos e dentro das faixas', () => {
+    const { rng } = countedRng(5)
+    const b = flatBuild(85)
+    let g = startWatchedGame({
+      context: { kind: 'rivalry', opponentTeamId: 'bos' },
+      ourStrength: 75, oppStrength: 72, rng, expectedDelta: expectedAutoDelta(b, 25),
+    })
+    g = autoResolveGame(g, b, 25, rng)
+    const a = finishWatchedGame(g, b, 25)
+    const c = finishWatchedGame(g, b, 25)
+    expect(a.reb).toBe(c.reb)             // sem rng
+    expect(a.reb).toBeGreaterThanOrEqual(1); expect(a.reb).toBeLessThanOrEqual(22)
+    expect(a.ast).toBeGreaterThanOrEqual(1); expect(a.ast).toBeLessThanOrEqual(18)
   })
 })

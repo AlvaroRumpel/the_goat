@@ -3,12 +3,36 @@ import { rosterStrength } from './league'
 import { TEAMS, teamById } from '../data/teams'
 import type {
   Build, IconicMomentId, KeyGame, LeagueState, Moment, MomentOption, MomentOutcome, MomentRisk,
-  PendingGame, Rng, TeamStanding, WatchedGameContext, WatchedGameResult,
+  PendingGame, PlayEntry, Rng, TeamStanding, WatchedGameContext, WatchedGameResult,
 } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-export const GAME_RNG_CALLS = 10   // contrato: 1 baseMargin + 3 makeMoments + 3×2 resolveMoment
+export const GAME_RNG_CALLS = 21   // contrato: 1 baseMargin + 3 makeMoments + 4×2 ambientação + 3×(2 resolveMoment + 1 variante do lance)
+
+// placar sintético: 100 de base ± metade da margem — puramente visual (UI, ticker, 6a).
+export function scoreOf(margin: number): { us: number; them: number } {
+  return { us: Math.round(100 + margin / 2), them: Math.round(100 - margin / 2) }
+}
+
+const AMBIENT_AT = [5, 14, 27, 38]
+const MOMENT_AT: Record<string, number> = { q2tactic: 22.5, q4pressure: 43.3, clutch: 47.65 }
+
+function clockOf(at: number): string {
+  const q = Math.min(4, Math.floor(at / 12) + 1)
+  const rem = Math.max(0, 12 * q - at)
+  const mm = Math.floor(rem)
+  const ss = Math.round((rem - mm) * 60)
+  return `${q}Q ${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
+
+// placar do walk no minuto `at`: o jogo caminha para baseMargin + Σ deltas
+function logScore(baseMargin: number, deltas: number, at: number, jitter = 0): { us: number; them: number } {
+  const frac = at / 48
+  const margin = baseMargin * frac + deltas + jitter
+  const base = 100 * frac
+  return { us: Math.max(0, Math.round(base + margin / 2)), them: Math.max(0, Math.round(base - margin / 2)) }
+}
 
 // Catálogo fixo de opções por momento (constantes calibráveis).
 const MOMENT_OPTIONS: Record<string, MomentOption[]> = {
@@ -129,7 +153,18 @@ export function startWatchedGame(input: {
   const winP = clamp((center + expectedDelta + MARGIN_NOISE - 0.5) / (2 * MARGIN_NOISE), 0, 1)
   // 1 call: ruído do jogo
   const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)
-  return { context, moments: makeMoments(context, rng), momentIndex: 0, outcomes: [], baseMargin, winP, log: [] }
+  const moments = makeMoments(context, rng)
+  const log: PlayEntry[] = AMBIENT_AT.map((at, i) => {
+    const variant = rng.int(0, 2)                       // call 1 da linha
+    const jitter = Math.round(rng.next() * 8 - 4)       // call 2 da linha
+    return {
+      at, clock: clockOf(at),
+      textKey: `play.ambient.${i}.v${variant}`,
+      params: { opp: context.opponentTeamId.toUpperCase() },
+      score: logScore(baseMargin, 0, at, jitter),
+    }
+  })
+  return { context, moments, momentIndex: 0, outcomes: [], baseMargin, winP, log }
 }
 
 export function applyMoment(
@@ -140,7 +175,20 @@ export function applyMoment(
   const outcome: MomentOutcome = {
     momentId: moment.id, optionId: option.id, success: r.success, injury: r.injury, delta: r.delta,
   }
-  return { ...pending, momentIndex: pending.momentIndex + 1, outcomes: [...pending.outcomes, outcome] }
+  const variant = rng.int(0, 1)                          // call 3 do momento (contrato)
+  const at = MOMENT_AT[moment.id]
+  const deltas = [...pending.outcomes, outcome].reduce((n, o) => n + o.delta, 0)
+  const entry: PlayEntry = {
+    at, clock: clockOf(at), fromDecision: true,
+    textKey: `play.${option.id}.${r.success ? 'hit' : 'miss'}.v${variant}`,
+    params: { opp: pending.context.opponentTeamId.toUpperCase() },
+    score: logScore(pending.baseMargin, deltas, at),
+  }
+  return {
+    ...pending, momentIndex: pending.momentIndex + 1,
+    outcomes: [...pending.outcomes, outcome],
+    log: [...pending.log, entry].sort((a, b) => a.at - b.at),
+  }
 }
 
 export function autoResolveGame(pending: PendingGame, build: Build, age: number, rng: Rng): PendingGame {
@@ -192,7 +240,9 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
   if (won && baseMargin <= -15) iconics.push('comeback')
   if (playerPts >= 55 && (context.kind === 'rivalry' || context.kind === 'seedRace' || context.kind === 'special')) iconics.push('bigNight')
 
-  return { won, margin, playerPts, reb: 0, ast: 0, outcomes, injured, choke, iconics, winP }
+  const reb = Math.round(clamp((build.attributes.rebounding * m - 40) * 0.18 + margin / 12, 1, 22))
+  const ast = Math.round(clamp((build.attributes.passing * m - 45) * 0.16 + margin / 15, 1, 18))
+  return { won, margin, playerPts, reb, ast, outcomes, injured, choke, iconics, winP }
 }
 
 // menor índice em TEAMS = desempate vencedor (nunca rng em comparator)

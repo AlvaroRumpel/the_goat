@@ -3,16 +3,12 @@ import type { Action, GameState } from '../../state'
 import { t, type Lang } from '../../i18n'
 import { teamById } from '../../data/teams'
 import type { MomentOption, PendingGame, WatchedGameResult } from '../../engine/types'
+import { scoreOf } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 
 interface Props {
   state: GameState
   dispatch: Dispatch<Action>
-}
-
-// placar fictício: 100 de base +/- metade da margem parcial — puramente visual.
-export function scoreOf(margin: number): { us: number; them: number } {
-  return { us: Math.round(100 + margin / 2), them: Math.round(100 - margin / 2) }
 }
 
 function liveMargin(pending: PendingGame): number {
