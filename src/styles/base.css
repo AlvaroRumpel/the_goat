@@ -61,6 +61,8 @@ button {
   padding: 18px 22px 12px;
   margin: 0 -22px;
   border-bottom: 1px solid var(--rule);
+  position: relative;
+  z-index: 11; /* acima do .modal-veil (z-10): hub continua acessível durante trade/event decision */
 }
 .topbar--heavy {
   border-bottom: 3px double var(--red);

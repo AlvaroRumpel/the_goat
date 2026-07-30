@@ -707,8 +707,11 @@ export function loadState(): GameState | null {
     if (!raw) return null
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed.phase !== 'string' || typeof parsed.seed !== 'number') return null
-    // save sem liga completa é incompatível com o replay — descarta
-    if (parsed.phase !== 'home' && parsed.league?.players?.length !== 270) return null
+    // save sem liga completa é incompatível com o replay — descarta.
+    // usa a fase efetiva (resumePhase, se houver hub aberto sobre ela) — parsed.resumePhase
+    // ainda não tem o default aplicado aqui, mas undefined/null caem no `?? parsed.phase` igual.
+    const effectivePhase = parsed.resumePhase ?? parsed.phase
+    if (effectivePhase !== 'home' && parsed.league?.players?.length !== 270) return null
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
     parsed.pendingEvents = parsed.pendingEvents ?? null

@@ -8,7 +8,7 @@ describe('i18n', () => {
     expect(Object.keys(pt).sort()).toEqual(Object.keys(en).sort())
   })
   test('interpolates vars', () => {
-    expect(t('pt', 'season.title', { year: 3 })).toContain('3')
+    expect(t('pt', 'season.age', { age: 3 })).toContain('3')
   })
   test('missing key returns key itself', () => {
     expect(t('pt', 'nope.missing')).toBe('nope.missing')

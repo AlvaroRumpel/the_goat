@@ -127,6 +127,7 @@ async function main() {
     //   verdict:        <canvas> present
     let seasons = 0
     let sawSeasonResultShot = false
+    let hubCheckedInModal = false
     // Season 1 plays exactly one key game by deciding all 3 moments (option clicks);
     // every other key/playoff game (rest of season 1, every later season, every
     // playoff round, finals) is skipped via "Simular jogo" / "Simular o jogo {n}".
@@ -143,6 +144,17 @@ async function main() {
       await page.waitForSelector('.screen', { timeout: 10000 })
 
       if (await page.locator('.modal-veil').count() > 0) {
+        if (!hubCheckedInModal) {
+          hubCheckedInModal = true
+          log('modal decision: hub still reachable above the veil — open via CareerBar, check, close')
+          await page.locator('.topbar__link', { hasText: 'CARREIRA' }).click()
+          await page.waitForSelector('.hub', { timeout: 5000 })
+          const hubVisible = await page.locator('.hub').isVisible()
+          console.log(`[assert] hub visible over modal veil: ${hubVisible}`)
+          if (!hubVisible) exitCode = 1
+          await page.locator('.hub .topbar__link', { hasText: 'FECHAR' }).click()
+          await page.waitForTimeout(50)
+        }
         log('modal decision (trade/event): choose safe option')
         // reject/stay = the `.btn--outline` inside the crossroads card
         await page.locator('.modal-veil button.btn--outline').click()
