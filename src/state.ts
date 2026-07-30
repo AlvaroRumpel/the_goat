@@ -98,7 +98,6 @@ export interface GameState {
   pendingRegular: RegularSeasonResult | null  // stats brutos da temporada corrente; vive a temporada inteira (pré-keyGameEffects)
   pendingFocus: Focus | null // focus from PLAY_SEASON, needed to resolve postseason after a trade decision
   pendingEvents: GameEventId[] | null  // set when an interactive event pauses PLAY_SEASON
-  pendingChoices: EventChoice[] | null  // resolved event choices, held across the keyGame pause
   pendingGame: PendingGame | null     // key/playoff game currently being watched
   pendingPlayoffs: PendingPlayoffs | null  // postseason in progress (null outside the playoffGame phase)
   keyGameResults: WatchedGameResult[] // this season's watched games; reset in startSeasonCalendar (after any eventDecision pause)
@@ -182,7 +181,6 @@ export function initialState(lang: Lang = 'pt'): GameState {
     pendingRegular: null,
     pendingFocus: null,
     pendingEvents: null,
-    pendingChoices: null,
     pendingGame: null,
     pendingPlayoffs: null,
     keyGameResults: [],
@@ -275,7 +273,7 @@ function startSeasonCalendar(
   }
   return advanceCalendar({
     ...state, calendar, keyGameResults: [],
-    pendingRegular: regular, pendingFocus: focus, pendingEvents: events, pendingChoices: choices,
+    pendingRegular: regular, pendingFocus: focus, pendingEvents: events,
   }, rng, calls)
 }
 
@@ -382,7 +380,7 @@ function closeRegularSeason(state: GameState, rng: Rng, calls: () => number): Ga
       prevPpg: prevSeason?.ppg ?? null,
     },
   })
-  const base = { ...state, calendar: null, lastGame: null, pendingEvents: null, pendingRegular: null, pendingFocus: null, pendingChoices: null }
+  const base = { ...state, calendar: null, lastGame: null, pendingEvents: null, pendingRegular: null, pendingFocus: null }
   const common = { regular, finalOffer, winPct, awards, standings, lines, iconics: [], chokes: 0 }
   if (seed === null) {
     const bracket = simBracket({ standings, league: state.league!, playerTeamId: null, playerTitleProb: titleProb, rng })
@@ -825,7 +823,6 @@ export function loadState(): GameState | null {
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
     parsed.pendingEvents = parsed.pendingEvents ?? null
-    parsed.pendingChoices = parsed.pendingChoices ?? null
     parsed.pendingGame = parsed.pendingGame ?? null
     parsed.pendingPlayoffs = parsed.pendingPlayoffs ?? null
     parsed.keyGameResults = parsed.keyGameResults ?? []
