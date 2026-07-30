@@ -48,7 +48,7 @@ export function GameResult({ state, dispatch }: Props) {
               <div key={o.momentId} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
                 <span className="mono" style={{ fontSize: 11, width: 38, flexShrink: 0 }}>{MOMENT_CLOCK[o.momentId]}</span>
                 <span style={{ fontSize: 13, flex: 1 }}>{t(lang, 'option.' + o.optionId)}</span>
-                <span className="headline" style={{ fontSize: 11, color: o.success ? undefined : 'var(--red)' }}>
+                <span className="headline" style={{ fontSize: 11, color: o.injury || !o.success ? 'var(--red)' : undefined }}>
                   {t(lang, o.injury ? 'result.verdict.hurt' : o.success ? 'result.verdict.ok' : 'result.verdict.fail')}
                 </span>
               </div>
