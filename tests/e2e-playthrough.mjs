@@ -268,6 +268,12 @@ async function main() {
         break
       }
 
+      if (await page.locator('text=Ver o balanço').count() > 0) {
+        log('seasonResult: cerimônia → balanço')
+        await page.locator('button.btn--ink', { hasText: 'Ver o balanço' }).click()
+        continue
+      }
+
       if (await page.locator('text=A TEMPORADA EM CINCO LINHAS').count() > 0) {
         log(`seasonResult (season ${seasons}): advance`)
         if (!sawSeasonResultShot) {
@@ -305,7 +311,7 @@ async function main() {
     await page.waitForTimeout(300) // let canvas draw
     await page.screenshot({ path: `${SHOTS_DIR}/05-verdict.png` })
 
-    const tierVisible = await page.locator('.headline.headline--red').first().isVisible()
+    const tierVisible = await page.locator('.verdict-layer--1 .headline').first().isVisible()
     const shareBtn = page.locator('button.btn--primary')
     const shareVisible = await shareBtn.isVisible()
     console.log(`[assert] tier text visible: ${tierVisible}`)
@@ -316,7 +322,7 @@ async function main() {
     // iconic moment — the safe policy played here rarely triggers one (sweep is the
     // one exception), so absence alone isn't a failure; only assert it's visible when
     // ground truth (the save in localStorage) says the career actually has one.
-    const momentsTitleVisible = await page.locator('.mono-label.mono-label--red', { hasText: 'Momentos' }).count() > 0
+    const momentsTitleVisible = await page.locator('.mono-label', { hasText: 'Momentos' }).count() > 0
     const hasIconicMoments = await page.evaluate(() => {
       try {
         const raw = localStorage.getItem('thegoat:v5')
