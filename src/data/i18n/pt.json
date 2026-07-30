@@ -324,5 +324,19 @@
   "profile.chip.bigmarket": "MERCADO GRANDE",
   "profile.promise.contender": "Título ao alcance, menos holofote",
   "profile.promise.rebuild": "O time é seu, título distante",
-  "profile.promise.bigmarket": "Fama e pressão"
+  "profile.promise.bigmarket": "Fama e pressão",
+  "advance.title": "A TEMPORADA CORRE",
+  "advance.gameOf": "JOGO {n} DE 82",
+  "advance.pos": "{pos}º NO {conf}",
+  "advance.conf.east": "LESTE",
+  "advance.conf.west": "OESTE",
+  "advance.nextKey": "PRÓXIMO JOGO-CHAVE: {n}",
+  "advance.ticker": "PLACARES ENTRANDO",
+  "advance.note": "SUA LINHA ATÉ AQUI: {ppg} PTS · {rpg} REB · {apg} AST POR JOGO.",
+  "advance.stops": "A SIMULAÇÃO PARA SOZINHA NO PRÓXIMO JOGO-CHAVE.",
+  "advance.take": "Assumir o próximo jogo",
+  "advance.run": "Correr até os playoffs",
+  "advance.win": "V",
+  "advance.loss": "D",
+  "advance.pts": "{n} PTS"
 }

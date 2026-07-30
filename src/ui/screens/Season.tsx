@@ -8,6 +8,7 @@ import type { Focus, Headline } from '../../engine/types'
 import { OfferCard, TeamSymbol } from '../components/OfferCard'
 import { CareerBar } from '../components/CareerBar'
 import { SeasonResult } from './SeasonResult'
+import { SeasonAdvanceBody } from './SeasonAdvance'
 
 interface Props {
   state: GameState
@@ -129,6 +130,7 @@ function TradeDecision({ state, dispatch }: Props) {
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
+      {state.calendar && <SeasonAdvanceBody state={state} />}
       <div className="modal-veil">
         <div className="crossroads-card">
           <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>

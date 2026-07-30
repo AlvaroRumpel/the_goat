@@ -324,5 +324,19 @@
   "profile.chip.bigmarket": "BIG MARKET",
   "profile.promise.contender": "Title within reach, less spotlight",
   "profile.promise.rebuild": "The team is yours, title far away",
-  "profile.promise.bigmarket": "Fame and pressure"
+  "profile.promise.bigmarket": "Fame and pressure",
+  "advance.title": "THE SEASON RUNS ON",
+  "advance.gameOf": "GAME {n} OF 82",
+  "advance.pos": "{pos} IN THE {conf}",
+  "advance.conf.east": "EAST",
+  "advance.conf.west": "WEST",
+  "advance.nextKey": "NEXT KEY GAME: {n}",
+  "advance.ticker": "SCORES COMING IN",
+  "advance.note": "YOUR LINE SO FAR: {ppg} PTS · {rpg} REB · {apg} AST PER GAME.",
+  "advance.stops": "THE SIM STOPS AT THE NEXT KEY GAME.",
+  "advance.take": "Take the next game",
+  "advance.run": "Run to the playoffs",
+  "advance.win": "W",
+  "advance.loss": "L",
+  "advance.pts": "{n} PTS"
 }
