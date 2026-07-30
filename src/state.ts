@@ -478,7 +478,8 @@ function pausePlayoffGame(
   }
 }
 
-// Metade 2 — CONTINUE: consome o rng do avanço (roll de série, npcRound, próximo jogo).
+// Metade 2 — CONTINUE: consome o rng do avanço (roll de série, advancePlayer avança o
+// bracket, npcRound resolve o resto do round, próximo jogo).
 function continuePlayoffs(state: GameState, rng: Rng, calls: () => number): GameState {
   const pp = state.pendingPlayoffs!
   const won = state.lastGame!.result.won
@@ -611,6 +612,7 @@ function reduce(state: GameState, action: Action): GameState {
     }
 
     case 'CONFIRM_BUILD': {
+      if (state.phase !== 'draftDone') return state
       const build = resolveBuild(state.picks)
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const pickNumber = draftPickNumber(build.overall, rng)
@@ -619,6 +621,7 @@ function reduce(state: GameState, action: Action): GameState {
     }
 
     case 'CHOOSE_OFFER':
+      if (state.phase !== 'nbaDraft' && state.phase !== 'freeAgency') return state
       return { ...state, currentOffer: action.offer, contractYearsLeft: 4, phase: 'preseason' }
 
     case 'PLAY_SEASON': {

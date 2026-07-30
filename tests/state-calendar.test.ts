@@ -7,6 +7,13 @@ import { initLeague } from '../src/data/league'
 import { SLOT_ORDER, type Build, type Rng, type SeasonResult, type SlotId } from '../src/engine/types'
 import { DEADLINE_GAME, simStretch } from '../src/engine/schedule'
 
+// Nota: os testes abaixo são ancorados na seed 42 e conferem o registro literal do
+// walk (soma de trechos + key games) byte a byte. Isso é uma trava de SNAPSHOT
+// (depende da ordem/contagem exata de chamadas de rng), não uma trava de
+// COMPORTAMENTO — se um teste aqui quebrar depois de uma mudança em qualquer engine
+// upstream (schedule/moments/season), o primeiro suspeito é drift de ordem de rng,
+// não necessariamente uma regressão real. Ver HANDOFF.md § Débitos.
+
 function flatBuild(overall: number): Build {
   const attrs = Object.fromEntries(SLOT_ORDER.map(s => [s, overall])) as Record<SlotId, number>
   return { attributes: attrs, picks: [], archetype: 'SF', overall }

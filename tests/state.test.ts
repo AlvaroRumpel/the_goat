@@ -243,6 +243,12 @@ describe('gameReducer', () => {
     expect(s.verdict!.score).toBeGreaterThanOrEqual(0)
     expect(s.verdict!.tier).toBeTruthy()
   })
+  test('CONFIRM_BUILD e CHOOSE_OFFER são no-op fora da fase esperada', () => {
+    const home = initialState('pt')
+    expect(gameReducer(home, { type: 'CONFIRM_BUILD' })).toEqual(home)
+    const fakeOffer = { teamId: 'lal', profile: 'bigmarket' as const }
+    expect(gameReducer(home, { type: 'CHOOSE_OFFER', offer: fakeOffer })).toEqual(home)
+  })
 })
 
 describe('eventDecision', () => {
