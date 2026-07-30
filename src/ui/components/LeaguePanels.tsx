@@ -4,6 +4,10 @@ import { teamById } from '../../data/teams'
 import type { AwardRace, LeagueSeasonOutcome, LeagueState, RaceAward, TeamStanding } from '../../engine/types'
 import type { GameState } from '../../state'
 
+export function sortStandings(entries: TeamStanding[]): TeamStanding[] {
+  return [...entries].sort((a, b) => b.wins - a.wins || a.teamId.localeCompare(b.teamId))
+}
+
 function StandingsRow({ entry, isPlayer, scale }: { entry: TeamStanding; isPlayer: boolean; scale: number }) {
   const wins = Math.round(entry.wins * scale)
   const losses = Math.round((82 - entry.wins) * scale)
@@ -26,8 +30,7 @@ function StandingsRow({ entry, isPlayer, scale }: { entry: TeamStanding; isPlaye
 
 export function StandingsTable(props: { standings: TeamStanding[]; playerTeamId: string; lang: Lang; scale?: number }) {
   const { standings, playerTeamId, lang, scale = 1 } = props
-  const byConf = (conf: 'east' | 'west') =>
-    standings.filter(s => s.conf === conf).sort((a, b) => b.wins - a.wins)
+  const byConf = (conf: 'east' | 'west') => sortStandings(standings.filter(s => s.conf === conf))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -112,7 +115,7 @@ export function CeremonyPanel(props: { outcome: LeagueSeasonOutcome; league: Lea
 // do jogador se ele estiver fora do top-4.
 export function StandingsTop4(props: { standings: TeamStanding[]; playerTeamId: string; lang: Lang }) {
   const { standings, playerTeamId, lang } = props
-  const byConf = (conf: 'east' | 'west') => standings.filter(s => s.conf === conf).sort((a, b) => b.wins - a.wins)
+  const byConf = (conf: 'east' | 'west') => sortStandings(standings.filter(s => s.conf === conf))
 
   return (
     <div className="result__standings">
