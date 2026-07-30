@@ -113,6 +113,32 @@ export function simNpcLines(league: LeagueState, rng: Rng): NpcLine[] {
   })
 }
 
+// Projeção determinística (sem rng) de NpcLine — mesma fórmula de simNpcLines sem o
+// termo de jitter aleatório. Usada pelo SeasonAdvance (C3) pra alimentar partialMvpRace
+// com uma linha "esperada" por NPC, sem consumir rng (zero impacto em replay/calibração).
+export function projectedNpcLines(league: LeagueState): NpcLine[] {
+  return league.players.map(p => {
+    const eff = npcEffOvr(p)
+    const has = (tag: LeagueTag) => p.tags.includes(tag)
+    const ppg = clamp((eff - 58) * 0.70 + (has('shooter') ? 2 : 0), 2, 36)
+    const rpg = clamp((eff - 60) * 0.28 + (has('rebounder') ? 3 : 0) + (p.pos === 'C' ? 2 : p.pos === 'PF' ? 1 : -1), 0.5, 16)
+    const apg = clamp((eff - 60) * 0.22 + (has('playmaker') ? 3 : 0) + (p.pos === 'PG' ? 2.5 : 0), 0.3, 12)
+    return { playerId: p.id, ppg: Math.round(ppg * 10) / 10, rpg: Math.round(rpg * 10) / 10, apg: Math.round(apg * 10) / 10 }
+  })
+}
+
+// Projeção determinística (sem rng) de standings — mesma fórmula de simStandings sem o
+// termo de jitter (rng.int(-6,6)). Usada só como proxy de força de time pro winPct que
+// entra em partialMvpRace; nunca substitui simStandings real (que segue com rng).
+export function projectedStandings(league: LeagueState): TeamStanding[] {
+  const strengths = new Map(TEAMS.map(t => [t.id, rosterStrength(league, t.id)]))
+  const mean = [...strengths.values()].reduce((n, v) => n + v, 0) / 30
+  return TEAMS.map(t => ({
+    teamId: t.id, conf: t.conf, seed: null,
+    wins: clamp(Math.round(41 + (strengths.get(t.id)! - mean) * 1.3), 12, 68),
+  }))
+}
+
 // npcEffOvr aplica a curva de idade do jogador ao NPC, então rookie de NPC (ovr 70,
 // 20 anos) fica com eff ~57 e ppg no piso — sem isso o jogador ganharia ROY sempre,
 // mesmo com 75 de overall. Constante calibrável (harness: royRate por faixa).
