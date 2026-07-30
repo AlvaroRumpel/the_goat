@@ -332,7 +332,7 @@
   "advance.conf.west": "WEST",
   "advance.nextKey": "NEXT KEY GAME: {n}",
   "advance.ticker": "SCORES COMING IN",
-  "advance.note": "YOUR LINE SO FAR: {ppg} PTS · {rpg} REB · {apg} AST PER GAME.",
+  "advance.raceLabel": "MVP RACE (PROJECTED)",
   "advance.stops": "THE SIM STOPS AT THE NEXT KEY GAME.",
   "advance.take": "Take the next game",
   "advance.run": "Run to the playoffs",

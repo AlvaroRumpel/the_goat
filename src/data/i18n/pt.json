@@ -332,7 +332,7 @@
   "advance.conf.west": "OESTE",
   "advance.nextKey": "PRÓXIMO JOGO-CHAVE: {n}",
   "advance.ticker": "PLACARES ENTRANDO",
-  "advance.note": "SUA LINHA ATÉ AQUI: {ppg} PTS · {rpg} REB · {apg} AST POR JOGO.",
+  "advance.raceLabel": "CORRIDA DE MVP (PROJETADA)",
   "advance.stops": "A SIMULAÇÃO PARA SOZINHA NO PRÓXIMO JOGO-CHAVE.",
   "advance.take": "Assumir o próximo jogo",
   "advance.run": "Correr até os playoffs",

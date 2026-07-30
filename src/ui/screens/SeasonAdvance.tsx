@@ -3,6 +3,8 @@ import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
 import { projectedSeed } from '../../engine/schedule'
+import { partialMvpRace, projectedNpcLines, projectedStandings } from '../../engine/league'
+import { RaceBars } from '../components/LeaguePanels'
 import { CareerBar } from '../components/CareerBar'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
@@ -19,6 +21,10 @@ export function SeasonAdvanceBody({ state }: { state: GameState }) {
   const reg = state.pendingRegular!
   const doneW = (cal.played / 82) * 100
   const currentW = next ? ((next.gameIndex - cal.played) / 82) * 100 : 0
+  const mvpRace = partialMvpRace(
+    state.league!, projectedNpcLines(state.league!), projectedStandings(state.league!),
+    { ppg: reg.ppg, rpg: reg.rpg, apg: reg.apg, teamWinPct: cal.ticker.length ? wins / cal.ticker.length : 0.5 },
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, flex: 1 }}>
@@ -58,11 +64,12 @@ export function SeasonAdvanceBody({ state }: { state: GameState }) {
         ))}
       </div>
 
-      {/* nota de escopo: corrida de prêmios de fato só existe em fim de temporada (simAwards);
-          aqui exibimos a linha de stats do jogador. ponytail: simplificação com teto conhecido —
-          upgrade = corrida parcial recalculada por trecho (novo contrato de rng), avaliar no C3. */}
-      <div style={{ borderLeft: '2px solid var(--red)', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span className="mono" style={{ fontSize: 11 }}>{t(lang, 'advance.note', { ppg: reg.ppg, rpg: reg.rpg, apg: reg.apg })}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="mono-label">{t(lang, 'advance.raceLabel')}</div>
+        <RaceBars races={[mvpRace]} lang={lang} />
+      </div>
+
+      <div style={{ borderLeft: '2px solid var(--red)', paddingLeft: 12 }}>
         <span className="mono-label">{t(lang, 'advance.stops')}</span>
       </div>
     </div>
