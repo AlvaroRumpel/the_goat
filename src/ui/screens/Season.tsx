@@ -259,21 +259,41 @@ function RetireDecision({ state, dispatch }: Props) {
   const n = state.career.seasons.length + 1
   const ratio = performanceRatio(state.career.seasons)
   const heavyDecline = ratio !== null && ratio < 0.55
+  const build = state.build!
+  const eovs = state.career.seasons.slice(-10).map(s => effectiveOverall(build.overall, s.age, build.attributes.physical))
+  const peakIdx = eovs.indexOf(Math.max(...eovs))
+  const current = eovs.at(-1) ?? build.overall
+  const peak = Math.max(...eovs)
 
   return (
-    <div className="screen">
+    <div className="screen retire-screen">
       <CareerBar state={state} dispatch={dispatch} />
       <div
         style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 16, textAlign: 'center' }}
       >
         <div className="mono-label">
-          {t(lang, 'season.age', { age: state.age })} · {t(lang, 'retire.season', { n })}
+          {t(lang, 'retire.season', { n })} · {t(lang, 'season.age', { age: state.age })}
         </div>
-        <div className="headline" style={{ fontSize: 30 }}>{t(lang, 'retire.title')}</div>
-        <hr className="rule" style={{ width: '80%' }} />
-        <div className="hint">
+        <div className="retire-letter" style={{ fontSize: 34 }}>{t(lang, 'retire.title')}</div>
+        <div style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--body-dim)' }}>
           {t(lang, heavyDecline ? 'retire.desc.pressure' : 'retire.desc', { age: state.age })}
         </div>
+
+        <hr className="rule" style={{ width: '100%' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+          <span className="mono-label">{t(lang, 'retire.effOverall')}</span>
+          <span className="mono">{peak} → {current}</span>
+        </div>
+        <div className="retire-decline" style={{ width: '100%' }}>
+          {eovs.map((eov, i) => {
+            const h = Math.max(4, Math.round(((eov - 40) / (99 - 40)) * 56))
+            const cls = i === peakIdx ? 'retire-decline__bar retire-decline__bar--peak'
+              : i >= eovs.length - 3 ? 'retire-decline__bar retire-decline__bar--late'
+              : 'retire-decline__bar'
+            return <div key={i} className={cls} style={{ height: h }} />
+          })}
+        </div>
+        <hr className="rule" style={{ width: '100%' }} />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
