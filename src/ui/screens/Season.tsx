@@ -3,11 +3,9 @@ import type { Action, GameState } from '../../state'
 import { t, type Lang } from '../../i18n'
 import { teamById } from '../../data/teams'
 import { effectiveOverall, performanceRatio } from '../../engine/season'
-import { partialMvpRace } from '../../engine/league'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus, Headline } from '../../engine/types'
 import { OfferCard, TeamSymbol } from '../components/OfferCard'
-import { RacesPanel, StandingsTable } from '../components/LeaguePanels'
 import { CareerBar } from '../components/CareerBar'
 import { SeasonResult } from './SeasonResult'
 
@@ -127,18 +125,10 @@ function TradeDecision({ state, dispatch }: Props) {
   const pendingRegular = state.pendingRegular!
   const tradeOffer = pendingRegular.tradeOffer!
   const team = teamById(tradeOffer.teamId)
-  const pending = state.pendingLeague!
-  const partialRace = partialMvpRace(state.league!, pending.lines, pending.standings, {
-    ppg: pendingRegular.ppg, rpg: pendingRegular.rpg, apg: pendingRegular.apg, teamWinPct: pending.winPct,
-  })
 
   return (
     <div className="screen">
       <CareerBar state={state} dispatch={dispatch} />
-      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, border: '1px solid var(--rule)', background: 'var(--paper)' }}>
-        <StandingsTable standings={pending.standings} playerTeamId={pendingRegular.teamId} lang={lang} scale={0.5} />
-        <RacesPanel races={[partialRace]} lang={lang} scale={0.5} />
-      </div>
       <div className="modal-veil">
         <div className="crossroads-card">
           <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>

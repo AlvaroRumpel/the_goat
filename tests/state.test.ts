@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { gameReducer, initialState, loadState, saveState } from '../src/state'
 import type { GameState } from '../src/state'
-import { createRng } from '../src/engine/rng'
-import { simNpcLines, simStandings } from '../src/engine/league'
 import { SLOT_ORDER } from '../src/engine/types'
 
 // localStorage mock for node env
@@ -21,12 +19,15 @@ function playToBuild() {
   return gameReducer(s, { type: 'CONFIRM_BUILD' })
 }
 
-// jogos-chave + playoffs em auto: SKIP_GAME resolve o jogo aberto, SKIP_SERIES a tela
-// de série das finais. Para no primeiro estado que não é jogo (tradeDecision/seasonResult).
+// calendário + jogos-chave + playoffs em auto: TAKE_NEXT_GAME abre o próximo jogo,
+// SKIP_GAME resolve o jogo aberto, CONTINUE segue o walk, SKIP_SERIES a tela de série
+// das finais. Para no primeiro estado que não é jogo (tradeDecision/seasonResult).
 function skipGames(s: GameState): GameState {
   let guard = 0
-  while ((s.phase === 'keyGame' || s.phase === 'playoffGame') && guard++ < 60) {
-    s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
+  while ((s.phase === 'seasonAdvance' || s.phase === 'keyGame' || s.phase === 'gameResult' || s.phase === 'playoffGame') && guard++ < 200) {
+    if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+    else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+    else s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
   }
   return s
 }
@@ -119,7 +120,7 @@ describe('gameReducer', () => {
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
       else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-      else if (s.phase === 'keyGame' || s.phase === 'playoffGame') s = skipGames(s)
+      else if (s.phase === 'seasonAdvance' || s.phase === 'keyGame' || s.phase === 'gameResult' || s.phase === 'playoffGame') s = skipGames(s)
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') break
       else break
@@ -140,7 +141,7 @@ describe('gameReducer', () => {
       else if (s.phase === 'seasonResult') s = gameReducer(s, { type: 'ADVANCE' })
       else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
       else if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-      else if (s.phase === 'keyGame' || s.phase === 'playoffGame') s = skipGames(s)
+      else if (s.phase === 'seasonAdvance' || s.phase === 'keyGame' || s.phase === 'gameResult' || s.phase === 'playoffGame') s = skipGames(s)
       else if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
       else if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
       else break
@@ -153,24 +154,24 @@ describe('gameReducer', () => {
     const s = playToBuild()
     saveState(s)
     expect(loadState()).toEqual(s)
-    localStorage.setItem('thegoat:v4', '{broken')
+    localStorage.setItem('thegoat:v5', '{broken')
     expect(loadState()).toBeNull()
   })
   test('save sem liga completa (v2 e anteriores) é descartado', () => {
     const s = playToBuild()
     const { league: _drop, ...noLeague } = s
-    localStorage.setItem('thegoat:v4', JSON.stringify(noLeague))
+    localStorage.setItem('thegoat:v5', JSON.stringify(noLeague))
     expect(loadState()).toBeNull()
   })
   test('loadState normaliza save legado sem injuryProne/pendingEvents e com pendingRegular sem choices', () => {
     let s = playToBuild()
     s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
-    const rng = createRng(9)
-    const standings = simStandings({ league: s.league!, playerTeamId: s.currentOffer!.teamId, playerWins: 41, rng })
     const legacy: Record<string, unknown> = {
       ...s,
       phase: 'tradeDecision',
-      pendingLeague: { standings, lines: simNpcLines(s.league!, rng), winPct: 0.5, effClutch: 75 },
+      calendar: {
+        slots: [], nextSlot: 0, deadlineDone: false, ticker: [], played: 55, p: 0.5, effClutch: 75, autoRun: false,
+      },
       pendingRegular: {
         age: s.age, teamId: s.currentOffer!.teamId, games: 82, ppg: 20, rpg: 5, apg: 5,
         events: [], tradeOffer: { teamId: s.currentOffer!.teamId, profile: s.currentOffer!.profile },
@@ -180,7 +181,7 @@ describe('gameReducer', () => {
     }
     delete legacy.injuryProne
     delete legacy.pendingEvents
-    localStorage.setItem('thegoat:v4', JSON.stringify(legacy))
+    localStorage.setItem('thegoat:v5', JSON.stringify(legacy))
 
     const loaded = loadState()!
     expect(loaded.pendingRegular!.choices).toEqual([])
@@ -208,7 +209,7 @@ describe('eventDecision', () => {
     const { s } = findInteractiveSeed()
     expect(s.pendingEvents!.some(e => e === 'injury' || e === 'lockerroom')).toBe(true)
     let done = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
-    expect(done.phase).toBe('keyGame')
+    expect(done.phase).toBe('seasonAdvance')
     done = skipGames(done)
     expect(['seasonResult', 'tradeDecision']).toContain(done.phase)
     expect(done.pendingEvents).toBeNull()
@@ -283,10 +284,10 @@ describe('hub e resume (C1)', () => {
     const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 9 })
     expect(gameReducer(s, { type: 'RESUME' })).toEqual(s)
   })
-  test('loadState defaulta hubOpen/resumePhase em save v4 antigo', () => {
+  test('loadState defaulta hubOpen/resumePhase em save v5 antigo', () => {
     const s = playToSeasonResult()
     const { hubOpen: _h, resumePhase: _r, ...old } = s as Record<string, unknown>
-    localStorage.setItem('thegoat:v4', JSON.stringify(old))
+    localStorage.setItem('thegoat:v5', JSON.stringify(old))
     const loaded = loadState()!
     expect(loaded.hubOpen).toBe(false)
     expect(loaded.resumePhase).toBeNull()

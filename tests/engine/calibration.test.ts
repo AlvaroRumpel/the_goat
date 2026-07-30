@@ -57,9 +57,11 @@ function gameAction(s: GameState, policy: Policy): Action {
 function playSeason(s: GameState, policy: Policy): GameState {
   s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
   let guard = 0
-  while (s.phase !== 'seasonResult' && guard++ < 200) {
+  while (s.phase !== 'seasonResult' && guard++ < 400) {
     if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
     else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+    else if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+    else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
     else if (s.pendingGame) s = gameReducer(s, gameAction(s, policy))
     else if (s.phase === 'playoffGame') s = gameReducer(s, { type: 'ADVANCE_GAME' })
     else break

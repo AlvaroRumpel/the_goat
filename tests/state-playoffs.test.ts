@@ -16,8 +16,10 @@ function playSeasonAuto(s: GameState): GameState {
   s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
   if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
   let guard = 0
-  while (s.phase !== 'seasonResult' && guard++ < 80) {
-    if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+  while (s.phase !== 'seasonResult' && guard++ < 200) {
+    if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+    else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+    else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
     else if (s.phase === 'playoffGame') {
       s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
     }
@@ -57,14 +59,16 @@ describe('playoffs pausáveis', () => {
         if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
         let games = 0, guard = 0
         let crossConf = true
-        while (s.phase !== 'seasonResult' && guard++ < 100) {
+        while (s.phase !== 'seasonResult' && guard++ < 200) {
           if (s.phase === 'playoffGame' && s.pendingPlayoffs?.bracket.round === 3 && s.pendingGame) {
             games++
             const pp = s.pendingPlayoffs
             // advancePlayer respeitou o bracket: finais são sempre cross-conferência
             if (teamById(pp.opponentTeamId).conf === teamById(pp.finalOffer.teamId).conf) crossConf = false
           }
-          if (s.phase === 'keyGame' || (s.phase === 'playoffGame' && s.pendingGame)) s = gameReducer(s, { type: 'SKIP_GAME' })
+          if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+          else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+          else if (s.phase === 'keyGame' || (s.phase === 'playoffGame' && s.pendingGame)) s = gameReducer(s, { type: 'SKIP_GAME' })
           else if (s.phase === 'playoffGame') s = gameReducer(s, { type: 'ADVANCE_GAME' })
           else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
           else break
@@ -95,7 +99,7 @@ describe('playoffs pausáveis', () => {
         s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
         if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
         let guard = 0
-        while (s.phase !== 'seasonResult' && guard++ < 80) {
+        while (s.phase !== 'seasonResult' && guard++ < 200) {
           // pausa assim que os playoffs estiverem em andamento com um jogo aberto
           if (s.phase === 'playoffGame' && s.pendingGame && s.pendingPlayoffs) {
             const reloaded = JSON.parse(JSON.stringify(s)) as GameState
@@ -103,8 +107,10 @@ describe('playoffs pausáveis', () => {
             const rest = (from: GameState) => {
               let x = from
               let g = 0
-              while (x.phase !== 'seasonResult' && g++ < 80) {
-                if (x.phase === 'keyGame' || (x.phase === 'playoffGame' && x.pendingGame)) x = gameReducer(x, { type: 'SKIP_GAME' })
+              while (x.phase !== 'seasonResult' && g++ < 200) {
+                if (x.phase === 'seasonAdvance') x = gameReducer(x, { type: 'TAKE_NEXT_GAME' })
+                else if (x.phase === 'gameResult') x = gameReducer(x, { type: 'CONTINUE' })
+                else if (x.phase === 'keyGame' || (x.phase === 'playoffGame' && x.pendingGame)) x = gameReducer(x, { type: 'SKIP_GAME' })
                 else if (x.phase === 'playoffGame') x = gameReducer(x, { type: 'ADVANCE_GAME' })
                 else if (x.phase === 'tradeDecision') x = gameReducer(x, { type: 'TRADE_DECISION', accept: false })
                 else break
@@ -114,7 +120,9 @@ describe('playoffs pausáveis', () => {
             expect(rest(reloaded)).toBe(rest(s))
             return
           }
-          if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+          if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+          else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+          else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
           else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
           else break
         }
@@ -144,8 +152,10 @@ describe('playoffs pausáveis', () => {
     // varre seeds/anos até achar uma temporada com tradeOffer que também classifica.
     const finishToSeasonResult = (x: GameState): GameState => {
       let guard = 0
-      while (x.phase !== 'seasonResult' && guard++ < 100) {
-        if (x.phase === 'keyGame' || x.phase === 'playoffGame') {
+      while (x.phase !== 'seasonResult' && guard++ < 200) {
+        if (x.phase === 'seasonAdvance') x = gameReducer(x, { type: 'TAKE_NEXT_GAME' })
+        else if (x.phase === 'gameResult') x = gameReducer(x, { type: 'CONTINUE' })
+        else if (x.phase === 'keyGame' || x.phase === 'playoffGame') {
           x = x.pendingGame ? gameReducer(x, { type: 'SKIP_GAME' }) : gameReducer(x, { type: 'SKIP_SERIES' })
         } else break
       }
@@ -157,8 +167,10 @@ describe('playoffs pausáveis', () => {
         s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
         if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
         let guard = 0
-        while (s.phase === 'keyGame' && guard++ < 60) {
-          s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
+        while ((s.phase === 'seasonAdvance' || s.phase === 'keyGame' || s.phase === 'gameResult') && guard++ < 200) {
+          if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+          else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+          else s = s.pendingGame ? gameReducer(s, { type: 'SKIP_GAME' }) : gameReducer(s, { type: 'SKIP_SERIES' })
         }
         if (s.phase === 'tradeDecision') {
           const tradeTeamId = s.pendingRegular!.tradeOffer!.teamId
