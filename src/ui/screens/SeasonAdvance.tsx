@@ -18,7 +18,7 @@ export function SeasonAdvanceBody({ state }: { state: GameState }) {
   const pos = projectedSeed(state.league!, teamId, cal.ticker.length ? wins / cal.ticker.length : 0.5)
   const reg = state.pendingRegular!
   const doneW = (cal.played / 82) * 100
-  const currentW = next ? ((next.gameIndex - cal.played) / 82) * 100 : 100 - doneW
+  const currentW = next ? ((next.gameIndex - cal.played) / 82) * 100 : 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, flex: 1 }}>
