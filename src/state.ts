@@ -207,18 +207,21 @@ export function initialState(lang: Lang = 'pt'): GameState {
 // TAKE_NEXT_GAME: startWatchedGame(12) → pausa (keyGame).
 // DECIDE_MOMENT/SKIP_GAME em keyGame: applyMoment(3×N) → jogo fecha (finishKeyGame) →
 //   pausa (gameResult), sem mais rng.
-// CONTINUE (de gameResult): advanceCalendar — simStretch do próximo trecho → pausa
-//   (seasonAdvance/tradeDecision) ou, no fim da regular, closeRegularSeason: simStandings
-//   → simNpcLines → simAwards → sem seed: simBracket → finishSeason (seasonResult); com
-//   seed: enterRound (npcRound + startWatchedGame(12)) → pausa (playoffGame).
+// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(3×N) → jogo fecha (pausePlayoffGame)
+//   → pausa (gameResult), sem mais rng — o roll de série/rounds fica todo para o CONTINUE.
+// CONTINUE (de gameResult): sem pendingPlayoffs → advanceCalendar — simStretch do próximo
+//   trecho → pausa (seasonAdvance/tradeDecision) ou, no fim da regular, closeRegularSeason:
+//   simStandings → simNpcLines → simAwards → sem seed: simBracket → finishPostseason
+//   (seasonResult); com seed: enterRound (npcRound + startWatchedGame(12)) → pausa
+//   (playoffGame). Com pendingPlayoffs → continuePlayoffs: rounds 0-2: chance(shifted) →
+//   venceu: enterRound (npcRound + startWatchedGame(12)) → pausa; perdeu: resolveRest →
+//   finishPostseason (seasonResult). Finais: 4ª vitória/derrota fecha (finishPostseason),
+//   senão pausa na tela de série sem consumir mais rng.
 // TRADE_DECISION: [aceitou: computeWinPct do time novo] → advanceCalendar (como acima).
-// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(3×N) →
-//   rounds 0-2: chance(shifted) → venceu: enterRound (npcRound + startWatchedGame(12)) →
-//     pausa; perdeu: resolveRest → finishSeason (seasonResult).
-//   finais: sem roll de série — 4ª vitória/derrota fecha (finishSeason), senão pausa na
-//     tela de série sem consumir rng.
-// ADVANCE_GAME: startWatchedGame(12) → pausa. SKIP_SERIES: repete [startWatchedGame(12) +
-//   applyMoment(9)] por jogo até a série fechar → finishSeason.
+// ADVANCE_GAME: startWatchedGame(12) → pausa (playoffGame com jogo aberto). SKIP_SERIES:
+//   repete, por jogo, [startWatchedGame(12) + applyMoment(9)] com pausa (pausePlayoffGame)
+//   e avanço (continuePlayoffs) fundidos no mesmo dispatch, sem tela por jogo, até a série
+//   fechar → finishPostseason.
 
 // Efeito residual dos jogos-chave: ppg centrado na expectativa e desgaste de lesão.
 // O efeito em winPct morreu no C2 — o resultado do jogo entra LITERAL no registro
@@ -433,7 +436,7 @@ function openPlayoffGame(state: GameState, pp: PendingPlayoffs, rng: Rng, calls:
   if (!pp.playerOut) {
     return { ...state, phase: 'playoffGame', pendingPlayoffs: pp, pendingGame: pending, rngCalls: calls() }
   }
-  return finishPlayoffGame(state, pp, autoResolveGame(pending, state.build!, state.age, rng), rng, calls)
+  return pausePlayoffGame(state, pp, autoResolveGame(pending, state.build!, state.age, rng), true, calls)
 }
 
 // Jogador eliminado: sai do bracket e o oponente segue (npcRound deixa o par do
@@ -446,50 +449,61 @@ function eliminated(bs: BracketState, playerTeamId: string): BracketState {
   }
 }
 
-// Jogo de playoffs fechado (3 momentos resolvidos).
-function finishPlayoffGame(
-  state: GameState, pp: PendingPlayoffs, pending: PendingGame, rng: Rng, calls: () => number,
+// Metade 1 — o jogo fechou: resultado vai para a tela; NENHUM rng de avanço aqui.
+// Contadores das finais já atualizam para a tela de série/resultado mostrar o placar.
+function pausePlayoffGame(
+  state: GameState, pp: PendingPlayoffs, pending: PendingGame, skipped: boolean, calls: () => number,
 ): GameState {
   const result = finishWatchedGame(pending, state.build!, state.age)
+  const finals = pp.bracket.round === 3
   const next: PendingPlayoffs = {
     ...pp,
     iconics: [...pp.iconics, ...result.iconics],
     chokes: pp.chokes + (result.choke ? 1 : 0),
     playerOut: pp.playerOut || result.injured,
+    seriesUs: pp.seriesUs + (finals && result.won ? 1 : 0),
+    seriesThem: pp.seriesThem + (finals && !result.won ? 1 : 0),
   }
-  // lesão nos playoffs corta o resto da pós-temporada E entra na próxima temporada
-  const base = { ...state, pendingGame: null, injuryProne: state.injuryProne || result.injured }
+  return {
+    ...state,
+    phase: 'gameResult',
+    pendingGame: null,
+    pendingPlayoffs: next,
+    lastGame: { context: pending.context, result, skipped },
+    injuryProne: state.injuryProne || result.injured,
+    rngCalls: calls(),
+  }
+}
+
+// Metade 2 — CONTINUE: consome o rng do avanço (roll de série, npcRound, próximo jogo).
+function continuePlayoffs(state: GameState, rng: Rng, calls: () => number): GameState {
+  const pp = state.pendingPlayoffs!
+  const won = state.lastGame!.result.won
+  const base = { ...state, lastGame: null }
   const teamId = pp.finalOffer.teamId
 
   if (pp.bracket.round < 3) {
     // shift CENTRADO: E[shifted] = seriesProb (P(vencer o pivotal) = seriesProb por
     // construção da margem-alvo). Vencer o pivotal continua valendo +0.20 em 0.5.
-    const shifted = clamp(
-      pp.seriesProb + 2 * SERIES_SHIFT * ((result.won ? 1 : 0) - pp.seriesProb), 0.05, 0.95,
-    )
+    const shifted = clamp(pp.seriesProb + 2 * SERIES_SHIFT * ((won ? 1 : 0) - pp.seriesProb), 0.05, 0.95)
     if (rng.chance(shifted)) {
-      return enterRound(base, { ...next, bracket: advancePlayer(pp.bracket, teamId, rng) }, rng, calls)
+      return enterRound(base, { ...pp, bracket: advancePlayer(pp.bracket, teamId, rng) }, rng, calls)
     }
     const championTeamId = resolveRest(eliminated(pp.bracket, teamId), state.league!, rng)
-    return finishPostseason(base, next, { championTeamId, playerRun: ROUND_RUN[pp.bracket.round], wonTitle: false }, rng, calls)
+    return finishPostseason(base, pp, { championTeamId, playerRun: ROUND_RUN[pp.bracket.round], wonTitle: false }, rng, calls)
   }
 
-  const seriesUs = pp.seriesUs + (result.won ? 1 : 0)
-  const seriesThem = pp.seriesThem + (result.won ? 0 : 1)
-  const series = { ...next, seriesUs, seriesThem }
-  if (seriesUs === 4) {
+  if (pp.seriesUs === 4) {
     // sweep é o ÚNICO icônico que não exige jogada ousada: é resultado de série, não de
     // arremate (decisão do dono). Vale para qualquer política.
-    const iconics: IconicMomentId[] = seriesThem === 0 ? [...series.iconics, 'sweep'] : series.iconics
-    return finishPostseason(base, { ...series, iconics },
-      { championTeamId: teamId, playerRun: 'champion', wonTitle: true }, rng, calls)
+    const iconics: IconicMomentId[] = pp.seriesThem === 0 ? [...pp.iconics, 'sweep'] : pp.iconics
+    return finishPostseason(base, { ...pp, iconics }, { championTeamId: teamId, playerRun: 'champion', wonTitle: true }, rng, calls)
   }
-  if (seriesThem === 4) {
-    return finishPostseason(base, series,
-      { championTeamId: pp.opponentTeamId, playerRun: 'finals', wonTitle: false }, rng, calls)
+  if (pp.seriesThem === 4) {
+    return finishPostseason(base, pp, { championTeamId: pp.opponentTeamId, playerRun: 'finals', wonTitle: false }, rng, calls)
   }
   // série aberta: tela de placar (ADVANCE_GAME abre o próximo jogo, SKIP_SERIES fecha a série)
-  return { ...base, phase: 'playoffGame', pendingPlayoffs: series, rngCalls: calls() }
+  return { ...base, phase: 'playoffGame', rngCalls: calls() }
 }
 
 // Fecha a temporada: agrega icônicos/chokes dos jogos-chave + playoffs e monta o resultado.
@@ -543,9 +557,9 @@ function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): Pending
 
 // Chamado após DECIDE_MOMENT/SKIP_GAME resolverem o jogo corrente até momentIndex 3.
 // Mesmo caminho para keyGame e playoffGame; só o branch de conclusão difere por fase.
-function advanceGame(state: GameState, pending: PendingGame, skipped: boolean, rng: Rng, calls: () => number): GameState {
+function advanceGame(state: GameState, pending: PendingGame, skipped: boolean, calls: () => number): GameState {
   if (pending.momentIndex < 3) return { ...state, pendingGame: pending, rngCalls: calls() }
-  if (state.phase === 'playoffGame') return finishPlayoffGame(state, state.pendingPlayoffs!, pending, rng, calls)
+  if (state.phase === 'playoffGame') return pausePlayoffGame(state, state.pendingPlayoffs!, pending, skipped, calls)
   return finishKeyGame(state, pending, skipped, calls)
 }
 
@@ -650,7 +664,7 @@ function reduce(state: GameState, action: Action): GameState {
     case 'CONTINUE': {
       if (state.phase !== 'gameResult') return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      // playoffs pausados em gameResult chegam na Task 6; até lá só o caminho da regular
+      if (state.pendingPlayoffs) return continuePlayoffs(state, rng, calls)
       return advanceCalendar({ ...state, lastGame: null }, rng, calls)
     }
 
@@ -662,7 +676,7 @@ function reduce(state: GameState, action: Action): GameState {
       if (!option) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const next = applyMoment(pending, option, state.build!, state.age, rng)
-      return advanceGame(state, next, false, rng, calls)
+      return advanceGame(state, next, false, calls)
     }
 
     case 'SKIP_GAME': {
@@ -670,7 +684,7 @@ function reduce(state: GameState, action: Action): GameState {
       if (!state.pendingGame) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const next = autoResolveGame(state.pendingGame, state.build!, state.age, rng)
-      return advanceGame(state, next, true, rng, calls)
+      return advanceGame(state, next, true, calls)
     }
 
     case 'ADVANCE_GAME': {
@@ -680,14 +694,17 @@ function reduce(state: GameState, action: Action): GameState {
     }
 
     case 'SKIP_SERIES': {
-      // só nas finais: auto-resolve até a série fechar (rounds 0-2 têm 1 jogo por série)
+      // só nas finais: auto-resolve até a série fechar. pausa (gameResult) e avanço
+      // (continuePlayoffs) fundidos no mesmo dispatch — sem tela por jogo.
       if (state.phase !== 'playoffGame' || state.pendingPlayoffs?.bracket.round !== 3) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       let s = state
       let guard = 0
-      while (s.phase === 'playoffGame' && s.pendingPlayoffs?.bracket.round === 3 && guard++ < 16) {
+      while (guard++ < 24) {
+        if (s.phase === 'gameResult') { s = continuePlayoffs(s, rng, calls); continue }
+        if (s.phase !== 'playoffGame' || s.pendingPlayoffs?.bracket.round !== 3) break
         s = s.pendingGame
-          ? advanceGame(s, autoResolveGame(s.pendingGame, s.build!, s.age, rng), true, rng, calls)
+          ? pausePlayoffGame(s, s.pendingPlayoffs, autoResolveGame(s.pendingGame, s.build!, s.age, rng), true, calls)
           : openPlayoffGame(s, s.pendingPlayoffs, rng, calls)
       }
       return s

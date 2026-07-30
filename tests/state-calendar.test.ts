@@ -125,7 +125,8 @@ describe('temporada regular no calendário', () => {
     // closeRegularSeason usa exatamente esse `wins` como playerWins do simStandings
     let guard = 0
     while (s.phase !== 'seasonResult' && guard++ < 60) {
-      s = s.pendingGame ? step(s, { type: 'SKIP_GAME' }) : step(s, { type: 'SKIP_SERIES' })
+      if (s.phase === 'gameResult') s = step(s, { type: 'CONTINUE' })
+      else s = s.pendingGame ? step(s, { type: 'SKIP_GAME' }) : step(s, { type: 'SKIP_SERIES' })
     }
     expect(s.phase).toBe('seasonResult')
     const finalTeamId = s.career.seasons.at(-1)!.finalTeamId

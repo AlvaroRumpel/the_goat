@@ -29,7 +29,102 @@ function playSeasonAuto(s: GameState): GameState {
   return s
 }
 
+// atravessa a temporada regular decidindo tudo pelo caminho seguro (mesmo padrão do
+// runRegular de tests/state-calendar.test.ts) e para assim que os playoffs abrirem.
+function walkToStop(s: GameState, stop: (x: GameState) => boolean): GameState {
+  let guard = 0
+  while (!stop(s) && s.phase !== 'seasonResult' && guard++ < 200) {
+    if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+    else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+    else if (s.phase === 'keyGame') s = gameReducer(s, { type: 'SKIP_GAME' })
+    else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+    else break
+  }
+  return s
+}
+
+// varre os anos de UMA carreira até classificar pros playoffs (1º jogo pronto para decidir).
+function reachPlayoffs(seed: number): GameState {
+  let s = newCareer(seed)
+  for (let y = 0; y < 8; y++) {
+    s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+    if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+    s = walkToStop(s, x => x.phase === 'playoffGame')
+    if (s.phase === 'playoffGame') return s
+    s = gameReducer(s, { type: 'ADVANCE' })
+    if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+    if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
+    if (s.phase === 'verdict') break
+  }
+  throw new Error(`reachPlayoffs: seed ${seed} não classificou em 8 anos`)
+}
+
+// varre seeds a partir de startSeed até achar uma carreira que chegue ao 1º jogo das
+// finais (round 3, pendingGame pronto para SKIP_GAME) — mesmo padrão de busca do teste
+// "finais: série fecha entre 4 e 7 jogos" logo abaixo.
+function reachFinals(startSeed: number): GameState {
+  for (let seed = startSeed; seed < startSeed + 60; seed++) {
+    let s = newCareer(seed)
+    for (let y = 0; y < 8; y++) {
+      s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+      if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+      let guard = 0
+      while (s.phase !== 'seasonResult' && guard++ < 200) {
+        if (s.phase === 'playoffGame' && s.pendingPlayoffs?.bracket.round === 3 && s.pendingGame) return s
+        if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+        else if (s.phase === 'gameResult') s = gameReducer(s, { type: 'CONTINUE' })
+        else if (s.phase === 'keyGame' || (s.phase === 'playoffGame' && s.pendingGame)) s = gameReducer(s, { type: 'SKIP_GAME' })
+        else if (s.phase === 'playoffGame') s = gameReducer(s, { type: 'ADVANCE_GAME' })
+        else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+        else break
+      }
+      s = gameReducer(s, { type: 'ADVANCE' })
+      if (s.phase === 'freeAgency') s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+      if (s.phase === 'retireDecision') s = gameReducer(s, { type: 'RETIRE_DECISION', retire: false })
+      if (s.phase === 'verdict') break
+    }
+  }
+  throw new Error(`reachFinals: nenhuma final em ${startSeed}..${startSeed + 60}`)
+}
+
+// como reachFinals, mas já resolveu o 1º jogo (SKIP_GAME + CONTINUE): tela de série,
+// round 3, sem pendingGame — ponto de partida do SKIP_SERIES.
+function reachFinalsSeriesScreen(startSeed: number): GameState {
+  let s = reachFinals(startSeed)
+  s = gameReducer(s, { type: 'SKIP_GAME' })
+  return gameReducer(s, { type: 'CONTINUE' })
+}
+
 describe('playoffs pausáveis', () => {
+  test('jogo de playoff fecha em gameResult; CONTINUE avança (round seguinte, série ou seasonResult)', () => {
+    let s = reachPlayoffs(42)
+    expect(s.phase).toBe('playoffGame')
+    expect(s.pendingGame).not.toBeNull()
+    s = gameReducer(s, { type: 'SKIP_GAME' })
+    expect(s.phase).toBe('gameResult')
+    expect(s.lastGame!.skipped).toBe(true)
+    expect(s.pendingPlayoffs).not.toBeNull()
+    const before = s.rngCalls
+    s = gameReducer(s, { type: 'CONTINUE' })
+    expect(s.rngCalls).toBeGreaterThan(before)   // o roll da série é consumido AQUI
+    expect(['playoffGame', 'seasonResult']).toContain(s.phase)
+  })
+  test('finais: contadores da série já atualizados na tela de resultado', () => {
+    let s = reachFinals(100)
+    s = gameReducer(s, { type: 'SKIP_GAME' })
+    expect(s.phase).toBe('gameResult')
+    const pp = s.pendingPlayoffs!
+    expect(pp.seriesUs + pp.seriesThem).toBe(1)
+  })
+  test('SKIP_SERIES não pausa em gameResult (direto ao desfecho da série)', () => {
+    let s = reachFinalsSeriesScreen(100)
+    expect(s.phase).toBe('playoffGame')
+    expect(s.pendingGame).toBeNull()
+    s = gameReducer(s, { type: 'SKIP_SERIES' })
+    expect(['playoffGame', 'seasonResult']).toContain(s.phase)
+    expect(s.phase === 'seasonResult' || s.pendingPlayoffs!.bracket.round === 3).toBe(true)
+  })
+
   test('temporada completa em auto chega em seasonResult com outcome coerente', () => {
     let found = false
     for (let seed = 60; seed < 75; seed++) {
