@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
-  GAME_RNG_CALLS, applyMoment, autoResolveGame, defaultOption, expectedAutoDelta, finishWatchedGame,
-  makeMoments, resolveMoment, scoreOf, startWatchedGame,
+  GAME_RNG_CALLS, applyMoment, autoResolveGame, clockOf, defaultOption, expectedAutoDelta, finishWatchedGame,
+  makeMoments, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
 
@@ -93,16 +93,6 @@ describe('resolução', () => {
 })
 
 describe('jogo', () => {
-  test('makeMoments: 3 momentos, ids na ordem, 2-3 opções cada', () => {
-    const { rng, calls } = countedRng(5)
-    const ms = makeMoments(ctx, rng)
-    expect(calls()).toBe(3)
-    expect(ms.map(m => m.id)).toEqual(['q2tactic', 'q4pressure', 'clutch'])
-    for (const m of ms) {
-      expect(m.options.length).toBeGreaterThanOrEqual(2)
-      expect(m.options.some(o => o.risk === 'safe')).toBe(true)
-    }
-  })
   test('finishWatchedGame determinístico e coerente', () => {
     const { rng } = countedRng(9)
     let g = startWatchedGame({ context: ctx, ourStrength: 80, oppStrength: 70, rng })
@@ -200,7 +190,65 @@ describe('jogo', () => {
   })
 })
 
-import { SITUATIONS, SLOT_SEQUENCE, ALL_OPTION_IDS } from '../../src/engine/moments'
+describe('contagem e posição dos momentos', () => {
+  test('makeMoments consome 1 (jitter) + n calls', () => {
+    const { rng, calls } = countedRng(5)
+    const ms = makeMoments(ctx, rng)
+    expect(calls()).toBe(1 + ms.length)
+  })
+  test('último momento é sempre o clutch, em 47.65', () => {
+    for (let s = 0; s < 60; s++) {
+      const { rng } = countedRng(700 + s)
+      const ms = makeMoments({ kind: 'finals', opponentTeamId: 'bos' }, rng)
+      expect(ms[ms.length - 1].id).toBe('clutch')
+      expect(ms[ms.length - 1].at).toBeCloseTo(47.65, 5)
+    }
+  })
+  test('contagem por kind, com jitter de ±1, dentro de [2,5]', () => {
+    const seen: Record<string, Set<number>> = { rivalry: new Set(), playoff: new Set(), finals: new Set() }
+    for (let s = 0; s < 300; s++) {
+      for (const kind of ['rivalry', 'playoff', 'finals'] as const) {
+        const { rng } = countedRng(9000 + s)
+        seen[kind].add(makeMoments({ kind, opponentTeamId: 'bos' }, rng).length)
+      }
+    }
+    expect([...seen.rivalry].sort()).toEqual([2, 3, 4])
+    expect([...seen.playoff].sort()).toEqual([3, 4, 5])
+    expect([...seen.finals].sort()).toEqual([4, 5])   // 6 seria clampado para 5
+    for (const kind of Object.keys(seen)) {
+      for (const n of seen[kind]) { expect(n).toBeGreaterThanOrEqual(2); expect(n).toBeLessThanOrEqual(5) }
+    }
+  })
+  test('slots saem do fim da sequência, na ordem, sem repetir', () => {
+    for (let s = 0; s < 60; s++) {
+      const { rng } = countedRng(800 + s)
+      const ms = makeMoments({ kind: 'finals', opponentTeamId: 'bos' }, rng)
+      const ids = ms.map(m => m.id)
+      expect(new Set(ids).size).toBe(ids.length)
+      const expected = [...SLOT_SEQUENCE.slice(0, 4).slice(-(ms.length - 1)), 'clutch']
+      expect(ids).toEqual(expected)
+    }
+  })
+  test('ats estritamente crescentes, começando em 10', () => {
+    const { rng } = countedRng(11)
+    const ms = makeMoments({ kind: 'finals', opponentTeamId: 'bos' }, rng)
+    expect(ms[0].at).toBeCloseTo(10, 5)
+    for (let i = 1; i < ms.length; i++) expect(ms[i].at).toBeGreaterThan(ms[i - 1].at)
+    expect(ms.every(m => m.clock === clockOf(m.at))).toBe(true)
+  })
+  test('situationKey aponta para a situação sorteada e as opções batem', () => {
+    const { rng } = countedRng(13)
+    const ms = makeMoments(ctx, rng)
+    for (const m of ms) {
+      const i = Number(m.situationKey.split('.s')[1])
+      expect(m.situationKey).toBe(`moment.${m.id}.s${i}`)
+      expect(m.options).toEqual(SITUATIONS[m.id][i])
+      expect(m.options.filter(o => o.risk === 'safe')).toHaveLength(1)
+    }
+  })
+})
+
+import { ALL_OPTION_IDS } from '../../src/engine/moments'
 
 describe('catálogo de situações', () => {
   test('5 slots na ordem cronológica, clutch por último', () => {

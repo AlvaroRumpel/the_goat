@@ -3,7 +3,7 @@ import { rosterStrength } from './league'
 import { TEAMS, teamById } from '../data/teams'
 import type {
   Build, IconicMomentId, KeyGame, LeagueState, Moment, MomentOption, MomentOutcome, MomentRisk,
-  PendingGame, PlayEntry, Rng, SlotKey, TeamStanding, WatchedGameContext, WatchedGameResult,
+  PendingGame, PlayEntry, Rng, SlotKey, TeamStanding, WatchedGameContext, WatchedGameKind, WatchedGameResult,
 } from './types'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
@@ -15,7 +15,7 @@ export function scoreOf(margin: number): { us: number; them: number } {
   return { us: Math.round(100 + margin / 2), them: Math.round(100 - margin / 2) }
 }
 
-function clockOf(at: number): string {
+export function clockOf(at: number): string {
   const q = Math.min(4, Math.floor(at / 12) + 1)
   const rem = Math.max(0, 12 * q - at)
   const mm = Math.floor(rem)
@@ -126,14 +126,45 @@ const RISK = {
 // (medido: as 4 rodadas caem a menos de 0.4 p.p. do alvo).
 export const MARGIN_NOISE = 16
 
+const CLUTCH_AT = 47.65
+const FIRST_AT = 10
+
+// Base pelo peso do jogo. `elimination` NÃO entra: playoffContext o marca true em todo
+// jogo de rounds 0-2, então a distinção útil é kind (playoff = rounds 0-2, finals).
+function baseCount(kind: WatchedGameKind): number {
+  if (kind === 'finals') return 5
+  if (kind === 'playoff') return 4
+  return 3
+}
+
+export function momentCount(context: WatchedGameContext, rng: Rng): number {
+  return clamp(baseCount(context.kind) + rng.int(-1, 1), 2, 5)   // 1 call
+}
+
+// n posições no relógio: a primeira em 10', a última sempre em 47.65' (4Q 00:21).
+export function momentAts(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => FIRST_AT + (CLUTCH_AT - FIRST_AT) * (i / (n - 1)))
+}
+
+// Slots: os últimos n-1 de [openTone, q2tactic, q3swing, q4pressure], depois clutch.
+function slotsFor(n: number): SlotKey[] {
+  return [...SLOT_SEQUENCE.slice(0, 4).slice(-(n - 1)), 'clutch']
+}
+
 export function makeMoments(context: WatchedGameContext, rng: Rng): Moment[] {
-  // 1 call por momento: variação leve do texto (index da variante 0-2)
-  return (['q2tactic', 'q4pressure', 'clutch'] as const).map(id => ({
-    id,
-    situationKey: `moment.${id}.v${rng.int(0, 2)}`,
-    params: { opp: context.opponentTeamId.toUpperCase() },
-    options: MOMENT_OPTIONS[id],
-  }))
+  const n = momentCount(context, rng)                    // 1 call
+  const ats = momentAts(n)
+  return slotsFor(n).map((id, i) => {
+    const s = rng.int(0, SITUATIONS[id].length - 1)       // 1 call por momento
+    return {
+      id,
+      situationKey: `moment.${id}.s${s}`,
+      at: ats[i],
+      clock: clockOf(ats[i]),
+      params: { opp: context.opponentTeamId.toUpperCase() },
+      options: SITUATIONS[id][s],
+    }
+  })
 }
 
 export function defaultOption(m: Moment): MomentOption {
