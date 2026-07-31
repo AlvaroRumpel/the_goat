@@ -342,7 +342,7 @@ export function dagger(r: Pick<WatchedGameResult, 'outcomes'>): boolean {
 export function finishWatchedGame(pending: PendingGame, build: Build, age: number): WatchedGameResult {
   const { context, outcomes, baseMargin, winP, expectedDelta } = pending
   const w = momentWeight(pending.moments.length)
-  const margin = Math.round(baseMargin + outcomes.reduce((n, o) => n + o.delta, 0))
+  const margin = Math.round(baseMargin + outcomes.reduce((n, o) => n + o.delta, 0)) || 0    // || 0 normaliza -0 (JSON round-trip perde o sinal)
   const won = margin > 0
   const m = ageMultiplier(age, build.attributes.physical)
   const expPts = clamp((build.overall * m - 50) * 0.6, 6, 34)

@@ -341,7 +341,7 @@ function tickerEntry(slot: CalendarSlot, result: WatchedGameResult): TickerGame 
   }
 }
 
-// key game assistido fechou (3 momentos): registra literal e pausa em gameResult.
+// key game assistido fechou (moments.length decisões, 2-5): registra literal e pausa em gameResult.
 function finishKeyGame(state: GameState, pending: PendingGame, skipped: boolean, calls: () => number): GameState {
   const result = finishWatchedGame(pending, state.build!, state.age)
   const cal = state.calendar!

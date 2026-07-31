@@ -375,7 +375,7 @@ describe('hub e resume (C1)', () => {
     const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 9 })
     expect(gameReducer(s, { type: 'RESUME' })).toEqual(s)
   })
-  test('loadState defaulta hubOpen/resumePhase em save v5 antigo', () => {
+  test('loadState defaulta hubOpen/resumePhase em save legado (campos ausentes)', () => {
     const s = playToSeasonResult()
     const { hubOpen: _h, resumePhase: _r, ...old } = s as Record<string, unknown>
     localStorage.setItem(STORAGE_KEY, JSON.stringify(old))
