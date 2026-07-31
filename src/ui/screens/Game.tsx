@@ -68,6 +68,7 @@ function MomentPanel({ state, dispatch }: Props) {
 
   const texts = pending.log.map(e => t(lang, e.textKey, e.params))
   const reveal = usePlayReveal({
+    texts,
     ats: pending.log.map(e => e.at),
     stopAt: moment?.at ?? null,
   })
@@ -76,14 +77,25 @@ function MomentPanel({ state, dispatch }: Props) {
   useEffect(() => {
     const el = playsRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [reveal.shown])
+  }, [reveal.shown, reveal.typing])
 
-  const lastShown = pending.log[Math.max(0, reveal.shown - 1)]
   // o cronômetro RODA: segue o relógio virtual, não a última linha revelada
   const clock = clockOf(reveal.t)
+  // Placar do cabeçalho interpola continuamente entre a última linha e a próxima pelo
+  // relógio — o jogo pontua o tempo todo, as linhas do feed são só os lances marcantes.
+  const prev = reveal.shown > 0
+    ? pending.log[reveal.shown - 1]
+    : { at: 0, score: { us: 0, them: 0 } }
+  const next = pending.log[reveal.shown]
+  const frac = next && next.at > prev.at
+    ? Math.min(1, Math.max(0, (reveal.t - prev.at) / (next.at - prev.at)))
+    : 0
+  const lerp = (a: number, b: number) => Math.round(a + (b - a) * frac)
   const { us, them } = reveal.done && pending.momentIndex >= pending.moments.length
     ? scoreOf(liveMargin(pending))
-    : (lastShown?.score ?? scoreOf(0))
+    : next
+      ? { us: lerp(prev.score.us, next.score.us), them: lerp(prev.score.them, next.score.them) }
+      : prev.score
 
   // teclas 1/2/3 (9c): escolhem a opção do momento aberto
   useEffect(() => {
@@ -121,6 +133,14 @@ function MomentPanel({ state, dispatch }: Props) {
               </div>
             )
           })}
+          {reveal.typing !== null && (
+            <div className="game-play game-play--typing">
+              <span className="mono" style={{ fontSize: 12, width: 64, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {pending.log[reveal.shown]?.clock}
+              </span>
+              <span style={{ fontSize: 12, lineHeight: 1.4, flex: 1 }}>{reveal.typing}</span>
+            </div>
+          )}
         </div>
 
         <div className="game-desktop-hint mono-label">

@@ -226,17 +226,21 @@ export function gameRngCalls(n: number): number {
   return 4 * n + 4
 }
 
-// Uma linha de play-by-play a cada 3 minutos de relógio: o jogo ANDA no relógio em vez
-// de saltar de momento em momento (era uma linha só entre decisões). ~15 linhas por jogo.
+// Uma linha de play-by-play a cada ~3 minutos de relógio: o jogo ANDA no relógio em
+// vez de saltar de momento em momento (era uma linha só entre decisões). ~15 linhas.
 const PBP_STEP = 3
 export const PBP_COUNT = 20                  // play.pbp.v0..v19
 const PBP_STRIDES = [3, 7, 9, 11, 13, 17]    // coprimos com PBP_COUNT: sem fala repetida no jogo
 
-// Posições das linhas de ambientação: cadência fixa de PBP_STEP em PBP_STEP, pulando as
-// que caem em cima de um momento (o momento tem linha própria, em `applyMoment`).
-function ambientAts(momentAtsList: number[]): number[] {
+// Posições das linhas de ambientação: passo nominal de 3' com jitter determinístico
+// ±1.2' derivado do `seed` (o `base` do passeio — zero calls novas de rng), pra não
+// parecer um metrônomo. Pula as que caem em cima de um momento (ele tem linha própria).
+// As duas primeiras posições ficam sempre abaixo de 8.5' (jitter não alcança o skip do
+// primeiro momento, fixo em 10') — o 1º segmento revelado tem 2-3 linhas, nunca menos.
+function ambientAts(momentAtsList: number[], seed: number): number[] {
   const ats: number[] = []
-  for (let at = 3; at < CLUTCH_AT; at += PBP_STEP) {
+  for (let k = 0; 3 * (k + 1) < CLUTCH_AT; k++) {
+    const at = 3 * (k + 1) + (((seed + k * 11) % 5) - 2) * 0.6
     if (momentAtsList.some(m => Math.abs(m - at) < PBP_STEP / 2)) continue
     ats.push(at)
   }
@@ -286,9 +290,11 @@ export function startWatchedGame(input: {
   const base = rng.int(0, PBP_COUNT - 1)                                       // 1 call
   const stride = PBP_STRIDES[rng.int(0, PBP_STRIDES.length - 1)]               // 1 call
   let p = 0
-  const log: PlayEntry[] = ambientAts(moments.map(m => m.at)).map((at, i) => {
-    // linha 0 = tap-off; 12/24/36 = abertura de quarto (fala de clima); resto = lance.
-    const quarterOpen = at % 12 === 0 ? at / 12 : null
+  const log: PlayEntry[] = ambientAts(moments.map(m => m.at), base).map((at, i) => {
+    // linha 0 = tap-off; nominal 12/24/36 = abertura de quarto; resto = lance.
+    // (o jitter é < 1.5, então round(at/3)*3 recupera a posição nominal exata)
+    const nominal = Math.round(at / 3) * 3
+    const quarterOpen = nominal % 12 === 0 ? nominal / 12 : null
     const textKey = i === 0
       ? `play.ambient.open.v${base % 3}`
       : quarterOpen !== null

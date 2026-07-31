@@ -81,10 +81,10 @@ async function main() {
     const browser = await chromium.launch()
 
     // ---- Mobile playthrough: 390x844 ----
-    // reducedMotion: 'reduce' makes the play-log reveal instant (usePlayReveal jumps
-    // `shown` straight to `target`) instead of typing character-by-character — without
-    // it, timing-dependent asserts below would race the animation. It still pauses at
-    // each decision moment; it does not reveal the whole game log at once.
+    // reducedMotion: 'reduce' only disables the cosmetic CSS (fade/cursor) now — the
+    // live clock is content pacing and runs regardless (the owner's Windows has
+    // animations off and the game must NOT skip there). Fast-forwarding is done by
+    // tapping the feed (= usePlayReveal.skip), see the .game-plays branches below.
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     page.on('console', msg => {
@@ -210,6 +210,17 @@ async function main() {
         continue
       }
 
+      // Live clock: the decision panel only opens when the virtual game clock reaches
+      // the pending moment (usePlayReveal — reducedMotion does NOT skip it anymore,
+      // it's content pacing, not decoration). Tap the feed (= skip) to fast-forward
+      // instead of waiting ~5s of wall clock per game.
+      if (await page.locator('.game-plays').count() > 0
+          && await page.locator('.game-decision').count() === 0) {
+        await page.locator('.game-plays').click().catch(() => {})
+        await page.waitForTimeout(200)
+        continue
+      }
+
       // keyGame/playoffGame moment screen — the simulate-rest button lives inside
       // `.game-decision`; there's also a desktop-only `.game-desktop-hint` button
       // with the same text (hidden <900px but still in the DOM), so the locator
@@ -223,20 +234,30 @@ async function main() {
           const playCount = await page.locator('.game-play').count()
           const momentCardCount = await page.locator('.moment-card').count()
           // Invariant, not a magic number: usePlayReveal only reveals log lines whose
-          // `at` is strictly before the first pending moment's `at`. The first moment
-          // is always at minute FIRST_AT=10 (engine/moments.ts), and the log's only
-          // two ambient lines placed before minute 10 are fixed at minute 3 and minute
-          // FIRST_AT-4=6 — true for every game regardless of its moment count (2-5).
-          // So exactly 2 lines are revealed here, always, before the decision panel
-          // opens. (With reducedMotion the reveal already jumped straight to target.)
-          console.log(`[assert] first keyGame play-log lines revealed pre-decision: ${playCount} (expect exactly 2)`)
+          // `at` is before the first pending moment's `at`. The first moment is always
+          // at minute FIRST_AT=10 (engine/moments.ts), and the ambient lines before it
+          // sit at nominal minutes 3 and 6 (always) plus 9 only when its ±1.2' jitter
+          // pulls it under the skip zone — so 2-3 lines, for any moment count (2-5).
+          // (The feed-tap fast-forward above skipped the clock straight there.)
+          console.log(`[assert] first keyGame play-log lines revealed pre-decision: ${playCount} (expect 2-3)`)
           console.log(`[assert] first keyGame moment cards: ${momentCardCount} (expect 2..5)`)
-          if (playCount !== 2) exitCode = 1
+          if (playCount < 2 || playCount > 3) exitCode = 1
           if (momentCardCount < 2 || momentCardCount > 5) exitCode = 1
         }
         if (isFirstKeyGame) {
           log('keyGame: decide every moment of the first game — except clutch, which is left to expire (I-3)')
-          while (await page.locator('.game-option').first().isVisible().catch(() => false)) {
+          // Between moments the live clock runs and the options close — tap the feed
+          // (= skip) until the next decision opens, or bail if the game ended.
+          const nextDecision = async () => {
+            for (let k = 0; k < 40; k++) {
+              if (await page.locator('.game-option').first().isVisible().catch(() => false)) return true
+              if (await page.locator('text=PLACAR FINAL').count() > 0) return false
+              await page.locator('.game-plays').click().catch(() => {})
+              await page.waitForTimeout(200)
+            }
+            return false
+          }
+          while (await nextDecision()) {
             // clutch is always the last moment (engine/moments.ts slotsFor); its label
             // ("0:21 · CLUTCH") is present on `.moment-card--now` regardless of
             // timePressure. timePressure defaults to true and is never toggled in this

@@ -626,7 +626,12 @@ button {
   to { transform: translateY(0); }
 }
 .game-play--decision { border-left: 2px solid var(--red); margin-left: -12px; padding-left: 10px; }
-@media (prefers-reduced-motion: reduce) { .game-play { animation: none; } }
+.game-play--typing span:last-child::after { content: '▌'; color: var(--red); }
+/* reduce desliga só o cosmético (fade/cursor) — o ritmo do relógio é conteúdo e fica */
+@media (prefers-reduced-motion: reduce) {
+  .game-play { animation: none; }
+  .game-play--typing span:last-child::after { content: ''; }
+}
 .game-decision { background: var(--ink); color: var(--on-ink); margin: 0 -22px; margin-top: auto;
   padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
 .game-decision__options { display: flex; flex-direction: column; gap: 1px; background: var(--ink-3); }

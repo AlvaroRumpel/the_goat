@@ -75,18 +75,23 @@ describe('log do jogo', () => {
       const n = g.moments.length
       const ambient = g.log.length
       expect(g.log.every(e => !e.fromDecision)).toBe(true)
-      // o primeiro segmento revelado (linhas antes do 1º momento, em FIRST_AT=10) é
-      // sempre 3, 6 — invariante usado pelo e2e
-      expect(g.log.filter(e => e.at < g.moments[0].at).map(e => e.at)).toEqual([3, 6])
+      // o primeiro segmento revelado (linhas antes do 1º momento, em FIRST_AT=10) tem
+      // 2-3 linhas (nominais 3 e 6 sempre entram; a 9 só com jitter negativo) —
+      // invariante usado pelo e2e
+      const pre = g.log.filter(e => e.at < g.moments[0].at)
+      expect(pre.length).toBeGreaterThanOrEqual(2)
+      expect(pre.length).toBeLessThanOrEqual(3)
+      expect(pre.every(e => e.at < 8.6)).toBe(true)
       g = autoResolveGame(g, b, 25, rng)
       expect(g.log).toHaveLength(ambient + n)
       expect(g.log.filter(e => e.fromDecision)).toHaveLength(n)
       const ats = g.log.map(e => e.at)
       expect([...ats].sort((x, y) => x - y)).toEqual(ats)
       // nenhum salto: é isso que faz o jogo parecer acontecer em vez de pular de
-      // momento decisivo em momento decisivo
+      // momento decisivo em momento decisivo (passo nominal 3 + jitter ±1.2 + skip
+      // perto de momento → pior caso ~6.2)
       const gaps = ats.slice(1).map((at, i) => at - ats[i])
-      expect(Math.max(...gaps)).toBeLessThanOrEqual(4.5)
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(6.5)
     }
   })
   test('nenhuma fala de lance repete dentro do mesmo jogo', () => {
