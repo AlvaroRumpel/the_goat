@@ -54,7 +54,7 @@ const ICONS: Record<IconName, ReactNode> = {
   jersey: (
     <>
       <path d="M11.5 4 8 5.6 5 12l4.5 1.6V28h13V13.6L27 12l-3-6.4L20.5 4c-.7 2.6-8.3 2.6-9 0Z" fill="currentColor" />
-      <text x="16" y="24" textAnchor="middle" fontFamily="'Archivo Black',sans-serif" fontSize="11" fill="currentColor">8</text>
+      <text x="16" y="24" textAnchor="middle" fontFamily="'Archivo Black',sans-serif" fontSize="11" fill="var(--paper)">8</text>
     </>
   ),
   training: (
