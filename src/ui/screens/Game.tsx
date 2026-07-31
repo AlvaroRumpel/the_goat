@@ -63,6 +63,7 @@ function MomentPanel({ state, dispatch }: Props) {
   const ourId = (state.currentOffer?.teamId ?? state.pendingPlayoffs?.finalOffer.teamId ?? '').toUpperCase()
   const oppId = pending.context.opponentTeamId.toUpperCase()
   const isClutch = moment?.id === 'clutch'
+  const firstGame = state.career.seasons.length === 0 && state.keyGameResults.length === 0
 
   const texts = pending.log.map(e => t(lang, e.textKey, e.params))
   const reveal = usePlayReveal({
@@ -162,6 +163,11 @@ function MomentPanel({ state, dispatch }: Props) {
 
           {reveal.done && moment && (
             <div className="game-decision">
+              {firstGame && (
+                <div className="hint" style={{ borderLeft: '2px solid var(--red)', paddingLeft: 10, marginBottom: 10 }}>
+                  {t(lang, 'game.tutorial')}
+                </div>
+              )}
               <div style={{ fontSize: 17, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
               {state.timePressure && isClutch && reveal.done && (
                 <ClutchTimer

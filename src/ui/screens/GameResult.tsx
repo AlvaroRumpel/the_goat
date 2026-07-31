@@ -6,8 +6,6 @@ import { CareerBar } from '../components/CareerBar'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
 
-const MOMENT_CLOCK: Record<string, string> = { q2tactic: '2Q', q4pressure: '4Q', clutch: '0:21' }
-
 export function GameResult({ state, dispatch }: Props) {
   const lang = state.lang
   const { context, result, skipped } = state.lastGame!
@@ -50,9 +48,9 @@ export function GameResult({ state, dispatch }: Props) {
         {!skipped && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div className="mono-label">{t(lang, 'result.decided')}</div>
-            {result.outcomes.map(o => (
-              <div key={o.momentId} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-                <span className="mono" style={{ fontSize: 11, width: 38, flexShrink: 0 }}>{MOMENT_CLOCK[o.momentId]}</span>
+            {result.outcomes.map((o, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                <span className="mono" style={{ fontSize: 11, width: 52, flexShrink: 0 }}>{o.clock}</span>
                 <span style={{ fontSize: 13, flex: 1 }}>{t(lang, 'option.' + o.optionId)}</span>
                 <span className="headline" style={{ fontSize: 11, color: o.injury || !o.success ? 'var(--red)' : undefined }}>
                   {t(lang, o.injury ? 'result.verdict.hurt' : o.success ? 'result.verdict.ok' : 'result.verdict.fail')}

@@ -130,6 +130,7 @@
   "game.now": "AGORA",
   "game.keys": "TECLAS 1 · 2 · 3 ESCOLHEM",
   "game.clutchTimer": "8 SEGUNDOS PRA DECIDIR",
+  "game.tutorial": "Seguro acerta mais e vale menos. Ousado e temerário acertam menos e valem mais — só compensam com atributo alto. A escolha mexe na margem do jogo e nos seus pontos.",
   "moment.openTone.label": "1Q · O TOM",
   "moment.openTone.s0": "Bola alçada e primeira posse contra o {opp}. O jogo ainda não tem cara — você decide o tom logo de cara.",
   "moment.openTone.s1": "O {opp} sai queimando a rede nas primeiras posses. Você sente que precisa responder já.",
