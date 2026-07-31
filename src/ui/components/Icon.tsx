@@ -223,14 +223,14 @@ const SMALL: Partial<Record<IconName, ReactNode>> = {
 
 const TONE = { ink: 'var(--ink)', red: 'var(--red)', dim: 'var(--dim)' } as const
 
-interface Props { name: IconName; size?: number; tone?: keyof typeof TONE }
+interface Props { name: IconName; size?: number; tone?: keyof typeof TONE | 'inherit' }
 
 export function Icon({ name, size = 24, tone = 'ink' }: Props) {
   const content = size < 24 ? (SMALL[name] ?? ICONS[name]) : ICONS[name]
   return (
     <svg
       width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true"
-      style={{ color: TONE[tone], flex: 'none' }}
+      style={{ color: tone === 'inherit' ? undefined : TONE[tone], flex: 'none' }}
     >
       {content}
     </svg>

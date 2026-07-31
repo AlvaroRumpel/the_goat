@@ -5,6 +5,8 @@ import { effectiveOverall } from '../../engine/season'
 import { teamById } from '../../data/teams'
 import { SLOT_ORDER, type Award } from '../../engine/types'
 import { StandingsTable } from '../components/LeaguePanels'
+import { Crest } from '../components/Crest'
+import { Icon } from '../components/Icon'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
 
@@ -54,7 +56,7 @@ export function Hub({ state, dispatch }: Props) {
             )}
             {rings > 0 && (
               <div className="hub__rings">
-                {Array.from({ length: rings }).map((_, i) => <div key={i} className="hub-ring" />)}
+                {Array.from({ length: rings }).map((_, i) => <Icon key={i} name="ring" tone="red" size={16} />)}
               </div>
             )}
           </section>
@@ -82,7 +84,10 @@ export function Hub({ state, dispatch }: Props) {
                 <hr className="rule--soft" />
                 <div className="hub__row">
                   <span className="hub__cell mono">{2026 + i}</span>
-                  <span className="hub__cell mono">{s.finalTeamId.toUpperCase()}</span>
+                  <span className="hub__cell mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <Crest teamId={s.finalTeamId} size={16} />
+                    {s.finalTeamId.toUpperCase()}
+                  </span>
                   <span className="hub__cell mono">{s.ppg.toFixed(1)}</span>
                   <span className="hub__cell hub__cell--wide mono">{s.rpg.toFixed(1)}</span>
                   <span className="hub__cell hub__cell--wide mono">{s.apg.toFixed(1)}</span>

@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import { scoreOf } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 import { formatSignedDelta } from '../format'
+import { Icon } from '../components/Icon'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
 
@@ -67,7 +68,10 @@ export function GameResult({ state, dispatch }: Props) {
 
         {result.iconics.length > 0 && (
           <div className="strip strip--red" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'result.iconic')}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="clutch" tone="inherit" size={24} />
+              <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'result.iconic')}</span>
+            </div>
             {result.iconics.map((id, i) => (
               <div key={i} className="headline" style={{ fontSize: 19 }}>{t(lang, 'iconic.' + id)}</div>
             ))}

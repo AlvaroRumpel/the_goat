@@ -4,6 +4,7 @@ import { t } from '../../i18n'
 import type { Award } from '../../engine/types'
 import { drawShareCard, shareText } from '../share'
 import { CareerBar } from '../components/CareerBar'
+import { Icon } from '../components/Icon'
 
 interface Props {
   state: GameState
@@ -55,6 +56,7 @@ export function Verdict({ state, dispatch }: Props) {
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center' }}>
         <div className="verdict-layer verdict-layer--1" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%' }}>
+          <Icon name="verdict" size={32} tone="inherit" />
           <div className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.title')}</div>
           <div className="headline" style={{ fontSize: 64 }}>{t(lang, 'tier.' + tier)}</div>
           <div className="mono" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.score', { n: score })}</div>

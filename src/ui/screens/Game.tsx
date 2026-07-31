@@ -6,6 +6,7 @@ import type { PendingGame, WatchedGameResult } from '../../engine/types'
 import { scoreOf, clockOf, defaultOption } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 import { ClutchTimer } from '../components/ClutchTimer'
+import { Icon } from '../components/Icon'
 import { usePlayReveal } from '../hooks/usePlayReveal'
 import { formatSignedDelta } from '../format'
 
@@ -177,7 +178,10 @@ function MomentPanel({ state, dispatch }: Props) {
                 const now = i === pending.momentIndex
                 return (
                   <div key={m.id} className={now ? 'moment-card moment-card--now' : 'moment-card'}>
-                    <span className={now ? 'mono-label mono-label--red' : 'mono-label'}>{t(lang, 'moment.' + m.id + '.label')}</span>
+                    <span className={now ? 'mono-label mono-label--red' : 'mono-label'} style={now ? { display: 'flex', alignItems: 'center', gap: 4 } : undefined}>
+                      {now && m.id === 'clutch' && <Icon name="clutch" tone="red" size={16} />}
+                      {t(lang, 'moment.' + m.id + '.label')}
+                    </span>
                     {now && <span className="headline" style={{ fontSize: 13 }}>{t(lang, 'game.now')}</span>}
                   </div>
                 )

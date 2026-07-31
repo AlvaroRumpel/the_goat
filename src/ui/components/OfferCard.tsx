@@ -1,5 +1,6 @@
 import { t, type Lang } from '../../i18n'
 import type { Team, TeamProfile } from '../../engine/types'
+import { Crest } from './Crest'
 
 interface Props {
   team: Team
@@ -9,23 +10,6 @@ interface Props {
   onClick: () => void
   terms?: string
   padding?: string
-}
-
-export function TeamSymbol({ profile, onRed }: { profile: TeamProfile; onRed?: boolean }) {
-  const cls = `symbol${onRed ? ' symbol--on-red' : ''}`
-  if (profile === 'contender') {
-    return <div className={cls}><div className="symbol__diamond" /></div>
-  }
-  if (profile === 'rebuild') {
-    return <div className={cls}><div className="symbol__circle" /></div>
-  }
-  return (
-    <div className={`${cls} symbol--bars`}>
-      <div className="symbol__bar" />
-      <div className="symbol__bar" />
-      <div className="symbol__bar" />
-    </div>
-  )
 }
 
 export function OfferCard({ team, profile, lang, featured, onClick, terms, padding = '20px 16px' }: Props) {
@@ -46,7 +30,7 @@ export function OfferCard({ team, profile, lang, featured, onClick, terms, paddi
         color: featured ? 'var(--on-red)' : 'var(--ink)',
       }}
     >
-      <TeamSymbol profile={profile} onRed={featured} />
+      <Crest teamId={team.id} size={34} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
         <div className="headline" style={{ fontSize: 17, color: featured ? 'var(--on-red)' : 'var(--ink)' }}>
           {team.city} {team.name}

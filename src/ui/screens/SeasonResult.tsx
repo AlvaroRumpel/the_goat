@@ -7,6 +7,7 @@ import { CareerBar } from '../components/CareerBar'
 import { StandingsTop4, RaceBars, TrajectoryBars } from '../components/LeaguePanels'
 import { StatLine } from '../components/StatLine'
 import { resultScoreText } from './Game'
+import { Icon } from '../components/Icon'
 
 interface Props {
   state: GameState
@@ -57,6 +58,13 @@ export function SeasonResult({ state, dispatch }: Props) {
           <div className="mono-ring" style={{ width: 64, height: 64, fontSize: 20 }}>{mvpName.slice(0, 2).toUpperCase()}</div>
           <div className="headline headline--red" style={{ fontSize: 34 }}>{mvpName}</div>
           <div className="mono">{t(lang, 'ceremony.line', { ppg: mvpLine.ppg, rpg: mvpLine.rpg, apg: mvpLine.apg })}</div>
+          {season.wonTitle && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              {Array.from({ length: state.career.seasons.filter(s => s.awards.includes('ring')).length }).map((_, i) => (
+                <Icon key={i} name="ring" tone="red" size={16} />
+              ))}
+            </div>
+          )}
           <hr className="rule--double" style={{ width: '100%' }} />
 
           <div className="mono-label">{t(lang, 'result.honors')}</div>

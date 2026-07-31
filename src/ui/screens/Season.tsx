@@ -5,8 +5,10 @@ import { teamById } from '../../data/teams'
 import { effectiveOverall, performanceRatio, RETIRE_MIN_AGE } from '../../engine/season'
 import { INTERACTIVE_EVENTS } from '../../engine/events'
 import type { Focus, Headline } from '../../engine/types'
-import { OfferCard, TeamSymbol } from '../components/OfferCard'
+import { OfferCard } from '../components/OfferCard'
 import { CareerBar } from '../components/CareerBar'
+import { Crest } from '../components/Crest'
+import { Icon } from '../components/Icon'
 import { SeasonResult } from './SeasonResult'
 import { SeasonAdvanceBody } from './SeasonAdvance'
 
@@ -63,7 +65,7 @@ function Preseason({ state, dispatch }: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="headline" style={{ fontSize: 26 }}>{team.city} {team.name}</div>
-          <TeamSymbol profile={offer.profile} />
+          <Crest teamId={offer.teamId} size={34} />
         </div>
 
         {headlines.length > 0 && (
@@ -133,7 +135,10 @@ function TradeDecision({ state, dispatch }: Props) {
       {state.calendar && <SeasonAdvanceBody state={state} />}
       <div className="modal-veil">
         <div className="crossroads-card">
-          <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="trade" tone="red" size={16} />
+            <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
+          </div>
           <div className="headline" style={{ fontSize: 26 }}>
             {t(lang, 'trade.desc', { team: `${team.city} ${team.name}` })}
           </div>
@@ -162,7 +167,10 @@ function EventDecision({ state, dispatch }: Props) {
       <CareerBar state={state} dispatch={dispatch} />
       <div className="modal-veil">
         <div className="crossroads-card">
-          <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name={ev === 'injury' ? 'injury' : 'crossroads'} tone="red" size={16} />
+            <div className="mono-label mono-label--red">{t(lang, 'crossroads.label')}</div>
+          </div>
           <div className="headline" style={{ fontSize: 26 }}>{t(lang, `eventdec.${ev}.title`)}</div>
           <div style={{ fontSize: 15, lineHeight: 1.55 }}>{t(lang, `eventdec.${ev}.desc`)}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
