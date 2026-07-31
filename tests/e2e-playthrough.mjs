@@ -535,13 +535,29 @@ async function main() {
       await noTimerPage.waitForTimeout(120)
     }
 
+    // Fixed waits here are seed-dependent: with n=2 moments the first sits at game-minute
+    // 10 and the clutch at ~47.65 (engine/moments.ts slotsFor) — ~21 real seconds of
+    // play-by-play at the 1.8 game-min/s virtual-clock pace before the decision panel
+    // opens (it opens only once the clock reaches the moment AND the line queue finishes
+    // typing). A fixed 8.6s wait here missed the panel on ~1/3 of seeds. Tap the feed —
+    // the designed skip gesture (same as lines ~219/255) — to fast-forward the reveal
+    // instead; poll for the panel, tapping again if a tap lands mid-segment.
+    for (let tap = 0; tap < 5; tap++) {
+      if (await noTimerPage.locator('.game-option').count() > 0) break
+      await noTimerPage.locator('.game-plays').click().catch(() => {})
+      await noTimerPage.waitForTimeout(1000)
+    }
+    await noTimerPage.waitForSelector('.game-option', { timeout: 30000 })
+
+    // Only meaningful once the panel is actually open — asserting this beforehand is
+    // trivially true and proves nothing.
     const timerAbsent = await noTimerPage.locator('.clutch-timer').count() === 0
-    console.log(`[assert] clutch timer NOT rendered at the clutch moment when timePressure is off: ${timerAbsent}`)
+    console.log(`[assert] clutch timer NOT rendered at the open clutch decision panel (timePressure off): ${timerAbsent}`)
     if (!timerAbsent) exitCode = 1
 
     await noTimerPage.waitForTimeout(8600) // longer than the 8s the timer would run if it were mounted
     const stillWaitingForClick = await noTimerPage.locator('.game-option').first().isVisible().catch(() => false)
-    console.log(`[assert] clutch moment still awaiting a manual click after 8.6s with timePressure off: ${stillWaitingForClick}`)
+    console.log(`[assert] clutch decision still awaiting a manual click after 8.6s with timePressure off (no auto-resolve): ${stillWaitingForClick}`)
     if (!stillWaitingForClick) exitCode = 1
 
     await noTimerContext.close()
