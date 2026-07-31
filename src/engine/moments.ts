@@ -8,8 +8,6 @@ import type {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
-export const GAME_RNG_CALLS = 21   // contrato: 1 baseMargin + 3 makeMoments + 4×2 ambientação + 3×(2 resolveMoment + 1 variante do lance)
-
 // placar sintético: 100 de base ± metade da margem — puramente visual (UI, ticker, 6a).
 export function scoreOf(margin: number): { us: number; them: number } {
   return { us: Math.round(100 + margin / 2), them: Math.round(100 - margin / 2) }
@@ -21,14 +19,6 @@ export function clockOf(at: number): string {
   const mm = Math.floor(rem)
   const ss = Math.round((rem - mm) * 60)
   return `${q}Q ${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
-}
-
-// placar do walk no minuto `at`: o jogo caminha para baseMargin + Σ deltas
-function logScore(baseMargin: number, deltas: number, at: number, jitter = 0): { us: number; them: number } {
-  const frac = at / 48
-  const margin = baseMargin * frac + deltas + jitter
-  const base = 100 * frac
-  return { us: Math.max(0, Math.round(base + margin / 2)), them: Math.max(0, Math.round(base - margin / 2)) }
 }
 
 export const SLOT_SEQUENCE: SlotKey[] = ['openTone', 'q2tactic', 'q3swing', 'q4pressure', 'clutch']
@@ -228,34 +218,72 @@ export function expectedAutoDelta(build: Build, age: number, moments: Moment[]):
 //    desloca S para longe de E[S] — é aí que mora o "edge" do jogo ousado.
 //    A variância de S borra a igualdade só nos extremos (quando c + S sai da janela
 //    de ruído); no miolo P(won) = targetWinP exatamente.
+// Contrato de rng por jogo, agora função da contagem de momentos:
+//   1 (jitter da contagem) + n (situação de cada momento) + 1 (baseMargin)
+//   + 2×(n+1) (ambientação: variante + jitter do placar) + 3n (resolveMoment ×2 + variante da fala)
+export function gameRngCalls(n: number): number {
+  return 6 * n + 4
+}
+
+// quarto do jogo (0-3) — escolhe o balde de chaves play.ambient.<q>.v<0-2>
+function quarterOf(at: number): number {
+  return Math.min(3, Math.floor(at / 12))
+}
+
+// n+1 posições de ambientação: uma de abertura e uma antes de cada momento.
+function ambientAts(momentAtsList: number[]): number[] {
+  return [3, ...momentAtsList.map(at => at - 4)]
+}
+
+// placar do walk no minuto `at`: o jogo caminha para baseMargin + Σ deltas JÁ ocorridos
+function logScore(baseMargin: number, deltas: number, at: number, jitter: number): { us: number; them: number } {
+  const frac = at / 48
+  const margin = baseMargin * frac + deltas + jitter
+  const base = 100 * frac
+  return { us: Math.max(0, Math.round(base + margin / 2)), them: Math.max(0, Math.round(base - margin / 2)) }
+}
+
+// Reescreve o placar de TODAS as linhas com os deltas acumulados até o `at` de cada uma.
+// Sem isto o placar anda pra trás depois de um momento vencedor (bug 3 do spec): as
+// linhas de ambientação nascem antes de qualquer decisão e ficariam congeladas em
+// deltas = 0. Invisível na tela estática de hoje, escancarado com o reveal animado.
+function rescoreLog(pending: PendingGame): PlayEntry[] {
+  return pending.log.map(e => {
+    const deltas = pending.outcomes
+      .filter((_, i) => pending.moments[i].at <= e.at)
+      .reduce((n, o) => n + o.delta, 0)
+    return { ...e, score: logScore(pending.baseMargin, deltas, e.at, e.jitter) }
+  })
+}
+
 export function startWatchedGame(input: {
-  context: WatchedGameContext; ourStrength: number; oppStrength: number; rng: Rng
+  context: WatchedGameContext; ourStrength: number; oppStrength: number
+  build: Build; age: number; rng: Rng
   targetWinP?: number      // playoffs: P(vencer este jogo) desejada
-  expectedDelta?: number   // E[Σ deltas] da política padrão (expectedAutoDelta)
   marginBias?: number      // penalidade fixa de margem (ex.: PLAYER_OUT_MARGIN)
 }): PendingGame {
-  const { context, ourStrength, oppStrength, rng, targetWinP, expectedDelta = 0, marginBias = 0 } = input
+  const { context, ourStrength, oppStrength, build, age, rng, targetWinP, marginBias = 0 } = input
+  // Ordem obrigatória: os momentos vêm ANTES da margem porque expectedDelta depende
+  // de quais momentos caíram — é o que mantém P(vitória) = targetWinP nos playoffs.
+  const moments = makeMoments(context, rng)              // 1 + n calls
+  const expectedDelta = expectedAutoDelta(build, age, moments)
   const center = (targetWinP === undefined
     ? (ourStrength - oppStrength) * 0.45
     : 2 * MARGIN_NOISE * targetWinP - MARGIN_NOISE + 0.5 - expectedDelta) + marginBias
-  // Mesma equação resolvida ao contrário: a P(vitória) que este centro implica com a
-  // política padrão. No modo alvo devolve targetWinP de volta (a menos do marginBias);
-  // no jogo comum é o que a diferença de força vale. Determinístico, sem rng.
   const winP = clamp((center + expectedDelta + MARGIN_NOISE - 0.5) / (2 * MARGIN_NOISE), 0, 1)
-  // 1 call: ruído do jogo
-  const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)
-  const moments = makeMoments(context, rng)
-  const log: PlayEntry[] = AMBIENT_AT.map((at, i) => {
-    const variant = rng.int(0, 2)                       // call 1 da linha
-    const jitter = Math.round(rng.next() * 8 - 4)       // call 2 da linha
+  const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)   // 1 call
+  const log: PlayEntry[] = ambientAts(moments.map(m => m.at)).map(at => {
+    const variant = rng.int(0, 2)                        // call 1 da linha
+    const jitter = Math.round(rng.next() * 8 - 4)        // call 2 da linha
     return {
       at, clock: clockOf(at),
-      textKey: `play.ambient.${i}.v${variant}`,
+      textKey: `play.ambient.${quarterOf(at)}.v${variant}`,
       params: { opp: context.opponentTeamId.toUpperCase() },
+      jitter,
       score: logScore(baseMargin, 0, at, jitter),
     }
   })
-  return { context, moments, momentIndex: 0, outcomes: [], baseMargin, winP, log }
+  return { context, moments, momentIndex: 0, outcomes: [], baseMargin, winP, expectedDelta, log }
 }
 
 export function applyMoment(

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
-  GAME_RNG_CALLS, applyMoment, autoResolveGame, clockOf, defaultOption, expectedAutoDelta, finishWatchedGame,
+  applyMoment, autoResolveGame, clockOf, expectedAutoDelta, finishWatchedGame, gameRngCalls,
   makeMoments, momentAts, momentWeight, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
@@ -26,23 +26,35 @@ function countedRng(seed: number) {
 }
 
 describe('contrato de rng calls', () => {
-  test('jogo completo assistido = exatamente GAME_RNG_CALLS', () => {
+  test('gameRngCalls(n) = 6n + 4', () => {
+    expect(gameRngCalls(2)).toBe(16)
+    expect(gameRngCalls(3)).toBe(22)
+    expect(gameRngCalls(5)).toBe(34)
+  })
+  test('jogo completo assistido consome gameRngCalls(n)', () => {
     const { rng, calls } = countedRng(1)
-    let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, rng })
-    expect(calls()).toBe(12)   // 1 baseMargin + 3 makeMoments + 4×2 ambientação
-    for (let i = 0; i < 3; i++) g = applyMoment(g, g.moments[g.momentIndex].options[0], build(90), 27, rng)
-    expect(calls()).toBe(GAME_RNG_CALLS)
-    expect(g.momentIndex).toBe(3)
+    const b = build(90)
+    let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, build: b, age: 27, rng })
+    const n = g.moments.length
+    expect(calls()).toBe(gameRngCalls(n) - 3 * n)   // tudo menos os resolves
+    while (g.momentIndex < n) g = applyMoment(g, g.moments[g.momentIndex].options[0], b, 27, rng)
+    expect(calls()).toBe(gameRngCalls(n))
+    expect(g.momentIndex).toBe(n)
   })
   test('skip consome as MESMAS calls que assistido', () => {
+    const b = build(90)
     const a = countedRng(7)
-    let ga = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, rng: a.rng })
-    ga = autoResolveGame(ga, build(90), 27, a.rng)
-    const b = countedRng(7)
-    let gb = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, rng: b.rng })
-    for (let i = 0; i < 3; i++) gb = applyMoment(gb, gb.moments[gb.momentIndex].options[1] ?? gb.moments[gb.momentIndex].options[0], build(90), 27, b.rng)
-    expect(a.calls()).toBe(GAME_RNG_CALLS)
-    expect(b.calls()).toBe(GAME_RNG_CALLS)   // opção diferente, mesmo nº de calls
+    let ga = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, build: b, age: 27, rng: a.rng })
+    const n = ga.moments.length
+    ga = autoResolveGame(ga, b, 27, a.rng)
+    const c = countedRng(7)
+    let gb = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 78, build: b, age: 27, rng: c.rng })
+    while (gb.momentIndex < gb.moments.length) {
+      const m = gb.moments[gb.momentIndex]
+      gb = applyMoment(gb, m.options[1] ?? m.options[0], b, 27, c.rng)
+    }
+    expect(a.calls()).toBe(gameRngCalls(n))
+    expect(c.calls()).toBe(gameRngCalls(n))
   })
   test('resolveMoment = exatamente 2 calls, com ou sem injuryRisk', () => {
     const a = countedRng(3)
@@ -51,6 +63,56 @@ describe('contrato de rng calls', () => {
     const b = countedRng(3)
     resolveMoment(build(80), 27, { id: 'y', attr: 'physical', risk: 'reckless', injuryRisk: 0.1 }, 1, b.rng)
     expect(b.calls()).toBe(2)
+  })
+})
+
+describe('log do jogo', () => {
+  test('n+1 linhas de ambientação no início, 2n+1 ao final, ordenadas por at', () => {
+    const { rng } = countedRng(5)
+    const b = flatBuild(85)
+    let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 25, rng })
+    const n = g.moments.length
+    expect(g.log).toHaveLength(n + 1)
+    expect(g.log.every(e => !e.fromDecision)).toBe(true)
+    g = autoResolveGame(g, b, 25, rng)
+    expect(g.log).toHaveLength(2 * n + 1)
+    expect(g.log.filter(e => e.fromDecision)).toHaveLength(n)
+    const ats = g.log.map(e => e.at)
+    expect([...ats].sort((x, y) => x - y)).toEqual(ats)
+  })
+  test('BUG 3: placar do log soma os deltas já ocorridos — nunca anda pra trás', () => {
+    // seeds várias porque o bug só aparece quando um momento vencedor precede uma
+    // linha de ambientação
+    for (let s = 0; s < 40; s++) {
+      const { rng } = countedRng(6000 + s)
+      const b = flatBuild(95)
+      let g = startWatchedGame({ context: ctx, ourStrength: 90, oppStrength: 60, build: b, age: 27, rng })
+      g = autoResolveGame(g, b, 27, rng)
+      for (const e of g.log) {
+        const deltas = g.outcomes
+          .filter((_, i) => g.moments[i].at <= e.at)
+          .reduce((acc, o) => acc + o.delta, 0)
+        const frac = e.at / 48
+        const expectedUs = Math.max(0, Math.round(100 * frac + (g.baseMargin * frac + deltas + e.jitter) / 2))
+        expect(e.score.us).toBe(expectedUs)
+      }
+    }
+  })
+  test('placar da última linha bate com a margem final', () => {
+    const { rng } = countedRng(9)
+    const b = flatBuild(90)
+    let g = startWatchedGame({ context: { kind: 'special', opponentTeamId: 'lal' }, ourStrength: 78, oppStrength: 70, build: b, age: 27, rng })
+    g = autoResolveGame(g, b, 27, rng)
+    const r = finishWatchedGame(g, b, 27)
+    const last = g.log[g.log.length - 1]
+    const final = scoreOf(r.margin)
+    expect(Math.abs(last.score.us - final.us)).toBeLessThanOrEqual(2)
+  })
+  test('expectedDelta guardado no pending bate com o recomputado', () => {
+    const { rng } = countedRng(21)
+    const b = flatBuild(88)
+    const g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 26, rng })
+    expect(g.expectedDelta).toBeCloseTo(expectedAutoDelta(b, 26, g.moments), 10)
   })
 })
 
@@ -129,7 +191,7 @@ describe('peso constante 3/n', () => {
 describe('jogo', () => {
   test('finishWatchedGame determinístico e coerente', () => {
     const { rng } = countedRng(9)
-    let g = startWatchedGame({ context: ctx, ourStrength: 80, oppStrength: 70, rng })
+    let g = startWatchedGame({ context: ctx, ourStrength: 80, oppStrength: 70, build: build(90), age: 27, rng })
     g = autoResolveGame(g, build(90), 27, rng)
     const r1 = finishWatchedGame(g, build(90), 27)
     const r2 = finishWatchedGame(g, build(90), 27)
@@ -147,8 +209,8 @@ describe('jogo', () => {
       for (let i = 0; i < runs; i++) {
         const { rng } = countedRng(50000 + i)
         let g = startWatchedGame({
-          context: ctx, ourStrength: 70, oppStrength: 70, rng,
-          targetWinP: p, expectedDelta: expectedAutoDelta(build(ovr), 27),
+          context: ctx, ourStrength: 70, oppStrength: 70, build: build(ovr), age: 27, rng,
+          targetWinP: p,
         })
         expect(g.winP).toBeCloseTo(p, 10)   // winP guardado = alvo, por construção
         g = autoResolveGame(g, build(ovr), 27, rng)
@@ -161,45 +223,18 @@ describe('jogo', () => {
     let wins = 0
     for (let i = 0; i < 200; i++) {
       const { rng } = countedRng(4000 + i)
-      let g = startWatchedGame({ context: ctx, ourStrength: 85, oppStrength: 55, rng })
+      let g = startWatchedGame({ context: ctx, ourStrength: 85, oppStrength: 55, build: build(85), age: 27, rng })
       g = autoResolveGame(g, build(85), 27, rng)
       if (finishWatchedGame(g, build(85), 27).won) wins++
     }
     expect(wins / 200).toBeGreaterThan(0.7)
-  })
-  test('log: 4 linhas de ambientação no início, 7 ao final, ordenadas por at', () => {
-    const { rng } = countedRng(5)
-    const b = flatBuild(85)
-    let g = startWatchedGame({
-      context: { kind: 'rivalry', opponentTeamId: 'bos' },
-      ourStrength: 75, oppStrength: 72, rng,
-      expectedDelta: expectedAutoDelta(b, 25),
-    })
-    expect(g.log).toHaveLength(4)
-    expect(g.log.every(e => !e.fromDecision)).toBe(true)
-    while (g.momentIndex < 3) g = applyMoment(g, defaultOption(g.moments[g.momentIndex]), b, 25, rng)
-    expect(g.log).toHaveLength(7)
-    expect(g.log.filter(e => e.fromDecision)).toHaveLength(3)
-    const ats = g.log.map(e => e.at)
-    expect([...ats].sort((a, b) => a - b)).toEqual(ats)
-  })
-  test('contrato: jogo completo consome GAME_RNG_CALLS (21)', () => {
-    const { rng, calls } = countedRng(5)
-    const b = flatBuild(85)
-    let g = startWatchedGame({
-      context: { kind: 'seedRace', opponentTeamId: 'den' },
-      ourStrength: 75, oppStrength: 72, rng, expectedDelta: expectedAutoDelta(b, 25),
-    })
-    g = autoResolveGame(g, b, 25, rng)
-    expect(calls()).toBe(GAME_RNG_CALLS)
-    expect(GAME_RNG_CALLS).toBe(21)
   })
   test('placar da última linha do log consistente com a margem final', () => {
     const { rng } = countedRng(9)
     const b = flatBuild(90)
     let g = startWatchedGame({
       context: { kind: 'special', opponentTeamId: 'lal' },
-      ourStrength: 78, oppStrength: 70, rng, expectedDelta: expectedAutoDelta(b, 27),
+      ourStrength: 78, oppStrength: 70, build: b, age: 27, rng,
     })
     g = autoResolveGame(g, b, 27, rng)
     const r = finishWatchedGame(g, b, 27)
@@ -213,7 +248,7 @@ describe('jogo', () => {
     const b = flatBuild(85)
     let g = startWatchedGame({
       context: { kind: 'rivalry', opponentTeamId: 'bos' },
-      ourStrength: 75, oppStrength: 72, rng, expectedDelta: expectedAutoDelta(b, 25),
+      ourStrength: 75, oppStrength: 72, build: b, age: 25, rng,
     })
     g = autoResolveGame(g, b, 25, rng)
     const a = finishWatchedGame(g, b, 25)
