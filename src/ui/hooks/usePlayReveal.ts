@@ -47,7 +47,7 @@ export function usePlayReveal(input: { texts: string[]; ats: number[]; stopAt: n
       timer.current = setTimeout(() => { setShown(s => s + 1); setChars(0) }, LINE_PAUSE_MS)
     }
     return () => clearTimeout(timer.current)
-  }, [shown, chars, target, texts])
+  }, [shown, chars, target, texts[shown]])
 
   return {
     shown,

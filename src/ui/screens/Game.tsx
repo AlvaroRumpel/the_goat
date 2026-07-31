@@ -59,7 +59,6 @@ function MomentPanel({ state, dispatch }: Props) {
   const lang = state.lang
   const pending = state.pendingGame!
   const moment = pending.moments[pending.momentIndex]
-  const clock = moment?.clock ?? '4Q 00:00'
   const ourId = (state.currentOffer?.teamId ?? state.pendingPlayoffs?.finalOffer.teamId ?? '').toUpperCase()
   const oppId = pending.context.opponentTeamId.toUpperCase()
 
@@ -70,6 +69,7 @@ function MomentPanel({ state, dispatch }: Props) {
     stopAt: moment?.at ?? null,
   })
   const lastShown = pending.log[Math.max(0, reveal.shown - 1)]
+  const clock = lastShown?.clock ?? '4Q 00:00'
   const { us, them } = reveal.done && pending.momentIndex >= pending.moments.length
     ? scoreOf(liveMargin(pending))
     : (lastShown?.score ?? scoreOf(0))
