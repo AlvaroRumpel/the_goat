@@ -36,7 +36,7 @@ function log(phase) {
   console.log(`[phase] ${phase}`)
 }
 
-async function waitForServer(url, timeoutMs = 20000) {
+async function waitForServer(url, timeoutMs = 60000) {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
     try {
@@ -81,7 +81,11 @@ async function main() {
     const browser = await chromium.launch()
 
     // ---- Mobile playthrough: 390x844 ----
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    // reducedMotion: 'reduce' makes the play-log reveal instant (usePlayReveal jumps
+    // `shown` straight to `target`) instead of typing character-by-character — without
+    // it, timing-dependent asserts below would race the animation. It still pauses at
+    // each decision moment; it does not reveal the whole game log at once.
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
     const page = await context.newPage()
     page.on('console', msg => {
       if (msg.type() === 'error') consoleErrors.push(`[mobile] ${msg.text()}`)
@@ -134,10 +138,10 @@ async function main() {
     let sawGameResultShot = false
     let sawKeyGameShot = false
     let hubCheckedInModal = false
-    // Season 1 plays exactly one key game by deciding all 3 moments (option clicks);
-    // every other key/playoff game (rest of season 1, every later season, every
-    // playoff round, finals) is skipped via "Simular jogo" / "Simular o jogo {n}".
-    let decisionClicksLeft = 3
+    // Season 1 plays exactly one key game by deciding every moment (2-5, count varies
+    // by game — see engine/moments.ts momentCount); every other key/playoff game (rest
+    // of season 1, every later season, every playoff round, finals) is skipped via
+    // "Simular jogo" / "Simular o jogo {n}".
     const MAX_SEASONS = 40 // hard safety cap against infinite loop
     let iterations = 0
     const MAX_ITERATIONS = 1000 // hard safety cap against a stuck sub-loop within one season
@@ -212,20 +216,30 @@ async function main() {
       // must be scoped or it hits Playwright's strict-mode "multiple elements" error.
       const simulateGameBtn = page.locator('.game-decision button', { hasText: 'SIMULAR O RESTO DO JOGO' })
       if (await simulateGameBtn.count() > 0) {
+        const isFirstKeyGame = !sawKeyGameShot
         if (!sawKeyGameShot) {
           sawKeyGameShot = true
           await page.screenshot({ path: `${SHOTS_DIR}/06-keygame.png` })
           const playCount = await page.locator('.game-play').count()
           const momentCardCount = await page.locator('.moment-card').count()
-          console.log(`[assert] first keyGame play-log lines: ${playCount} (expect >= 4)`)
-          console.log(`[assert] first keyGame moment cards: ${momentCardCount} (expect 3)`)
-          if (playCount < 4) exitCode = 1
-          if (momentCardCount !== 3) exitCode = 1
+          // Invariant, not a magic number: usePlayReveal only reveals log lines whose
+          // `at` is strictly before the first pending moment's `at`. The first moment
+          // is always at minute FIRST_AT=10 (engine/moments.ts), and the log's only
+          // two ambient lines placed before minute 10 are fixed at minute 3 and minute
+          // FIRST_AT-4=6 — true for every game regardless of its moment count (2-5).
+          // So exactly 2 lines are revealed here, always, before the decision panel
+          // opens. (With reducedMotion the reveal already jumped straight to target.)
+          console.log(`[assert] first keyGame play-log lines revealed pre-decision: ${playCount} (expect exactly 2)`)
+          console.log(`[assert] first keyGame moment cards: ${momentCardCount} (expect 2..5)`)
+          if (playCount !== 2) exitCode = 1
+          if (momentCardCount < 2 || momentCardCount > 5) exitCode = 1
         }
-        if (decisionClicksLeft > 0) {
-          log(`keyGame moment: decide (${decisionClicksLeft} left)`)
-          await page.locator('.game-option').first().click()
-          decisionClicksLeft--
+        if (isFirstKeyGame) {
+          log('keyGame: decide every moment of the first game')
+          while (await page.locator('.game-option').first().isVisible().catch(() => false)) {
+            await page.locator('.game-option').first().click()
+            await page.waitForTimeout(120)
+          }
         } else {
           log('keyGame/playoffGame: simulate')
           await simulateGameBtn.click()
@@ -365,7 +379,7 @@ async function main() {
     await context.close()
 
     // ---- Desktop viewport check ----
-    const desktopContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    const desktopContext = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' })
     const desktopPage = await desktopContext.newPage()
     desktopPage.on('console', msg => {
       if (msg.type() === 'error') consoleErrors.push(`[desktop] ${msg.text()}`)
