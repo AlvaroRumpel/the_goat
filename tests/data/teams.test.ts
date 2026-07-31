@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, it } from 'vitest'
 import { TEAMS, teamById } from '../../src/data/teams'
+import { MOTIFS } from '../../src/ui/components/Crest'
 
 describe('TEAMS integrity', () => {
   test('30 teams, unique ids', () => {
@@ -20,5 +21,15 @@ describe('TEAMS integrity', () => {
   test('teamById works and throws on unknown', () => {
     expect(teamById('lal').name).toBe('Lakers')
     expect(() => teamById('nope')).toThrow()
+  })
+})
+
+describe('brasões', () => {
+  it('todo time tem motivo e todo motivo do mapa é usado (30/30)', () => {
+    const used = new Set(TEAMS.map(t => t.motif))
+    expect(TEAMS).toHaveLength(30)
+    for (const t of TEAMS) expect(MOTIFS[t.motif], `motivo de ${t.id}`).toBeTruthy()
+    expect(used.size).toBe(30) // nenhum motivo repetido
+    expect(Object.keys(MOTIFS)).toHaveLength(30)
   })
 })

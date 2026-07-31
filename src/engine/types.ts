@@ -31,6 +31,12 @@ export type TeamProfile = 'contender' | 'rebuild' | 'bigmarket'
 
 export type Conf = 'east' | 'west'
 
+export type Motif =
+  | 'bolt' | 'bull' | 'anchor' | 'rocket' | 'flame' | 'crown' | 'pine' | 'bridge'
+  | 'leprechaun' | 'claw' | 'pickaxe' | 'deer' | 'gear' | 'cactus' | 'sun' | 'mountain'
+  | 'net' | 'star' | 'pelican' | 'horseshoe' | 'wolf' | 'dino' | 'bee' | 'bell'
+  | 'spear' | 'wheel' | 'lighthouse' | 'wing' | 'wand' | 'palm'
+
 export interface Team {
   id: string          // 'lal'
   name: string        // 'Lakers'
@@ -38,6 +44,7 @@ export interface Team {
   strength: number    // 55..85 base roster strength
   bigMarket: boolean
   conf: Conf
+  motif: Motif
 }
 
 export interface Offer { teamId: string; profile: TeamProfile }
