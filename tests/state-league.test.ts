@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'vitest'
-import { gameReducer, initialState } from '../src/state'
+import { gameReducer } from '../src/state'
 import type { GameState } from '../src/state'
+import { beginCareer } from './helpers/career'
 
 function playToSeason(seed: number): GameState {
-  let s = gameReducer(initialState(), { type: 'NEW_GAME', seed })
+  let s = beginCareer({ seed })
   const slots = ['three', 'finishing', 'passing', 'handles', 'defense', 'rebounding', 'physical', 'clutch'] as const
   for (const slot of slots) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
   s = gameReducer(s, { type: 'CONFIRM_BUILD' })
@@ -24,8 +25,8 @@ function playToSeason(seed: number): GameState {
 }
 
 describe('liga no reducer', () => {
-  test('NEW_GAME inicializa liga', () => {
-    const s = gameReducer(initialState(), { type: 'NEW_GAME', seed: 7 })
+  test('BEGIN_CAREER inicializa liga', () => {
+    const s = beginCareer({ seed: 7 })
     expect(s.league).not.toBeNull()
     expect(s.league!.players).toHaveLength(270)
   })

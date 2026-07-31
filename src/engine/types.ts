@@ -222,9 +222,15 @@ export interface SeasonResult extends Omit<RegularSeasonResult, 'tradeOffer'> {
   chokes: number
 }
 
+export type GameMode = 'normal' | 'goat' | 'rapido'
+
 export interface Career {
   seasons: SeasonResult[]
   fame: number               // accumulated from bigmarket seasons + viral events
+  mode: GameMode | null
+  name: string
+  number: number | null
+  lastName: string
 }
 
 export type Tier =

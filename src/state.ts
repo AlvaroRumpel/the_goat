@@ -20,14 +20,14 @@ import { teamById } from './data/teams'
 import { computeVerdict } from './engine/verdict'
 import type { Lang } from './i18n'
 import type {
-  Award, AwardRace, Build, CalendarSlot, Career, DraftPick, EventChoice, Focus, GameEventId, Headline,
+  Award, AwardRace, Build, CalendarSlot, Career, DraftPick, EventChoice, Focus, GameEventId, GameMode, Headline,
   IconicMomentId, KeyGame, LeagueSeasonOutcome, LeagueState, NpcLine, Offer, PendingGame, PlayoffRun, RaceAward,
   RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding, TickerGame, Verdict, WatchedGameContext,
   WatchedGameResult,
 } from './engine/types'
 
 export type Phase =
-  | 'home' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
+  | 'home' | 'setupMode' | 'setupIdentity' | 'attrDraft' | 'draftDone' | 'nbaDraft' | 'preseason'
   | 'seasonAdvance' | 'seasonResult' | 'tradeDecision' | 'eventDecision'
   | 'keyGame' | 'playoffGame' | 'gameResult'
   | 'freeAgency' | 'retireDecision' | 'verdict'
@@ -104,6 +104,7 @@ export interface GameState {
   keyGameResults: WatchedGameResult[] // this season's watched games; reset in startSeasonCalendar (after any eventDecision pause)
   injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
+  setup: { mode: GameMode | null }
   league: LeagueState | null
   seasonOutcome: LeagueSeasonOutcome | null   // temporada corrente (UI: tabela/corridas/cerimônia)
   leagueHistory: LeagueYear[]
@@ -118,7 +119,9 @@ export interface GameState {
 
 export type Action =
   | { type: 'SET_LANG'; lang: Lang }
-  | { type: 'NEW_GAME'; seed: number }
+  | { type: 'START_SETUP' }
+  | { type: 'SET_MODE'; mode: GameMode }
+  | { type: 'BEGIN_CAREER'; seed: number; name: string; number: number }
   | { type: 'DRAFT_STEAL'; slot: SlotId }
   | { type: 'DRAFT_REROLL' }
   | { type: 'CONFIRM_BUILD' }        // draftDone → nbaDraft (computes pickNumber + offers)
@@ -141,10 +144,10 @@ export type Action =
   | { type: 'RESUME' }
   | { type: 'RESET' }
 
-export const STORAGE_KEY = 'thegoat:v6'
+export const STORAGE_KEY = 'thegoat:v7'
 
 const VALID_PHASES = new Set<Phase>([
-  'home', 'attrDraft', 'draftDone', 'nbaDraft', 'preseason',
+  'home', 'setupMode', 'setupIdentity', 'attrDraft', 'draftDone', 'nbaDraft', 'preseason',
   'seasonAdvance', 'seasonResult', 'tradeDecision', 'eventDecision',
   'keyGame', 'playoffGame', 'gameResult',
   'freeAgency', 'retireDecision', 'verdict',
@@ -168,7 +171,7 @@ function applyFame(career: Career, season: SeasonResult, profile: TeamProfile): 
   let fame = career.fame
   if (season.events.includes('viral')) fame += 10
   if (profile === 'bigmarket') fame += 2
-  return { seasons: [...career.seasons, season], fame }
+  return { ...career, seasons: [...career.seasons, season], fame }
 }
 
 export function initialState(lang: Lang = 'pt'): GameState {
@@ -195,7 +198,8 @@ export function initialState(lang: Lang = 'pt'): GameState {
     pendingPlayoffs: null,
     keyGameResults: [],
     injuryProne: false,
-    career: { seasons: [], fame: 0 },
+    career: { seasons: [], fame: 0, mode: null, name: '', number: null, lastName: '' },
+    setup: { mode: null },
     league: null,
     seasonOutcome: null,
     leagueHistory: [],
@@ -582,7 +586,20 @@ function reduce(state: GameState, action: Action): GameState {
     case 'SET_LANG':
       return { ...state, lang: action.lang }
 
-    case 'NEW_GAME': {
+    case 'START_SETUP':
+      if (state.phase !== 'home') return state
+      return { ...state, phase: 'setupMode', setup: { mode: null } }
+
+    case 'SET_MODE':
+      if (state.phase !== 'setupMode') return state
+      return { ...state, phase: 'setupIdentity', setup: { mode: action.mode } }
+
+    case 'BEGIN_CAREER': {
+      if (state.phase !== 'setupIdentity' || !state.setup.mode) return state
+      const name = action.name.trim()
+      if (name.length < 2 || name.length > 22) return state
+      if (!Number.isInteger(action.number) || action.number < 0 || action.number > 99) return state
+      const lastName = name.split(/\s+/).at(-1)!
       const { rng, calls } = makeCountedRng(action.seed, 0)
       const first = drawPlayer(rng, [])
       return {
@@ -594,6 +611,8 @@ function reduce(state: GameState, action: Action): GameState {
         league: initLeague(),
         phase: 'attrDraft',
         timePressure: state.timePressure, // preserva o toggle escolhido na Home antes de "Nova carreira" (10)
+        setup: { mode: state.setup.mode },
+        career: { seasons: [], fame: 0, mode: state.setup.mode, name, number: action.number, lastName },
       }
     }
 
@@ -613,6 +632,7 @@ function reduce(state: GameState, action: Action): GameState {
     }
 
     case 'DRAFT_REROLL': {
+      if (state.career.mode === 'goat') return state
       if (state.rerollUsed || state.phase !== 'attrDraft') return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const next = drawPlayer(rng, state.drawnIds)
@@ -829,6 +849,7 @@ export function loadState(): GameState | null {
     localStorage.removeItem('thegoat:v3')
     localStorage.removeItem('thegoat:v4')
     localStorage.removeItem('thegoat:v5')
+    localStorage.removeItem('thegoat:v6')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
@@ -839,6 +860,10 @@ export function loadState(): GameState | null {
     // ainda não tem o default aplicado aqui, mas undefined/null caem no `?? parsed.phase` igual.
     const effectivePhase = parsed.resumePhase ?? parsed.phase
     if (effectivePhase !== 'home' && parsed.league?.players?.length !== 270) return null
+    // fases de jogo sem identidade de carreira = save incompatível (pré-v7) — descarta;
+    // save em home sem carreira iniciada é válido (setupMode/setupIdentity contam como home no boot)
+    if (effectivePhase !== 'home' && typeof parsed.career?.name !== 'string') return null
+    parsed.setup = parsed.setup ?? { mode: null }
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
     parsed.pendingEvents = parsed.pendingEvents ?? null

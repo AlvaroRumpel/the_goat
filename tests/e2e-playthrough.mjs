@@ -270,7 +270,7 @@ async function main() {
               if (!timerVisible) exitCode = 1
 
               const clutchInfo = await page.evaluate(() => {
-                const raw = localStorage.getItem('thegoat:v6')
+                const raw = localStorage.getItem('thegoat:v7')
                 const s = raw ? JSON.parse(raw) : null
                 const pending = s?.pendingGame
                 const moment = pending?.moments?.[pending.momentIndex]
@@ -288,7 +288,7 @@ async function main() {
               if (!autoAdvanced) exitCode = 1
 
               const after = await page.evaluate(() => {
-                const raw = localStorage.getItem('thegoat:v6')
+                const raw = localStorage.getItem('thegoat:v7')
                 const s = raw ? JSON.parse(raw) : null
                 const outcomes = s?.lastGame?.result?.outcomes ?? []
                 return { count: outcomes.length, lastOptionId: outcomes.at(-1)?.optionId ?? null }

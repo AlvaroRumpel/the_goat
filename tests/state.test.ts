@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { gameReducer, initialState, loadState, saveState, STORAGE_KEY } from '../src/state'
 import type { GameState } from '../src/state'
 import { SLOT_ORDER } from '../src/engine/types'
+import { beginCareer } from './helpers/career'
 
 // localStorage mock for node env
 const store = new Map<string, string>()
@@ -14,7 +15,7 @@ vi.stubGlobal('localStorage', {
 beforeEach(() => store.clear())
 
 function playToBuild() {
-  let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 123 })
+  let s = beginCareer({ seed: 123 })
   for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
   return gameReducer(s, { type: 'CONFIRM_BUILD' })
 }
@@ -59,15 +60,15 @@ function playToFirstKeyGame(): GameState {
 }
 
 describe('draft fenomeno', () => {
-  test('NEW_GAME sorteia o primeiro jogador', () => {
-    const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 1 })
+  test('BEGIN_CAREER sorteia o primeiro jogador', () => {
+    const s = beginCareer({ seed: 1 })
     expect(s.phase).toBe('attrDraft')
     expect(s.currentPlayerId).toBeTruthy()
     expect(s.drawnIds).toEqual([s.currentPlayerId])
     expect(s.rerollUsed).toBe(false)
   })
   test('DRAFT_STEAL preenche slot e sorteia o próximo; 8º vai para draftDone', () => {
-    let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 2 })
+    let s = beginCareer({ seed: 2 })
     const first = s.currentPlayerId
     s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
     expect(s.picks).toEqual([{ playerId: first, slot: 'three' }])
@@ -77,7 +78,7 @@ describe('draft fenomeno', () => {
     expect(s.build).not.toBeNull()
   })
   test('DRAFT_STEAL em slot já preenchido é no-op', () => {
-    let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 3 })
+    let s = beginCareer({ seed: 3 })
     s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
     const before = s
     s = gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })
@@ -88,7 +89,7 @@ describe('draft fenomeno', () => {
     expect(gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })).toBe(s)
   })
   test('DRAFT_REROLL troca o jogador uma vez; segunda é no-op', () => {
-    let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 4 })
+    let s = beginCareer({ seed: 4 })
     const first = s.currentPlayerId
     s = gameReducer(s, { type: 'DRAFT_REROLL' })
     expect(s.currentPlayerId).not.toBe(first)
@@ -99,7 +100,7 @@ describe('draft fenomeno', () => {
   })
   test('replay determinístico: mesmo seed + mesmas actions = mesmo estado', () => {
     const run = () => {
-      let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 42 })
+      let s = beginCareer({ seed: 42 })
       s = gameReducer(s, { type: 'DRAFT_REROLL' })
       for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
       return s
@@ -271,7 +272,7 @@ describe('eventDecision', () => {
   // acha um seed cujo PLAY_SEASON role evento interativo na 1ª temporada
   function findInteractiveSeed(): { s: GameState; seed: number } {
     for (let seed = 1; seed < 3000; seed++) {
-      let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed })
+      let s = beginCareer({ seed })
       for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
       s = gameReducer(s, { type: 'CONFIRM_BUILD' })
       s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
@@ -303,7 +304,7 @@ describe('eventDecision', () => {
   test('replay determinístico com decisão de evento', () => {
     const { seed } = findInteractiveSeed()
     const run = () => {
-      let s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed })
+      let s = beginCareer({ seed })
       for (const slot of SLOT_ORDER) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
       s = gameReducer(s, { type: 'CONFIRM_BUILD' })
       s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
@@ -372,7 +373,7 @@ describe('hub e resume (C1)', () => {
     expect(resumed.resumePhase).toBeNull()
   })
   test('RESUME sem resumePhase é no-op', () => {
-    const s = gameReducer(initialState('pt'), { type: 'NEW_GAME', seed: 9 })
+    const s = beginCareer({ seed: 9 })
     expect(gameReducer(s, { type: 'RESUME' })).toEqual(s)
   })
   test('loadState defaulta hubOpen/resumePhase em save legado (campos ausentes)', () => {
@@ -411,7 +412,43 @@ describe('jogo vivo no reducer', () => {
     expect(s0.timePressure).toBe(true)
     expect(gameReducer(s0, { type: 'TOGGLE_TIME_PRESSURE' }).timePressure).toBe(false)
   })
-  test('STORAGE_KEY é v6', () => {
-    expect(STORAGE_KEY).toBe('thegoat:v6')
+  test('STORAGE_KEY é v7', () => {
+    expect(STORAGE_KEY).toBe('thegoat:v7')
+  })
+})
+
+describe('setup de carreira', () => {
+  it('home → setupMode → setupIdentity → attrDraft com identidade no career', () => {
+    let s = initialState('pt')
+    s = gameReducer(s, { type: 'START_SETUP' })
+    expect(s.phase).toBe('setupMode')
+    s = gameReducer(s, { type: 'SET_MODE', mode: 'goat' })
+    expect(s.phase).toBe('setupIdentity')
+    expect(s.setup.mode).toBe('goat')
+    s = gameReducer(s, { type: 'BEGIN_CAREER', seed: 42, name: 'Marcos da Silva Vieira', number: 8 })
+    expect(s.phase).toBe('attrDraft')
+    expect(s.career).toMatchObject({ mode: 'goat', name: 'Marcos da Silva Vieira', number: 8, lastName: 'Vieira' })
+    expect(s.currentPlayerId).not.toBeNull()
+  })
+
+  it('valida nome (2-22) e número (0-99) no BEGIN_CAREER', () => {
+    let s = gameReducer(gameReducer(initialState('pt'), { type: 'START_SETUP' }), { type: 'SET_MODE', mode: 'normal' })
+    expect(gameReducer(s, { type: 'BEGIN_CAREER', seed: 1, name: 'X', number: 8 }).phase).toBe('setupIdentity')
+    expect(gameReducer(s, { type: 'BEGIN_CAREER', seed: 1, name: 'Nome Válido', number: 100 }).phase).toBe('setupIdentity')
+    expect(gameReducer(s, { type: 'BEGIN_CAREER', seed: 1, name: 'Nome Válido', number: 0 }).phase).toBe('attrDraft')
+  })
+
+  it('modo goat: DRAFT_REROLL é no-op', () => {
+    let s = beginCareer({ mode: 'goat', seed: 42 })  // helper: START_SETUP+SET_MODE+BEGIN_CAREER
+    const before = s.rngCalls
+    s = gameReducer(s, { type: 'DRAFT_REROLL' })
+    expect(s.rngCalls).toBe(before)
+    expect(s.rerollUsed).toBe(false)
+  })
+
+  it('save v6 é descartado no load; v7 sobrevive', () => {
+    localStorage.setItem('thegoat:v6', JSON.stringify({ seed: 1, phase: 'home' }))
+    expect(loadState()).toBeNull()
+    expect(localStorage.getItem('thegoat:v6')).toBeNull()
   })
 })

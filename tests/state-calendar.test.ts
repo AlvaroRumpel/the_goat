@@ -33,7 +33,6 @@ function startState(seed: number): GameState {
   return {
     ...initialState(), seed, rngCalls: calls(), build: flatBuild(88), league: initLeague(),
     age: 25, offers, currentOffer: offers[0], contractYearsLeft: 4, phase: 'preseason',
-    career: { seasons: [], fame: 0 },
   }
 }
 function step(s: GameState, a: Action): GameState { return gameReducer(s, a) }
@@ -149,7 +148,7 @@ describe('temporada regular no calendário', () => {
     // para canTrade; injete: career com 2 seasons falsas mínimas)
     for (let seed = 1; seed < 200; seed++) {
       let s = startState(seed)
-      s.career = { seasons: [fakeSeason(), fakeSeason()], fame: 0 } // helper: SeasonResult mínimo válido
+      s.career = { ...s.career, seasons: [fakeSeason(), fakeSeason()], fame: 0 } // helper: SeasonResult mínimo válido
       s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
       let paused: GameState | null = null
       s = runRegular(s, cur => { if (cur.phase === 'tradeDecision') paused = paused ?? cur })
@@ -165,7 +164,7 @@ describe('temporada regular no calendário', () => {
   test('trade aceito muda o time e o segmento (p) do calendário', () => {
     for (let seed = 1; seed < 200; seed++) {
       let s = startState(seed)
-      s.career = { seasons: [fakeSeason(), fakeSeason()], fame: 0 }
+      s.career = { ...s.career, seasons: [fakeSeason(), fakeSeason()], fame: 0 }
       s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
       let guard = 0
       while (s.phase !== 'tradeDecision' && s.phase !== 'playoffGame' && s.phase !== 'seasonResult' && guard++ < 100) {
@@ -246,7 +245,7 @@ describe('RUN_TO_PLAYOFFS', () => {
   test('autoRun sobrevive à pausa do deadline', () => {
     for (let seed = 1; seed < 300; seed++) {
       let s = startState(seed)
-      s.career = { seasons: [fakeSeason(), fakeSeason()], fame: 0 }
+      s.career = { ...s.career, seasons: [fakeSeason(), fakeSeason()], fame: 0 }
       s = step(s, { type: 'PLAY_SEASON', focus: 'scoring' })
       if (s.phase === 'eventDecision') s = step(s, { type: 'EVENT_DECISION', choice: 'b' })
       if (s.phase !== 'seasonAdvance') continue

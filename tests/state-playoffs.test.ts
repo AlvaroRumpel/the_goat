@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { gameReducer, initialState } from '../src/state'
+import { gameReducer } from '../src/state'
 import type { GameState } from '../src/state'
 import { teamById } from '../src/data/teams'
+import { beginCareer } from './helpers/career'
 
 const SLOTS = ['three', 'finishing', 'passing', 'handles', 'defense', 'rebounding', 'physical', 'clutch'] as const
 
 function newCareer(seed: number): GameState {
-  let s = gameReducer(initialState(), { type: 'NEW_GAME', seed })
+  let s = beginCareer({ seed })
   for (const slot of SLOTS) s = gameReducer(s, { type: 'DRAFT_STEAL', slot })
   s = gameReducer(s, { type: 'CONFIRM_BUILD' })
   return gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })

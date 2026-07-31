@@ -79,7 +79,7 @@ export function Home({ state, dispatch }: Props) {
           type="button"
           className="btn btn--ink"
           style={{ marginTop: resumePhase !== null ? 16 : 0 }}
-          onClick={() => dispatch({ type: 'NEW_GAME', seed: Date.now() % 2 ** 31 })}
+          onClick={() => dispatch({ type: 'START_SETUP' })}
         >
           {t(lang, 'home.play')}
         </button>

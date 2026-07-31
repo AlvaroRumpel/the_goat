@@ -16,7 +16,8 @@ export default function App() {
     if (!saved) return initialState('pt')
     if (saved.phase === 'home') return saved
     // boot sempre na Home; nada é persistido até o primeiro dispatch (spec §4)
-    return { ...saved, phase: 'home' as const, resumePhase: saved.phase, hubOpen: false }
+    const midSetup = saved.phase === 'setupMode' || saved.phase === 'setupIdentity'
+    return { ...saved, phase: 'home' as const, resumePhase: midSetup ? null : saved.phase, hubOpen: false }
   })
   const p = state.phase
   const screen =

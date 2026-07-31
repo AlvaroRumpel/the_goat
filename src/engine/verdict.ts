@@ -7,7 +7,7 @@ export const ICONIC_VALUES: Record<IconicMomentId, number> = {
   comeback: 15, bigNight: 12, rivalWinner: 12, sweep: 10,
 }
 
-export function computeVerdict(career: Career): Verdict {
+export function computeVerdict(career: Pick<Career, 'seasons' | 'fame'>): Verdict {
   const counts = Object.fromEntries(AWARDS.map(a => [a, 0])) as Record<Award, number>
   let points = 0, rebounds = 0, assists = 0, peakPpg = 0
   let iconicSum = 0, chokesSum = 0
