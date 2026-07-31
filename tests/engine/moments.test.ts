@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
-  applyMoment, autoResolveGame, clockOf, expectedAutoDelta, finishWatchedGame, gameRngCalls,
+  applyMoment, autoResolveGame, clockOf, dagger, expectedAutoDelta, finishWatchedGame, gameRngCalls,
   makeMoments, momentAts, momentWeight, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
@@ -318,6 +318,48 @@ describe('contagem e posição dos momentos', () => {
 })
 
 import { ALL_OPTION_IDS } from '../../src/engine/moments'
+
+describe('BUG 1 e 2: contagem dinâmica e clutch como último outcome', () => {
+  test('autoResolveGame fecha em moments.length, não em 3', () => {
+    for (let s = 0; s < 40; s++) {
+      const { rng } = countedRng(7000 + s)
+      const b = flatBuild(85)
+      let g = startWatchedGame({ context: { kind: 'finals', opponentTeamId: 'bos' }, ourStrength: 80, oppStrength: 75, build: b, age: 27, rng })
+      g = autoResolveGame(g, b, 27, rng)
+      expect(g.momentIndex).toBe(g.moments.length)
+      expect(g.outcomes).toHaveLength(g.moments.length)
+    }
+  })
+  test('dagger lê o ÚLTIMO outcome (o clutch), com qualquer n', () => {
+    const mk = (n: number, lastRisk: 'safe' | 'bold') => ({
+      outcomes: Array.from({ length: n }, (_, i) => ({
+        momentId: 'clutch' as const,
+        optionId: i === n - 1 ? (lastRisk === 'bold' ? 'clutchThree' : 'safePass') : 'clutchThree',
+        success: true, injury: false, delta: 1, clock: '',
+      })),
+    })
+    for (const n of [2, 3, 4, 5]) {
+      expect(dagger(mk(n, 'bold'))).toBe(true)
+      expect(dagger(mk(n, 'safe'))).toBe(false)
+    }
+  })
+  test('outcome carrega o clock do momento', () => {
+    const { rng } = countedRng(31)
+    const b = flatBuild(85)
+    let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 25, rng })
+    const clocks = g.moments.map(m => m.clock)
+    g = autoResolveGame(g, b, 25, rng)
+    expect(g.outcomes.map(o => o.clock)).toEqual(clocks)
+  })
+  test('resultado carrega expectedDelta do pending', () => {
+    const { rng } = countedRng(33)
+    const b = flatBuild(85)
+    let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 25, rng })
+    const exp = g.expectedDelta
+    g = autoResolveGame(g, b, 25, rng)
+    expect(finishWatchedGame(g, b, 25).expectedDelta).toBeCloseTo(exp, 10)
+  })
+})
 
 describe('catálogo de situações', () => {
   test('5 slots na ordem cronológica, clutch por último', () => {

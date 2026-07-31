@@ -293,29 +293,35 @@ export function applyMoment(
   pending: PendingGame, option: MomentOption, build: Build, age: number, rng: Rng,
 ): PendingGame {
   const moment = pending.moments[pending.momentIndex]
-  const r = resolveMoment(build, age, option, rng)
+  const w = momentWeight(pending.moments.length)
+  const r = resolveMoment(build, age, option, w, rng)     // calls 1-2
   const outcome: MomentOutcome = {
-    momentId: moment.id, optionId: option.id, success: r.success, injury: r.injury, delta: r.delta,
+    momentId: moment.id, optionId: option.id, success: r.success, injury: r.injury,
+    delta: r.delta, clock: moment.clock,
   }
   const variant = rng.int(0, 1)                          // call 3 do momento (contrato)
-  const at = MOMENT_AT[moment.id]
-  const deltas = [...pending.outcomes, outcome].reduce((n, o) => n + o.delta, 0)
+  const outcomes = [...pending.outcomes, outcome]
+  const deltas = outcomes.reduce((n, o) => n + o.delta, 0)
   const entry: PlayEntry = {
-    at, clock: clockOf(at), fromDecision: true,
+    at: moment.at, clock: moment.clock, fromDecision: true,
     textKey: `play.${option.id}.${r.success ? 'hit' : 'miss'}.v${variant}`,
     params: { opp: pending.context.opponentTeamId.toUpperCase() },
-    score: logScore(pending.baseMargin, deltas, at),
+    jitter: 0,
+    score: logScore(pending.baseMargin, deltas, moment.at, 0),
   }
-  return {
-    ...pending, momentIndex: pending.momentIndex + 1,
-    outcomes: [...pending.outcomes, outcome],
+  const next: PendingGame = {
+    ...pending, momentIndex: pending.momentIndex + 1, outcomes,
     log: [...pending.log, entry].sort((a, b) => a.at - b.at),
   }
+  // BUG 3: as linhas de ambientação nasceram com deltas = 0; reescora todas agora.
+  return { ...next, log: rescoreLog(next) }
 }
 
 export function autoResolveGame(pending: PendingGame, build: Build, age: number, rng: Rng): PendingGame {
   let g = pending
-  while (g.momentIndex < 3) g = applyMoment(g, defaultOption(g.moments[g.momentIndex]), build, age, rng)
+  while (g.momentIndex < g.moments.length) {
+    g = applyMoment(g, defaultOption(g.moments[g.momentIndex]), build, age, rng)
+  }
   return g
 }
 
@@ -329,27 +335,26 @@ export function autoResolveGame(pending: PendingGame, build: Build, age: number,
 // qualquer política (ver state.ts).
 // Id desconhecido (save de versão anterior do catálogo) conta como safe: não vira icônico.
 export function dagger(r: Pick<WatchedGameResult, 'outcomes'>): boolean {
-  const clutch = r.outcomes[2]
+  const clutch = r.outcomes[r.outcomes.length - 1]        // o slot clutch é SEMPRE o último
   return clutch?.success === true && (RISK_OF.get(clutch.optionId) ?? 'safe') !== 'safe'
 }
 
 export function finishWatchedGame(pending: PendingGame, build: Build, age: number): WatchedGameResult {
-  const { context, outcomes, baseMargin, winP } = pending
+  const { context, outcomes, baseMargin, winP, expectedDelta } = pending
+  const w = momentWeight(pending.moments.length)
   const margin = Math.round(baseMargin + outcomes.reduce((n, o) => n + o.delta, 0))
   const won = margin > 0
   const m = ageMultiplier(age, build.attributes.physical)
   const expPts = clamp((build.overall * m - 50) * 0.6, 6, 34)
-  // pontos por acerto = impacto do RISCO daquela jogada (safe 4 / bold 7 / reckless 10):
-  // três passes seguros não fazem um jogo de 45. Com bônus fixo de 7 o 99 fechava 3/3
-  // em ~39% dos jogos e carimbava closeout45 (18 pts) ~8× por carreira, batendo o cap
-  // de icônicos sozinho — era o que jogava o goatRate do 99 para 0.075.
+  // pontos por acerto = impacto do RISCO daquela jogada, ponderado por 3/n: cinco
+  // momentos não podem valer mais pontos que três (era o que carimbava closeout45).
   const playerPts = Math.round(clamp(
-    expPts + outcomes.reduce((n, o) => n + (o.success ? RISK[RISK_OF.get(o.optionId) ?? 'safe'].hit : -2), 0)
+    expPts + outcomes.reduce((n, o) => n + (o.success ? RISK[RISK_OF.get(o.optionId) ?? 'safe'].hit : -2) * w, 0)
       + baseMargin / 8,
     6, 65,
   ))
   const injured = outcomes.some(o => o.injury)
-  const clutchOutcome = outcomes[2]
+  const clutchOutcome = outcomes[outcomes.length - 1]
   const choke = context.elimination === true && clutchOutcome !== undefined && !clutchOutcome.success && !won
 
   const iconics: IconicMomentId[] = []
@@ -364,7 +369,7 @@ export function finishWatchedGame(pending: PendingGame, build: Build, age: numbe
 
   const reb = Math.round(clamp((build.attributes.rebounding * m - 40) * 0.18 + margin / 12, 1, 22))
   const ast = Math.round(clamp((build.attributes.passing * m - 45) * 0.16 + margin / 15, 1, 18))
-  return { won, margin, playerPts, reb, ast, outcomes, injured, choke, iconics, winP }
+  return { won, margin, playerPts, reb, ast, outcomes, injured, choke, iconics, winP, expectedDelta }
 }
 
 // menor índice em TEAMS = desempate vencedor (nunca rng em comparator)
