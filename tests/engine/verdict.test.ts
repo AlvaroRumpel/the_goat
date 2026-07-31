@@ -20,7 +20,7 @@ function season(over: Partial<SeasonResult>): SeasonResult {
 
 describe('computeVerdict', () => {
   test('short mediocre career → peladeiro or rolePlayer', () => {
-    const c: Career = { seasons: [season({ ppg: 8 }), season({ ppg: 9, age: 26 })], fame: 0 }
+    const c: Pick<Career, 'seasons' | 'fame'> = { seasons: [season({ ppg: 8 }), season({ ppg: 9, age: 26 })], fame: 0 }
     expect(['peladeiro', 'rolePlayer']).toContain(computeVerdict(c).tier)
   })
   test('GOAT career (6 rings, 5 mvps, 18 seasons of 28ppg) → goat', () => {
@@ -39,8 +39,8 @@ describe('computeVerdict', () => {
     expect(computeVerdict({ seasons, fame: 50 }).tier).toBe('goat')
   })
   test('loyalty bonus applies only for 10+ single-team seasons', () => {
-    const loyal: Career = { seasons: Array.from({ length: 10 }, (_, i) => season({ age: 19 + i })), fame: 0 }
-    const moved: Career = {
+    const loyal: Pick<Career, 'seasons' | 'fame'> = { seasons: Array.from({ length: 10 }, (_, i) => season({ age: 19 + i })), fame: 0 }
+    const moved: Pick<Career, 'seasons' | 'fame'> = {
       seasons: loyal.seasons.map((s, i) => (i === 5 ? { ...s, finalTeamId: 'lal' } : s)),
       fame: 0,
     }

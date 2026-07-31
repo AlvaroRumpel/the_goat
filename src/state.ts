@@ -153,6 +153,10 @@ const VALID_PHASES = new Set<Phase>([
   'freeAgency', 'retireDecision', 'verdict',
 ])
 
+// fases anteriores ao BEGIN_CAREER — league ainda é null e career ainda não tem
+// identidade; loadState não pode exigir nenhum dos dois nelas.
+const PRE_CAREER_PHASES = new Set<Phase>(['home', 'setupMode', 'setupIdentity'])
+
 function makeCountedRng(seed: number, skip: number): { rng: Rng; calls: () => number } {
   const inner = createRng(seed)
   let n = 0
@@ -859,10 +863,10 @@ export function loadState(): GameState | null {
     // usa a fase efetiva (resumePhase, se houver hub aberto sobre ela) — parsed.resumePhase
     // ainda não tem o default aplicado aqui, mas undefined/null caem no `?? parsed.phase` igual.
     const effectivePhase = parsed.resumePhase ?? parsed.phase
-    if (effectivePhase !== 'home' && parsed.league?.players?.length !== 270) return null
+    if (!PRE_CAREER_PHASES.has(effectivePhase) && parsed.league?.players?.length !== 270) return null
     // fases de jogo sem identidade de carreira = save incompatível (pré-v7) — descarta;
-    // save em home sem carreira iniciada é válido (setupMode/setupIdentity contam como home no boot)
-    if (effectivePhase !== 'home' && typeof parsed.career?.name !== 'string') return null
+    // save em home/setupMode/setupIdentity sem carreira iniciada é válido
+    if (!PRE_CAREER_PHASES.has(effectivePhase) && typeof parsed.career?.name !== 'string') return null
     parsed.setup = parsed.setup ?? { mode: null }
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false

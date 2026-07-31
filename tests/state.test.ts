@@ -451,4 +451,15 @@ describe('setup de carreira', () => {
     expect(loadState()).toBeNull()
     expect(localStorage.getItem('thegoat:v6')).toBeNull()
   })
+
+  it('loadState sobrevive a um save em setupMode/setupIdentity (league e career ainda vazios)', () => {
+    let s = gameReducer(initialState('en'), { type: 'START_SETUP' })
+    s = { ...s, timePressure: false }
+    saveState(s)
+    const loaded = loadState()
+    expect(loaded).not.toBeNull()
+    expect(loaded!.phase).toBe('setupMode')
+    expect(loaded!.lang).toBe('en')
+    expect(loaded!.timePressure).toBe(false)
+  })
 })
