@@ -130,7 +130,7 @@
   "game.now": "NOW",
   "game.keys": "KEYS 1 · 2 · 3 CHOOSE",
   "game.clutchTimer": "8 SECONDS TO DECIDE",
-  "game.tutorial": "Safe hits more often and is worth less. Bold and reckless hit less and are worth more — they only pay off with high attributes. Your pick moves the game's margin and your points.",
+  "game.tutorial": "Safe hits more often and is worth less. Bold hits less and is worth more — it pays off once your attributes are high. Reckless never pays off on average, but carries the biggest prize and is the only road to an iconic moment on the final play.",
   "moment.openTone.label": "1Q · THE TONE",
   "moment.openTone.s0": "Tip-off done, first possession against the {opp}. The game has no shape yet — you decide the tone right away.",
   "moment.openTone.s1": "The {opp} come out scorching the nets on the first possessions. You feel the need to answer immediately.",
