@@ -235,8 +235,56 @@ async function main() {
           if (momentCardCount < 2 || momentCardCount > 5) exitCode = 1
         }
         if (isFirstKeyGame) {
-          log('keyGame: decide every moment of the first game')
+          log('keyGame: decide every moment of the first game — except clutch, which is left to expire (I-3)')
           while (await page.locator('.game-option').first().isVisible().catch(() => false)) {
+            // clutch is always the last moment (engine/moments.ts slotsFor); its label
+            // ("0:21 · CLUTCH") is present on `.moment-card--now` regardless of
+            // timePressure. timePressure defaults to true and is never toggled in this
+            // run, so ClutchTimer is mounted here — this is the spec §8 promise ("o
+            // estouro do cronômetro no clutch") that had zero coverage before this fix.
+            const atClutch = await page.locator('.moment-card--now', { hasText: 'CLUTCH' }).count() > 0
+            if (atClutch) {
+              const timerVisible = await page.locator('.clutch-timer').isVisible()
+              console.log(`[assert] clutch timer visible at the clutch moment: ${timerVisible}`)
+              if (!timerVisible) exitCode = 1
+
+              const clutchInfo = await page.evaluate(() => {
+                const raw = localStorage.getItem('thegoat:v6')
+                const s = raw ? JSON.parse(raw) : null
+                const pending = s?.pendingGame
+                const moment = pending?.moments?.[pending.momentIndex]
+                return {
+                  safeOptionId: moment?.options?.find(o => o.risk === 'safe')?.id ?? null,
+                  momentsCount: pending?.moments?.length ?? null,
+                }
+              })
+
+              log('keyGame: NOT clicking the clutch options — waiting out the 8s timer instead')
+              await page.waitForTimeout(8600)
+
+              const autoAdvanced = await page.locator('text=PLACAR FINAL').count() > 0
+              console.log(`[assert] clutch expiry auto-advanced past the decision without a click: ${autoAdvanced}`)
+              if (!autoAdvanced) exitCode = 1
+
+              const after = await page.evaluate(() => {
+                const raw = localStorage.getItem('thegoat:v6')
+                const s = raw ? JSON.parse(raw) : null
+                const outcomes = s?.lastGame?.result?.outcomes ?? []
+                return { count: outcomes.length, lastOptionId: outcomes.at(-1)?.optionId ?? null }
+              })
+              // Pins: expiry resolves the clutch moment as the moment's `safe` option
+              // (defaultOption in engine/moments.ts), and exactly one outcome was
+              // appended for it (a duplicate dispatch from a double-fired onExpire would
+              // either add a second outcome here or be silently absorbed by the
+              // reducer's phase/pendingGame guard in state.ts — this assertion catches
+              // the first case but NOT the second; ClutchTimer's `fired` ref itself has
+              // no direct unit coverage, see final-fix-report.md).
+              console.log(`[assert] clutch expiry played the safe option: got ${after.lastOptionId}, expected ${clutchInfo.safeOptionId}`)
+              if (after.lastOptionId !== clutchInfo.safeOptionId) exitCode = 1
+              console.log(`[assert] clutch expiry recorded exactly one outcome per moment: ${after.count} outcomes for ${clutchInfo.momentsCount} moments`)
+              if (after.count !== clutchInfo.momentsCount) exitCode = 1
+              break
+            }
             await page.locator('.game-option').first().click()
             await page.waitForTimeout(120)
           }
@@ -425,6 +473,57 @@ async function main() {
     if (!gameSideVisible) exitCode = 1
 
     await desktopContext.close()
+
+    // ---- Clutch timer off: I-3, must NOT fire when timePressure is off ----
+    const noTimerContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+    const noTimerPage = await noTimerContext.newPage()
+    noTimerPage.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(`[timePressureOff] ${msg.text()}`)
+    })
+    noTimerPage.on('pageerror', err => consoleErrors.push(`[timePressureOff pageerror] ${err.message}`))
+    await noTimerPage.goto(BASE_URL)
+    await noTimerPage.evaluate(() => localStorage.clear())
+    await noTimerPage.reload()
+
+    log('timePressure off: toggle the Home chip, draft to first keyGame, reach the clutch moment')
+    await noTimerPage.locator('button.chip', { hasText: 'LIGADO' }).click()
+    await noTimerPage.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    for (let i = 0; i < 8; i++) {
+      await noTimerPage.locator('[data-testid="attr-row"]').first().click()
+      await noTimerPage.locator('button.btn--primary').click()
+      await noTimerPage.waitForTimeout(50)
+    }
+    await noTimerPage.locator('button.btn--primary').click() // build confirm
+    await firstOptionBtn(noTimerPage).click() // nba draft: pick first offer
+    await noTimerPage.locator('button.btn--ink').click() // nba draft: confirm
+    await noTimerPage.locator('button.btn--primary', { hasText: 'Começar a temporada' }).click() // preseason -> start
+    for (let guard = 0; guard < 5; guard++) {
+      await noTimerPage.waitForSelector('.screen', { timeout: 10000 })
+      if (await noTimerPage.locator('.modal-veil').count() > 0) {
+        await noTimerPage.locator('.modal-veil button.btn--outline').click()
+        continue
+      }
+      if (await noTimerPage.locator('button.btn--ink', { hasText: 'Assumir' }).count() > 0) {
+        await noTimerPage.locator('button.btn--ink', { hasText: 'Assumir' }).click()
+        break
+      }
+    }
+    await noTimerPage.waitForSelector('.game-option', { timeout: 10000 })
+    while (await noTimerPage.locator('.moment-card--now', { hasText: 'CLUTCH' }).count() === 0) {
+      await noTimerPage.locator('.game-option').first().click()
+      await noTimerPage.waitForTimeout(120)
+    }
+
+    const timerAbsent = await noTimerPage.locator('.clutch-timer').count() === 0
+    console.log(`[assert] clutch timer NOT rendered at the clutch moment when timePressure is off: ${timerAbsent}`)
+    if (!timerAbsent) exitCode = 1
+
+    await noTimerPage.waitForTimeout(8600) // longer than the 8s the timer would run if it were mounted
+    const stillWaitingForClick = await noTimerPage.locator('.game-option').first().isVisible().catch(() => false)
+    console.log(`[assert] clutch moment still awaiting a manual click after 8.6s with timePressure off: ${stillWaitingForClick}`)
+    if (!stillWaitingForClick) exitCode = 1
+
+    await noTimerContext.close()
 
     await browser.close()
 

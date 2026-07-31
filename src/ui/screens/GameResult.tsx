@@ -3,6 +3,7 @@ import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { scoreOf } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
+import { formatSignedDelta } from '../format'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
 
@@ -13,9 +14,13 @@ export function GameResult({ state, dispatch }: Props) {
   const champion = pp !== null && pp.bracket.round === 3 && pp.seriesUs === 4
   const { us, them } = scoreOf(result.margin)
   const headlineKey = champion ? 'result.headline.champion' : result.won ? 'result.headline.win' : 'result.headline.loss'
-  const yourImpact = result.outcomes.reduce((n, o) => n + o.delta, 0)
+  // I-1: o.delta vem ponderado por 3/n e é fracionário pra n != 3 (ruído de ponto
+  // flutuante). result.margin é inteiro (Math.round em finishWatchedGame) e a linha
+  // abaixo é lida como decomposição — arredonda SÓ o seu impacto e deriva o do time por
+  // subtração, nunca os dois independentemente, senão a soma pode não bater com margin.
+  const rawYourImpact = result.outcomes.reduce((n, o) => n + o.delta, 0)
+  const yourImpact = Math.round(rawYourImpact)
   const teamImpact = result.margin - yourImpact
-  const signed = (n: number) => (n >= 0 ? '+' : '') + n
 
   return (
     <div className="screen">
@@ -42,7 +47,7 @@ export function GameResult({ state, dispatch }: Props) {
         <hr className="rule" />
 
         <div className="hint" style={{ textAlign: 'center' }}>
-          {t(lang, 'result.impact', { you: signed(yourImpact), team: signed(teamImpact) })}
+          {t(lang, 'result.impact', { you: formatSignedDelta(yourImpact, 0), team: formatSignedDelta(teamImpact, 0) })}
         </div>
 
         {!skipped && (

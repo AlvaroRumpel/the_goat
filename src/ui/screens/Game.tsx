@@ -7,6 +7,7 @@ import { scoreOf, defaultOption } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 import { ClutchTimer } from '../components/ClutchTimer'
 import { usePlayReveal } from '../hooks/usePlayReveal'
+import { formatSignedDelta } from '../format'
 
 interface Props {
   state: GameState
@@ -146,7 +147,11 @@ function MomentPanel({ state, dispatch }: Props) {
                     <div key={m.id} className="moment-card moment-card--done">
                       <div style={{ height: 3, background: done.delta > 0 ? 'var(--ink)' : 'var(--red)' }} />
                       <span className="mono-label">{t(lang, 'moment.' + m.id + '.label')}</span>
-                      <span className="mono" style={{ fontSize: 12 }}>{done.delta > 0 ? `+${done.delta}` : done.delta}</span>
+                      {/* I-2: delta vem ponderado por 3/n (fracionário pra n != 3, e sujo de
+                          ponto flutuante pra n=5) — 1 casa decimal preserva a informação real
+                          de que um jogo de 5 momentos pesa menos por momento que um de 3,
+                          sem arredondar pra inteiro e escondê-la. */}
+                      <span className="mono" style={{ fontSize: 12 }}>{formatSignedDelta(done.delta)}</span>
                     </div>
                   )
                 }
