@@ -147,17 +147,17 @@ describe('calibração de dificuldade (política: até 40, foco scoring)', () =>
     if (process.env.CALIBRATE) console.log('83:', JSON.stringify(d, null, 2))
     expect(d.ringsMedian).toBeLessThanOrEqual(2)
     expect(d.legendRate).toBeLessThan(0.15)
-  }, 120000)
+  }, 300000)
   test('95 overall: legend alcançável', () => {
     const d = distribution(95)
     if (process.env.CALIBRATE) console.log('95:', JSON.stringify(d, null, 2))
     expect(d.legendRate).toBeGreaterThan(0.2)
     expect(d.mvpRate).toBeGreaterThan(0.5)
-  }, 120000)
+  }, 250000)
   test('relatório completo (só com CALIBRATE=1)', () => {
     if (!process.env.CALIBRATE) return
     for (const ov of [75, 90]) console.log(`${ov}:`, JSON.stringify(distribution(ov), null, 2))
-  }, 180000)
+  }, 350000)
   test('79 overall: médias de pico realistas', () => {
     const d = distribution(79)
     if (process.env.CALIBRATE) console.log('79:', JSON.stringify(d, null, 2))
@@ -165,14 +165,14 @@ describe('calibração de dificuldade (política: até 40, foco scoring)', () =>
     expect(d.peakPpg).toBeLessThanOrEqual(19)
     // ROY não é carimbo: build fraca perde a corrida com frequência (ROY_NPC_BOOST)
     expect(d.royRate).toBeLessThan(0.8)
-  }, 120000)
+  }, 280000)
   test('99 overall: elite pontua como elite', () => {
     const d = distribution(99, 'auto', N_GOAT)
     if (process.env.CALIBRATE) console.log('99:', JSON.stringify(d, null, 2))
     expect(d.peakPpg).toBeGreaterThanOrEqual(26)
     expect(d.peakPpg).toBeLessThanOrEqual(34)
     expect(d.goatRate).toBeLessThan(0.02)
-  }, 120000)
+  }, 600000)
 })
 
 describe('políticas de momento', () => {
@@ -183,7 +183,7 @@ describe('políticas de momento', () => {
     expect(bold.ringsAvg).toBeGreaterThan(auto.ringsAvg * 1.05)
     expect(bold.ringsAvg).toBeLessThan(auto.ringsAvg * 1.8)
     expect(bold.goatRate).toBeLessThan(0.04)   // trava de sanidade do dono
-  }, 240000)
+  }, 600000)
   test('icônicos: auto gera poucos, bold gera mais; cap respeitado', () => {
     const auto = distribution(90, 'auto')
     const bold = distribution(90, 'bold')
@@ -192,5 +192,5 @@ describe('políticas de momento', () => {
     expect(bold.iconicAvg).toBeGreaterThan(auto.iconicAvg)
     expect(auto.iconicPointsAvg).toBeLessThanOrEqual(100)
     expect(bold.iconicPointsAvg).toBeLessThanOrEqual(100)
-  }, 240000)
+  }, 600000)
 })

@@ -105,7 +105,25 @@ export function computeTitleProb(winPct: number, effClutch: number): number {
   // em N=600). 0.22 → 0.195 e 0.0015 → 0.0013: reduz esse piso ~10-13% sem mexer no
   // floor/cap (0.01/0.16, nunca atingido nesta faixa de winPct/effClutch). Builds
   // fracas (winPct perto de 0.5) quase não sentem — a trava 83/79 tem folga grande.
-  return clamp((winPct - 0.5) * 0.195 + (effClutch - 75) * 0.0013, 0.01, 0.16)
+  //
+  // Calibração(c3) — Task 8: o ciclo do jogo vivo trocou o nº fixo de momentos por
+  // jogo assistido (sempre 3) por uma contagem variável 2-5, com peso 3/n por momento
+  // (moments.ts) — a MÉDIA de Σ deltas por jogo ficou invariante em n, mas a VARIÂNCIA
+  // não: Var(Σ deltas) = (9/n)·Var₁. Nos playoffs, que antes rodavam sempre n=3
+  // (Var=3·Var₁), agora rodam n=4 nas rounds 0-2 e n=5 na final (Var=2.25·Var₁ e
+  // 1.8·Var₁) — MENOS variância na cauda de decisão. Menos variância satura menos a
+  // janela de ruído da margem (MARGIN_NOISE), então times fortes vencem mais séries:
+  // o mesmo winPct/effClutch de antes agora converte em mais anéis pro overall 99.
+  // Medido (N=600, seeds fixas): goatRate(99) 0.0117 → 0.0217 (trava do dono é <0.02,
+  // ficou RED), ringsAvg(99) 1.63 → 1.76. O dono decidiu manter o comportamento novo
+  // (times fortes devem vencer mais — é o efeito pretendido da contagem variável) e só
+  // reajustar a cauda de topo, do mesmo jeito que o c2: 0.195 → 0.1775 e 0.0013 →
+  // 0.00118 (~9%, proporção mantida entre os dois termos), sem tocar floor/cap nem a
+  // forma da fórmula. Resultado: goatRate(99) = 0.0133 (8/600), ringsAvg(99) = 1.56 —
+  // dentro da trava com folga real (não raspando o 0.02), e legendRate(99) = 0.9517,
+  // idêntico ao baseline pré-ciclo. legendRate(95)/mvpRate(95)/legendRate(83) — que
+  // dependem da mesma cauda de anéis — seguem verdes (ver tests/engine/calibration.test.ts).
+  return clamp((winPct - 0.5) * 0.1775 + (effClutch - 75) * 0.00118, 0.01, 0.16)
 }
 
 export function finishSeason(input: {

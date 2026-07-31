@@ -170,9 +170,10 @@ describe('efeitos determinísticos do pós-temporada (winPct/effClutch)', () => 
     return { rng, calls }
   }
 
-  // constantes recalibradas na Task 11 (0.22→0.195, 0.0015→0.0013): ver comentário em computeTitleProb (season.ts)
+  // constantes recalibradas na Task 11 (0.22→0.195, 0.0015→0.0013) e na Task 8 do ciclo
+  // jogo vivo (0.195→0.1775, 0.0013→0.00118): ver comentário em computeTitleProb (season.ts)
   const titleProb = (winPct: number, effClutch: number) =>
-    Math.min(0.16, Math.max(0.01, (winPct - 0.5) * 0.195 + (effClutch - 75) * 0.0013))
+    Math.min(0.16, Math.max(0.01, (winPct - 0.5) * 0.1775 + (effClutch - 75) * 0.00118))
 
   test('baseline titleProb', () => {
     const { rng, calls } = recordingRng()

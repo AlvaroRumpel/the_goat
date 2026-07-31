@@ -20,8 +20,9 @@ describe('partes do season', () => {
     expect(winPct).toBeLessThanOrEqual(0.85)
   })
   test('computeTitleProb preserva forma e clamps', () => {
-    // constantes recalibradas na Task 11 (0.22→0.195, 0.0015→0.0013): ver comentário em computeTitleProb (season.ts)
-    expect(computeTitleProb(0.85, 99)).toBeCloseTo(Math.min(0.16, (0.85 - 0.5) * 0.195 + (99 - 75) * 0.0013), 10)
+    // constantes recalibradas na Task 11 (0.22→0.195, 0.0015→0.0013) e na Task 8 do
+    // ciclo jogo vivo (0.195→0.1775, 0.0013→0.00118): ver comentário em computeTitleProb (season.ts)
+    expect(computeTitleProb(0.85, 99)).toBeCloseTo(Math.min(0.16, (0.85 - 0.5) * 0.1775 + (99 - 75) * 0.00118), 10)
     expect(computeTitleProb(0.15, 40)).toBe(0.01)
   })
   test('finishSeason: allstar/scoring/ring + extraAwards', () => {
