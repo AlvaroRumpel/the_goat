@@ -272,12 +272,15 @@ export function startWatchedGame(input: {
     : 2 * MARGIN_NOISE * targetWinP - MARGIN_NOISE + 0.5 - expectedDelta) + marginBias
   const winP = clamp((center + expectedDelta + MARGIN_NOISE - 0.5) / (2 * MARGIN_NOISE), 0, 1)
   const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)   // 1 call
-  const log: PlayEntry[] = ambientAts(moments.map(m => m.at)).map(at => {
+  const log: PlayEntry[] = ambientAts(moments.map(m => m.at)).map((at, i) => {
     const variant = rng.int(0, 2)                        // call 1 da linha
     const jitter = Math.round(rng.next() * 8 - 4)        // call 2 da linha
+    // linha 0 é sempre a abertura (at=3): chave própria pra não colidir com a linha
+    // do quarto 0, que cai perto (at=firstMoment-4, ex. 6) — mesmo balde de 3 variantes.
+    const bucket = i === 0 ? 'open' : quarterOf(at)
     return {
       at, clock: clockOf(at),
-      textKey: `play.ambient.${quarterOf(at)}.v${variant}`,
+      textKey: `play.ambient.${bucket}.v${variant}`,
       params: { opp: context.opponentTeamId.toUpperCase() },
       jitter,
       score: logScore(baseMargin, 0, at, jitter),
