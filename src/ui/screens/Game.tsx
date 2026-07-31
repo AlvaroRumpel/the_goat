@@ -3,7 +3,7 @@ import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
 import type { PendingGame, WatchedGameResult } from '../../engine/types'
-import { scoreOf, defaultOption } from '../../engine/moments'
+import { scoreOf, clockOf, defaultOption } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 import { ClutchTimer } from '../components/ClutchTimer'
 import { usePlayReveal } from '../hooks/usePlayReveal'
@@ -68,7 +68,6 @@ function MomentPanel({ state, dispatch }: Props) {
 
   const texts = pending.log.map(e => t(lang, e.textKey, e.params))
   const reveal = usePlayReveal({
-    texts,
     ats: pending.log.map(e => e.at),
     stopAt: moment?.at ?? null,
   })
@@ -77,10 +76,11 @@ function MomentPanel({ state, dispatch }: Props) {
   useEffect(() => {
     const el = playsRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [reveal.shown, reveal.typing])
+  }, [reveal.shown])
 
   const lastShown = pending.log[Math.max(0, reveal.shown - 1)]
-  const clock = lastShown?.clock ?? '4Q 00:00'
+  // o cronômetro RODA: segue o relógio virtual, não a última linha revelada
+  const clock = clockOf(reveal.t)
   const { us, them } = reveal.done && pending.momentIndex >= pending.moments.length
     ? scoreOf(liveMargin(pending))
     : (lastShown?.score ?? scoreOf(0))
@@ -121,14 +121,6 @@ function MomentPanel({ state, dispatch }: Props) {
               </div>
             )
           })}
-          {reveal.typing !== null && (
-            <div className="game-play game-play--typing">
-              <span className="mono" style={{ fontSize: 12, width: 64, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {pending.log[reveal.shown]?.clock}
-              </span>
-              <span style={{ fontSize: 12, lineHeight: 1.4, flex: 1 }}>{reveal.typing}</span>
-            </div>
-          )}
         </div>
 
         <div className="game-desktop-hint mono-label">

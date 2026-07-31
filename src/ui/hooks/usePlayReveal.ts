@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// ~15 linhas de ambientação por jogo (cadência de 3' do engine): a digitação precisa ser
-// rápida o bastante para o trecho entre dois momentos passar em ~10s, não em ~30s.
-const CHAR_MS = 16
-const LINE_PAUSE_MS = 320
+// Relógio virtual do jogo: 1.8 min de jogo por segundo real — um trecho de ~14 min
+// entre duas decisões passa em ~8s, o jogo inteiro em ~30s + decisões.
+const GAME_MIN_PER_SEC = 1.8
+const TICK_MS = 80
 
-// Quantas linhas do log podem aparecer antes de o painel de decisão abrir: todas as
-// que acontecem ANTES do minuto do momento pendente. `stopAt = null` = jogo sem momento
-// pendente (acabou), revela tudo.
-export function revealTarget(ats: number[], stopAt: number | null): number {
-  if (stopAt === null) return ats.length
-  return ats.filter(at => at < stopAt).length
+// Linhas do log visíveis no minuto virtual `t`: as que o relógio já passou.
+export function visibleCount(ats: number[], t: number): number {
+  return ats.filter(at => at <= t).length
 }
 
 export function usePrefersReducedMotion(): boolean {
@@ -25,36 +22,48 @@ export function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-export function usePlayReveal(input: { texts: string[]; ats: number[]; stopAt: number | null }) {
-  const { texts, ats, stopAt } = input
+// O relógio é o mestre: `t` corre continuamente de 0 até `stopAt` (o minuto do momento
+// pendente; null = sem momento, corre até 48) e as linhas surgem quando `t` passa pelo
+// `at` delas. Decidido um momento, `stopAt` sobe e o relógio volta a correr — `t` nunca
+// anda pra trás (a decisão recém-tomada, com at ≤ t, fica na tela).
+export function usePlayReveal(input: { ats: number[]; stopAt: number | null }) {
+  const { ats, stopAt } = input
   const reduced = usePrefersReducedMotion()
-  const target = revealTarget(ats, stopAt)
-  const [shown, setShown] = useState(reduced ? target : 0)
-  const [chars, setChars] = useState(0)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const target = stopAt ?? 48
+  const [t, setT] = useState(() => (reduced ? target : 0))
+  // âncora derivada de performance.now() (sem drift de setInterval); reancora a cada
+  // salto de `t` fora do tick (skip, reduced, mudança de alvo).
+  const anchor = useRef<{ at: number; t: number }>({ at: performance.now(), t: 0 })
 
-  const skip = useCallback(() => { setShown(target); setChars(0) }, [target])
+  const jump = useCallback((to: number) => {
+    anchor.current = { at: performance.now(), t: to }
+    setT(prev => Math.max(prev, to))
+  }, [])
 
-  // O log CRESCE quando um momento resolve, então `target` sobe e a digitação continua
-  // sozinha nas linhas novas — `shown` nunca é reduzido, senão a decisão recém-tomada
-  // sumiria da tela. Só o modo reduzido salta direto para o alvo.
-  useEffect(() => { if (reduced) setShown(target) }, [target, reduced])
+  const skip = useCallback(() => jump(target), [jump, target])
+
+  useEffect(() => { if (reduced) jump(target) }, [reduced, target, jump])
 
   useEffect(() => {
-    if (shown >= target) return
-    const full = texts[shown] ?? ''
-    if (chars < full.length) {
-      timer.current = setTimeout(() => setChars(c => c + 1), CHAR_MS)
-    } else {
-      timer.current = setTimeout(() => { setShown(s => s + 1); setChars(0) }, LINE_PAUSE_MS)
-    }
-    return () => clearTimeout(timer.current)
-  }, [shown, chars, target, texts[shown]])
+    if (reduced || t >= target) return
+    const id = setInterval(() => {
+      const a = anchor.current
+      const now = a.t + ((performance.now() - a.at) / 1000) * GAME_MIN_PER_SEC
+      setT(prev => Math.max(prev, Math.min(now, target)))
+    }, TICK_MS)
+    return () => clearInterval(id)
+  }, [reduced, target, t >= target])
+
+  // alvo subiu (decisão tomada): reancora em `t` pra não saltar o tempo parado pensando
+  useEffect(() => {
+    anchor.current = { at: performance.now(), t }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target])
 
   return {
-    shown,
-    typing: shown < target ? (texts[shown] ?? '').slice(0, chars) : null,
-    done: shown >= target,
+    t,
+    shown: visibleCount(ats, t),
+    done: t >= (stopAt ?? Math.max(...ats, 0)),
     skip,
   }
 }
