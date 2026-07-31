@@ -8,6 +8,6 @@
 - Toda string visível ao usuário passa por i18n (`src/data/i18n/pt.json` + `en.json`, paridade de chaves testada). Nunca hardcodar texto em componente.
 - Fórmulas do `season.ts` e pesos do `verdict.ts` são contrato — calibração ajusta constantes, nunca a forma. GOAT gate (score ≥ 1950 + carreira icônica) é decisão do dono; não afrouxar.
 - Sem fotos/logos reais de NBA — nomes ok.
-- Testes: vitest só no engine/state/data (`npm test`); playthrough completo manual: `node tests/e2e-playthrough.mjs`.
-- Antes de commitar: `npm test` + `npx tsc -p tsconfig.app.json --noEmit`.
+- Testes: vitest só no engine/state/data. Dois projetos (`vite.config.ts`): `npm test` = `unit` (~30s, exclui calibração), `npm run test:calibration` = travas de distribuição (~15min), `npm run test:all` = os dois. Playthrough completo manual: `node tests/e2e-playthrough.mjs`.
+- Antes de commitar: `npm test` + `npx tsc -p tsconfig.app.json --noEmit`. Se mexeu em constante de `season.ts`/`verdict.ts` ou em qualquer consumo de RNG, rode também `npm run test:calibration`.
 - Deploy: `npm run build && npx wrangler pages deploy dist --project-name=the-goat --branch=master`.

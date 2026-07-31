@@ -63,10 +63,13 @@ src/
 ## Comandos
 
 ```
-npm run dev / test / build
+npm run dev / build
+npm test                    # projeto `unit` — tudo menos calibração (~30s)
+npm run test:calibration    # projeto `calibration` — travas de distribuição (~15min)
+npm run test:all            # os dois projetos
 npx tsc -p tsconfig.app.json --noEmit     # typecheck
 node tests/e2e-playthrough.mjs             # playthrough Playwright completo (manual, fora do vitest)
-CALIBRATE=1 npx vitest run tests/engine/calibration.test.ts  # relatório de distribuições (bash)
+CALIBRATE=1 npm run test:calibration -- --disableConsoleIntercept  # relatório de distribuições (bash)
 npx wrangler pages deploy dist --project-name=the-goat --branch=master
 ```
 
@@ -75,7 +78,7 @@ npx wrangler pages deploy dist --project-name=the-goat --branch=master
 - Histórico local de runs (spec §4) não implementado — sem UI que o use; juntar com leaderboard na v2.
 - **(C2, regravado no ciclo jogo-vivo)** `tests/state-calendar.test.ts` (registro literal do walk) está ancorado na seed 42 — se o RNG upstream mudar de ordem/contagem em qualquer engine, o teste pode quebrar por drift de seed em vez de regressão real; não é uma trava de comportamento, é uma trava de snapshot. O snapshot foi regravado neste ciclo (contrato de RNG por jogo mudou de `GAME_RNG_CALLS=21` fixo pra `gameRngCalls(n)=6n+4`) — o débito em si continua de pé, só a âncora mudou de valor.
 - `tests/engine/calibration.test.ts` tem flake de infraestrutura (worker do vitest crasha/expira de forma intermitente, independente do first-run flake já documentado) — se aparecer sozinho numa suite, não é regressão de código. Ver também a decisão 16 sobre a trava de `goatRate` ter ficado silenciosamente inoperante por causa do design síncrono do teste combinado com timeout curto — problema distinto do flake de infraestrutura, já mitigado subindo os timeouts inline neste ciclo.
-- **Novo (ciclo jogo-vivo):** `npm test` foi de ~8min para ~17min porque o timeout inline correto da trava de `goatRate` agora deixa a suite de calibração rodar até o fim de verdade (antes ela "passava" por timeout mascarado — ver decisão 16). O comando padrão de pré-commit ficou lento; candidato a remédio é tirar `calibration.test.ts` do `npm test` e virar comando separado (`npx vitest run --exclude "**/calibration.test.ts"` já é o atalho rápido, ~40s). Decisão do dono, não fiz a mudança.
+- ~~**Novo (ciclo jogo-vivo):** `npm test` foi de ~8min para ~17min por causa do timeout inline correto da trava de `goatRate`~~ **FECHADO (2026-07-31)**: suíte separada em dois projetos vitest (`test.projects` em `vite.config.ts`) — `unit` (exclui `**/calibration.test.ts`, 31 arquivos/213 testes, ~27s) e `calibration` (só `calibration.test.ts`). `npm test` roda só o `unit`; `npm run test:calibration` e `npm run test:all` cobrem o resto. **Consequência: `npm test` não é mais rede contra regressão de calibração** — mexeu em constante de `season.ts`/`verdict.ts` ou em ordem/contagem de consumo de RNG, rode `test:calibration` antes de commitar (regra também no `CLAUDE.md`).
 - **Residual aceito (ciclo jogo-vivo):** com `n=5` momentos, as linhas de ambientação perto dos minutos 24.8 e 34.2 ainda caem as duas no quarto 2 (`quarterOf`) e podem sortear o mesmo texto — resíduo herdado da decisão do motor-momentos (item 5 do plano C2/motor-momentos) de dar chave própria só à linha de abertura, não a todas as colisões possíveis; `n=2,3,4` ficam limpos. O dono aceitou esse resíduo ao escolher chaves de abertura próprias em vez de deduplicação de variante.
 
 ## Backlog v2 (fora do escopo v1, spec §Escopo)
