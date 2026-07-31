@@ -24,3 +24,14 @@ dist-ssr
 *.sw?
 
 .superpowers/
+
+# Claude Code local state (worktrees carregam node_modules)
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+
+# Skills vendorizadas (reprodutíveis via skills-lock.json)
+.agents/
+.claude/skills/
+
+# Saída do graphify (gerada, com cache)
+graphify-out/
