@@ -179,28 +179,38 @@ function momentProb(build: Build, age: number, option: MomentOption): number {
   return clamp(cfg.base + (attr - 60) * cfg.attrW, 0.05, 0.95)
 }
 
-// E[Σ deltas do jogo] jogando SEMPRE a opção padrão (safe). Determinístico, sem rng.
-// Serve de correção para jogos com probabilidade-alvo (playoffs): sem ela os momentos
-// injetariam um viés positivo na margem (build forte acerta mais) e a taxa de título
-// realizada estouraria o titleProb — foi exatamente o bug medido na Task 7 (2.02×).
-export function expectedAutoDelta(build: Build, age: number): number {
-  return Object.values(MOMENT_OPTIONS).reduce((n, opts) => {
-    const o = opts.find(x => x.risk === 'safe') ?? opts[0]
-    const cfg = RISK[o.risk]
-    const p = momentProb(build, age, o)
-    return n + p * cfg.hit + (1 - p) * cfg.miss
-  }, 0)
+// Cada momento pesa 3/n: um jogo de 5 momentos tem o MESMO peso total de decisão que um
+// de 3. Sem isto, mais momentos = mais Σ deltas = jogo-chave mais fácil, playerPts maior
+// e mais icônicos bigNight/closeout45 — foi esse mecanismo que estourou o goatRate(99)
+// na Task 7 do ciclo motor-momentos. Com o peso, E[Σ deltas] é invariante em n e todas
+// as travas de calibração continuam válidas por construção.
+export function momentWeight(n: number): number {
+  return 3 / n
 }
 
 export function resolveMoment(
-  build: Build, age: number, option: MomentOption, rng: Rng,
+  build: Build, age: number, option: MomentOption, weight: number, rng: Rng,
 ): { success: boolean; injury: boolean; delta: number } {
   const cfg = RISK[option.risk]
   const p = momentProb(build, age, option)
   const success = rng.chance(p)                          // call 1
   const injuryRoll = rng.next()                          // call 2 — SEMPRE consumido (contrato)
   const injury = option.injuryRisk !== undefined && injuryRoll < option.injuryRisk
-  return { success, injury, delta: success ? cfg.hit : cfg.miss }
+  return { success, injury, delta: (success ? cfg.hit : cfg.miss) * weight }
+}
+
+// E[Σ deltas do jogo] jogando SEMPRE a safe de cada momento sorteado, já com o peso.
+// Determinístico, sem rng. Serve de correção para jogos com probabilidade-alvo
+// (playoffs): sem ela os momentos injetariam viés positivo na margem e a taxa de
+// título estouraria o titleProb.
+export function expectedAutoDelta(build: Build, age: number, moments: Moment[]): number {
+  const w = momentWeight(moments.length)
+  return moments.reduce((n, m) => {
+    const o = defaultOption(m)
+    const cfg = RISK[o.risk]
+    const p = momentProb(build, age, o)
+    return n + (p * cfg.hit + (1 - p) * cfg.miss) * w
+  }, 0)
 }
 
 // Dois modos de margem base (sempre 1 call de rng — contrato de replay intacto):

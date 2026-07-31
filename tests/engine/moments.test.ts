@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
   GAME_RNG_CALLS, applyMoment, autoResolveGame, clockOf, defaultOption, expectedAutoDelta, finishWatchedGame,
-  makeMoments, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
+  makeMoments, momentAts, momentWeight, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
 
@@ -59,9 +59,9 @@ describe('resolução', () => {
     let hi = 0, lo = 0
     for (let i = 0; i < 300; i++) {
       const { rng: r1 } = countedRng(1000 + i)
-      if (resolveMoment(build(95), 27, { id: 'x', attr: 'three', risk: 'bold' }, r1).success) hi++
+      if (resolveMoment(build(95), 27, { id: 'x', attr: 'three', risk: 'bold' }, 1, r1).success) hi++
       const { rng: r2 } = countedRng(1000 + i)
-      if (resolveMoment(build(65), 27, { id: 'x', attr: 'three', risk: 'bold' }, r2).success) lo++
+      if (resolveMoment(build(65), 27, { id: 'x', attr: 'three', risk: 'bold' }, 1, r2).success) lo++
     }
     expect(hi).toBeGreaterThan(lo + 50)
   })
@@ -69,26 +69,57 @@ describe('resolução', () => {
     let s = 0, b = 0, r = 0
     for (let i = 0; i < 300; i++) {
       const mk = () => countedRng(2000 + i).rng
-      if (resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'safe' }, mk()).success) s++
-      if (resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'bold' }, mk()).success) b++
-      if (resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'reckless' }, mk()).success) r++
+      if (resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'safe' }, 1, mk()).success) s++
+      if (resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'bold' }, 1, mk()).success) b++
+      if (resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'reckless' }, 1, mk()).success) r++
     }
     expect(s).toBeGreaterThan(b)
     expect(b).toBeGreaterThan(r)
-    const dS = resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'safe' }, countedRng(1).rng)
-    const dR = resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'reckless' }, countedRng(1).rng)
+    const dS = resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'safe' }, 1, countedRng(1).rng)
+    const dR = resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'reckless' }, 1, countedRng(1).rng)
     expect(Math.abs(dR.delta)).toBeGreaterThanOrEqual(Math.abs(dS.delta))
   })
   test('lesão só com injuryRisk e rara', () => {
     let inj = 0
     for (let i = 0; i < 500; i++) {
       const { rng } = countedRng(3000 + i)
-      if (resolveMoment(build(80), 27, { id: 'x', attr: 'physical', risk: 'reckless', injuryRisk: 0.08 }, rng).injury) inj++
+      if (resolveMoment(build(80), 27, { id: 'x', attr: 'physical', risk: 'reckless', injuryRisk: 0.08 }, 1, rng).injury) inj++
     }
     expect(inj / 500).toBeGreaterThan(0.02)
     expect(inj / 500).toBeLessThan(0.15)
     const { rng } = countedRng(1)
-    expect(resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'safe' }, rng).injury).toBe(false)
+    expect(resolveMoment(build(80), 27, { id: 'x', attr: 'three', risk: 'safe' }, 1, rng).injury).toBe(false)
+  })
+})
+
+describe('peso constante 3/n', () => {
+  test('momentWeight', () => {
+    expect(momentWeight(3)).toBeCloseTo(1, 10)
+    expect(momentWeight(5)).toBeCloseTo(0.6, 10)
+    expect(momentWeight(2)).toBeCloseTo(1.5, 10)
+  })
+  test('E[Σ deltas] é o mesmo para n=2, 3 e 5 quando as situações têm a mesma safe', () => {
+    // build flat: toda safe tem o mesmo atributo efetivo, então o peso é a única
+    // variável — é exatamente a invariância que segura a calibração.
+    const b = flatBuild(85)
+    const mk = (n: number) => momentAts(n).map((at, _i) => ({
+      id: 'clutch' as const, situationKey: `moment.clutch.s0`, at, clock: '',
+      params: {}, options: SITUATIONS.clutch[0],
+    }))
+    const e2 = expectedAutoDelta(b, 27, mk(2))
+    const e3 = expectedAutoDelta(b, 27, mk(3))
+    const e5 = expectedAutoDelta(b, 27, mk(5))
+    expect(e2).toBeCloseTo(e3, 8)
+    expect(e5).toBeCloseTo(e3, 8)
+  })
+  test('resolveMoment aplica o peso no delta e continua em 2 calls', () => {
+    const a = countedRng(3)
+    const full = resolveMoment(build(99), 27, SITUATIONS.clutch[0][1], 1, a.rng)
+    expect(a.calls()).toBe(2)
+    const c = countedRng(3)
+    const half = resolveMoment(build(99), 27, SITUATIONS.clutch[0][1], 0.6, c.rng)
+    expect(half.success).toBe(full.success)
+    expect(half.delta).toBeCloseTo(full.delta * 0.6, 10)
   })
 })
 
