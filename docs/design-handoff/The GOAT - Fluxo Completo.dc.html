@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Marcellus&amp;family=Archivo:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+        <style>
+          :root{
+            --bg:#0D0B08; --surface:#161209; --surface2:#1E1810;
+            --gold:#D4A73C; --gold-hi:#EFC75E; --gold-dim:#7A6224;
+            --text:#F1EAD8; --dim:#9C9080; --danger:#C4553B;
+            --serif:'Marcellus',serif; --sans:'Archivo',sans-serif;
+          }
+          a{color:#EFC75E}
+          a:hover{color:#F1EAD8}
+          .frame{position:absolute;top:90px;width:390px;height:844px;background:#0D0B08;border:1px solid #2A2318;border-radius:24px;overflow:hidden;font-family:var(--sans);color:var(--text)}
+          .flabel{position:absolute;font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:0.14em;color:#8B8171;text-transform:uppercase}
+          .glow{position:absolute;left:50%;top:-140px;transform:translateX(-50%);width:520px;height:420px;background:radial-gradient(closest-side,rgba(212,167,60,0.22),rgba(212,167,60,0));pointer-events:none}
+          .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 30%,rgba(0,0,0,0) 55%,rgba(0,0,0,0.55) 100%);pointer-events:none}
+          .grain{position:absolute;inset:0;opacity:0.05;background-image:repeating-linear-gradient(0deg,#fff 0px,transparent 1px,transparent 3px);pointer-events:none}
+          .kicker{font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--dim)}
+          .kicker-gold{font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--gold)}
+          .display{font-family:var(--serif);font-weight:400}
+          .goldtext{background:linear-gradient(160deg,#EFC75E 20%,#D4A73C 55%,#8A6B22 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+          .rule{height:1px;background:linear-gradient(90deg,rgba(212,167,60,0),rgba(212,167,60,0.7),rgba(212,167,60,0));border:none}
+          .btn-gold{display:flex;align-items:center;justify-content:center;height:56px;border-radius:8px;background:linear-gradient(160deg,#EFC75E,#C9992F);color:#14100A;font-family:var(--sans);font-size:15px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;box-shadow:0 6px 24px rgba(212,167,60,0.25)}
+          .btn-ghost{display:flex;align-items:center;justify-content:center;height:52px;border-radius:8px;border:1px solid #3A3122;color:var(--dim);font-size:14px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase}
+          .btn-danger{display:flex;align-items:center;justify-content:center;height:52px;border-radius:8px;border:1px solid #6B3325;color:var(--danger);font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}
+          .card{background:var(--surface);border:1px solid #2A2318;border-radius:12px}
+          .card-gold{background:linear-gradient(180deg,#1E1810,#161209);border:1px solid #4A3C1C;border-radius:12px}
+          .chip{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:100px;border:1px solid var(--gold-dim);color:var(--gold-hi);font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase}
+          .statnum{font-family:var(--serif);font-size:40px;line-height:1;color:var(--text)}
+          .statlabel{font-size:10px;font-weight:600;letter-spacing:0.24em;color:var(--dim);text-transform:uppercase}
+          .banner{background:linear-gradient(160deg,rgba(212,167,60,0.16),rgba(212,167,60,0.05));border:1px solid #4A3C1C;border-radius:10px}
+          .banner-bad{background:linear-gradient(160deg,rgba(196,85,59,0.12),rgba(196,85,59,0.03));border:1px solid #4A2A1E;border-radius:10px}
+          .evrow{border-left:2px solid var(--gold-dim);padding-left:12px;font-size:13px;color:var(--text);line-height:1.45}
+          .evrow-bad{border-left:2px solid var(--danger);padding-left:12px;font-size:13px;color:var(--text);line-height:1.45}
+          .attr-row{display:flex;align-items:center;gap:12px}
+          .attr-name{width:110px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim)}
+          .attr-bar{flex:1;height:6px;border-radius:3px;background:#241E12;overflow:hidden}
+          .attr-fill{height:6px;border-radius:3px;background:linear-gradient(90deg,#8A6B22,#EFC75E)}
+          .attr-val{width:34px;text-align:right;font-family:var(--serif);font-size:16px;color:var(--gold-hi)}
+          .focus-card{background:var(--surface);border:1px solid #2A2318;border-radius:12px;padding:16px;text-align:center}
+          .modalveil{position:absolute;inset:0;background:rgba(6,5,3,0.72)}
+          .totcell{background:var(--surface);border:1px solid #2A2318;border-radius:10px;padding:14px}
+        </style>
+      </helmet>
+
+      <div class="flabel" style="left:40px;top:56px" data-drags-parent="1">06 · Build Final (pós-draft)</div>
+      <div class="frame" style="left:40px" data-screen-label="Build Final">
+        <div class="glow" style="opacity:0.7"></div>
+        <div style="padding:44px 24px 0 24px;text-align:center">
+          <div class="kicker">Seu jogador</div>
+          <div class="display goldtext" style="font-size:38px;margin-top:10px">PONTUADOR</div>
+          <div style="font-size:13px;color:var(--dim);margin-top:6px">Arquétipo SG · Overall <span style="color:var(--gold-hi);font-family:var(--serif);font-size:18px">88</span></div>
+          <hr class="rule" style="width:160px;margin:22px auto" />
+        </div>
+        <div class="fx col gap12" style="padding:4px 24px 0 24px">
+          <div class="attr-row"><div class="attr-name">3PT</div><div class="attr-bar"><div class="attr-fill" style="width:99%"></div></div><div class="attr-val">99</div></div>
+          <div class="attr-row"><div class="attr-name">Finalização</div><div class="attr-bar"><div class="attr-fill" style="width:92%"></div></div><div class="attr-val">92</div></div>
+          <div class="attr-row"><div class="attr-name">Passe</div><div class="attr-bar"><div class="attr-fill" style="width:86%"></div></div><div class="attr-val">86</div></div>
+          <div class="attr-row"><div class="attr-name">Drible</div><div class="attr-bar"><div class="attr-fill" style="width:90%"></div></div><div class="attr-val">90</div></div>
+          <div class="attr-row"><div class="attr-name">Defesa</div><div class="attr-bar"><div class="attr-fill" style="width:85%"></div></div><div class="attr-val">85</div></div>
+          <div class="attr-row"><div class="attr-name">Rebote</div><div class="attr-bar"><div class="attr-fill" style="width:89%"></div></div><div class="attr-val">89</div></div>
+          <div class="attr-row"><div class="attr-name">Físico</div><div class="attr-bar"><div class="attr-fill" style="width:83%;background:linear-gradient(90deg,#6B3325,#C4553B)"></div></div><div class="attr-val" style="color:var(--danger)">83</div></div>
+          <div class="attr-row"><div class="attr-name">Clutch</div><div class="attr-bar"><div class="attr-fill" style="width:91%"></div></div><div class="attr-val">91</div></div>
+        </div>
+        <div style="padding:18px 24px 0 24px;text-align:center;font-size:12px;color:#5C543F">Físico pagou o preço do arremesso do Curry.</div>
+        <div class="fx col" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-gold">Ir para o Draft da NBA</div>
+        </div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:490px;top:56px" data-drags-parent="1">07 · Pré-temporada (foco)</div>
+      <div class="frame" style="left:490px" data-screen-label="Pré-temporada">
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Temporada 2032 · 25 anos</div>
+          <div style="font-size:12px;color:var(--dim)">OKC</div>
+        </div>
+        <div style="padding:60px 24px 0 24px;text-align:center">
+          <div class="kicker-gold">Antes da bola subir</div>
+          <div class="display" style="font-size:32px;margin-top:10px">Qual é o foco<br />da temporada?</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:36px 24px 0 24px">
+          <div class="focus-card" style="border-color:#4A3C1C;background:linear-gradient(180deg,#1E1810,#161209)">
+            <div class="display goldtext" style="font-size:22px">PTS</div>
+            <div style="font-family:var(--serif);font-size:17px;margin-top:8px">Pontuação</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.5">+2 PPG na temporada</div>
+          </div>
+          <div class="focus-card">
+            <div class="display" style="font-size:22px;color:var(--dim)">DEF</div>
+            <div style="font-family:var(--serif);font-size:17px;margin-top:8px">Defesa</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.5">Time vence mais</div>
+          </div>
+          <div class="focus-card">
+            <div class="display" style="font-size:22px;color:var(--dim)">LID</div>
+            <div style="font-family:var(--serif);font-size:17px;margin-top:8px">Liderança</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.5">Eleva o elenco inteiro</div>
+          </div>
+          <div class="focus-card">
+            <div class="display" style="font-size:22px;color:var(--dim)">SAÚ</div>
+            <div style="font-family:var(--serif);font-size:17px;margin-top:8px">Saúde</div>
+            <div style="font-size:11px;color:var(--dim);margin-top:6px;line-height:1.5">Metade do risco de lesão</div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:36px;left:24px;right:24px;text-align:center;font-size:12px;color:#5C543F">A escolha vale por uma temporada inteira.</div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:940px;top:56px" data-drags-parent="1">08 · Temporada ruim (lesão)</div>
+      <div class="frame" style="left:940px" data-screen-label="Temporada Ruim">
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Temporada 2035 · 28 anos</div>
+          <div style="font-size:12px;color:var(--dim)">UTA</div>
+        </div>
+        <div style="padding:30px 24px 0 24px;text-align:center">
+          <div style="font-family:var(--serif);font-size:22px">Utah Jazz</div>
+          <div style="font-size:12px;color:var(--danger);margin-top:4px">51 jogos · lesão</div>
+        </div>
+        <div class="fx" style="justify-content:space-around;padding:26px 24px 0 24px">
+          <div class="fx col ac gap4"><div class="statnum" style="color:var(--dim)">19.2</div><div class="statlabel">PTS</div></div>
+          <div class="fx col ac gap4"><div class="statnum" style="color:var(--dim)">5.8</div><div class="statlabel">REB</div></div>
+          <div class="fx col ac gap4"><div class="statnum" style="color:var(--dim)">4.1</div><div class="statlabel">AST</div></div>
+        </div>
+        <hr class="rule" style="margin:26px 24px;opacity:0.4" />
+        <div class="fx col gap12" style="padding:0 24px">
+          <div class="evrow-bad">Lesão — você perdeu parte da temporada</div>
+          <div class="evrow-bad">Fase fria — arremessos não caíram</div>
+          <div class="banner-bad fx col ac" style="padding:20px;text-align:center">
+            <div class="kicker" style="color:var(--danger)">Playoffs</div>
+            <div class="display" style="font-size:24px;margin-top:8px;color:var(--dim)">Fora dos playoffs</div>
+          </div>
+        </div>
+        <div style="padding:18px 24px 0 24px;text-align:center;font-size:12px;color:#5C543F;line-height:1.5">Anos assim também contam a história.</div>
+        <div class="fx col" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-gold">Avançar</div>
+        </div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:1390px;top:56px" data-drags-parent="1">09 · Trade na Deadline (modal)</div>
+      <div class="frame" style="left:1390px" data-screen-label="Trade Deadline">
+        <div class="fx ac jb" style="padding:22px 24px 0 24px;opacity:0.4">
+          <div class="kicker">Temporada 2033 · 26 anos</div>
+          <div style="font-size:12px;color:var(--dim)">OKC</div>
+        </div>
+        <div class="fx" style="justify-content:space-around;padding:40px 24px 0 24px;opacity:0.4">
+          <div class="fx col ac gap4"><div class="statnum">27.9</div><div class="statlabel">PTS</div></div>
+          <div class="fx col ac gap4"><div class="statnum">6.8</div><div class="statlabel">REB</div></div>
+          <div class="fx col ac gap4"><div class="statnum">5.0</div><div class="statlabel">AST</div></div>
+        </div>
+        <div class="modalveil"></div>
+        <div class="card-gold" style="position:absolute;left:20px;right:20px;top:250px;padding:26px">
+          <div class="kicker-gold" style="text-align:center">Deadline de trocas</div>
+          <div class="display" style="font-size:26px;text-align:center;margin-top:12px;line-height:1.3">O Miami Heat<br />quer você.</div>
+          <div style="font-size:13px;color:var(--dim);text-align:center;margin-top:12px;line-height:1.6">Contender · título ao alcance.<br />Aceitar reinicia contrato por 4 anos.</div>
+          <hr class="rule" style="margin:20px 0" />
+          <div class="fx col gap10">
+            <div class="btn-gold" style="height:50px;font-size:13px">Aceitar troca</div>
+            <div class="btn-ghost" style="height:46px;font-size:13px">Ficar no Thunder</div>
+          </div>
+        </div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:1840px;top:56px" data-drags-parent="1">10 · Free Agency</div>
+      <div class="frame" style="left:1840px" data-screen-label="Free Agency">
+        <div class="glow" style="opacity:0.5"></div>
+        <div style="padding:52px 24px 0 24px;text-align:center">
+          <div class="kicker">Contrato encerrado · 29 anos</div>
+          <div class="display goldtext" style="font-size:42px;margin-top:12px">FREE AGENCY</div>
+          <hr class="rule" style="width:140px;margin:18px auto" />
+          <div style="font-size:13px;color:var(--dim)">A liga inteira viu o que você fez.<br />Três portas se abrem.</div>
+        </div>
+        <div class="fx col gap12" style="padding:26px 24px 0 24px">
+          <div class="card-gold" style="padding:18px">
+            <div class="fx ac jb">
+              <div class="fx col">
+                <div style="font-family:var(--serif);font-size:20px">Boston Celtics</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:4px">Título ao alcance, menos holofote</div>
+              </div>
+              <div class="chip">Contender</div>
+            </div>
+          </div>
+          <div class="card" style="padding:18px">
+            <div class="fx ac jb">
+              <div class="fx col">
+                <div style="font-family:var(--serif);font-size:20px">Portland Trail Blazers</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:4px">O time é seu, título distante</div>
+              </div>
+              <div class="chip" style="border-color:#3A3122;color:var(--dim)">Rebuild</div>
+            </div>
+          </div>
+          <div class="card" style="padding:18px">
+            <div class="fx ac jb">
+              <div class="fx col">
+                <div style="font-family:var(--serif);font-size:20px">New York Knicks</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:4px">Fama e pressão</div>
+              </div>
+              <div class="chip" style="border-color:#3A3122;color:var(--dim)">Mercado</div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:32px;left:24px;right:24px;text-align:center;font-size:12px;color:#5C543F">Lealdade também escreve legado.</div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:2290px;top:56px" data-drags-parent="1">11 · Aposentadoria</div>
+      <div class="frame" style="left:2290px" data-screen-label="Aposentadoria">
+        <div class="vignette" style="background:radial-gradient(120% 90% at 50% 30%,rgba(0,0,0,0) 30%,rgba(0,0,0,0.6) 100%)"></div>
+        <div style="padding:120px 32px 0 32px;text-align:center">
+          <div class="kicker">34 anos · 15ª temporada</div>
+          <div class="display" style="font-size:36px;margin-top:16px;line-height:1.25">Continuar<br />jogando?</div>
+          <hr class="rule" style="width:140px;margin:24px auto" />
+          <div style="font-size:14px;color:var(--dim);line-height:1.7;max-width:280px;margin:0 auto">O declínio ameaça o legado. Mais uma temporada acumula números — ou mancha médias.</div>
+        </div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:96px">
+          <div class="btn-gold">Mais uma temporada</div>
+          <div class="btn-danger">Aposentar</div>
+        </div>
+        <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:11px;letter-spacing:0.2em;color:#5C543F;text-transform:uppercase">A história julga quem fica tempo demais</div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:2740px;top:56px" data-drags-parent="1">12 · Veredito THE GOAT</div>
+      <div class="frame" style="left:2740px" data-screen-label="Veredito GOAT">
+        <div class="glow" style="height:600px;width:600px;opacity:1.4"></div>
+        <div style="padding:70px 24px 0 24px;text-align:center">
+          <div class="kicker-gold">O veredito</div>
+          <div class="display goldtext" style="font-size:56px;margin-top:14px;line-height:1.1">THE GOAT</div>
+          <div style="font-size:30px;margin-top:4px">🐐</div>
+          <div style="font-size:13px;color:var(--dim);margin-top:8px">Pontuação de legado · <span style="color:var(--gold-hi)">2.031</span></div>
+          <hr class="rule" style="width:200px;margin:20px auto" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 24px">
+          <div class="totcell fx col gap4"><div class="statlabel">Pontos</div><div style="font-family:var(--serif);font-size:26px">36.212</div></div>
+          <div class="totcell fx col gap4"><div class="statlabel">Temporadas</div><div style="font-family:var(--serif);font-size:26px">19</div></div>
+          <div class="totcell fx col gap4"><div class="statlabel">Anéis</div><div style="font-family:var(--serif);font-size:26px;color:var(--gold-hi)">6</div></div>
+          <div class="totcell fx col gap4"><div class="statlabel">MVPs</div><div style="font-family:var(--serif);font-size:26px;color:var(--gold-hi)">5</div></div>
+        </div>
+        <div class="fx gap8" style="flex-wrap:wrap;justify-content:center;padding:16px 24px 0 24px">
+          <div class="chip">15× All-Star</div>
+          <div class="chip">4× MVP Finais</div>
+          <div class="chip">3× Cestinha</div>
+        </div>
+        <div style="padding:14px 24px 0 24px;text-align:center;font-size:12px;color:var(--gold);letter-spacing:0.08em">Menos de 2% das carreiras chegam aqui.</div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-gold">Compartilhar</div>
+          <div class="btn-ghost">Jogar de novo</div>
+        </div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:3190px;top:56px" data-drags-parent="1">13 · Card de Compartilhar (1080×1350)</div>
+      <div style="position:absolute;left:3190px;top:90px;width:432px;height:540px;background:#0D0B08;border:1px solid #4A3C1C;border-radius:12px;overflow:hidden;font-family:var(--sans);color:var(--text)" data-screen-label="Share Card">
+        <div class="glow" style="opacity:0.9"></div>
+        <div style="padding:48px 32px 0 32px;text-align:center">
+          <div class="kicker-gold" style="font-size:9px">The GOAT · Carreira completa</div>
+          <div class="display goldtext" style="font-size:44px;margin-top:12px">LENDA</div>
+          <hr class="rule" style="width:120px;margin:16px auto" />
+          <div class="fx" style="justify-content:space-around;margin-top:8px">
+            <div class="fx col ac gap4"><div style="font-family:var(--serif);font-size:24px;color:var(--gold-hi)">3</div><div class="statlabel" style="font-size:8px">Anéis</div></div>
+            <div class="fx col ac gap4"><div style="font-family:var(--serif);font-size:24px">2</div><div class="statlabel" style="font-size:8px">MVPs</div></div>
+            <div class="fx col ac gap4"><div style="font-family:var(--serif);font-size:24px">28.450</div><div class="statlabel" style="font-size:8px">Pontos</div></div>
+          </div>
+          <div style="font-size:11px;color:var(--dim);margin-top:24px;line-height:1.6">16 temporadas · 12× All-Star<br />Consegue ser o GOAT?</div>
+        </div>
+        <div style="position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:0.24em;color:#5C543F;text-transform:uppercase">thegoat.game</div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{}'
+    >
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

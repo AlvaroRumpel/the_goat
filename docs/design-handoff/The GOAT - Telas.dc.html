@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Marcellus&amp;family=Archivo:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+        <style>
+          :root{
+            --bg:#0D0B08; --surface:#161209; --surface2:#1E1810;
+            --gold:#D4A73C; --gold-hi:#EFC75E; --gold-dim:#7A6224;
+            --text:#F1EAD8; --dim:#9C9080; --danger:#C4553B;
+            --serif:'Marcellus',serif; --sans:'Archivo',sans-serif;
+          }
+          a{color:#EFC75E}
+          a:hover{color:#F1EAD8}
+          .frame{position:absolute;top:90px;width:390px;height:844px;background:#0D0B08;border:1px solid #2A2318;border-radius:24px;overflow:hidden;font-family:var(--sans);color:var(--text)}
+          .flabel{position:absolute;font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:0.14em;color:#8B8171;text-transform:uppercase}
+          .glow{position:absolute;left:50%;top:-140px;transform:translateX(-50%);width:520px;height:420px;background:radial-gradient(closest-side,rgba(212,167,60,0.22),rgba(212,167,60,0));pointer-events:none}
+          .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 30%,rgba(0,0,0,0) 55%,rgba(0,0,0,0.55) 100%);pointer-events:none}
+          .grain{position:absolute;inset:0;opacity:0.05;background-image:repeating-linear-gradient(0deg,#fff 0px,transparent 1px,transparent 3px);pointer-events:none}
+          .kicker{font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--dim)}
+          .kicker-gold{font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--gold)}
+          .display{font-family:var(--serif);font-weight:400}
+          .goldtext{background:linear-gradient(160deg,#EFC75E 20%,#D4A73C 55%,#8A6B22 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+          .rule{height:1px;background:linear-gradient(90deg,rgba(212,167,60,0),rgba(212,167,60,0.7),rgba(212,167,60,0));border:none}
+          .btn-gold{display:flex;align-items:center;justify-content:center;height:56px;border-radius:8px;background:linear-gradient(160deg,#EFC75E,#C9992F);color:#14100A;font-family:var(--sans);font-size:15px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;box-shadow:0 6px 24px rgba(212,167,60,0.25)}
+          .btn-ghost{display:flex;align-items:center;justify-content:center;height:52px;border-radius:8px;border:1px solid #3A3122;color:var(--dim);font-size:14px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase}
+          .card{background:var(--surface);border:1px solid #2A2318;border-radius:12px}
+          .card-gold{background:linear-gradient(180deg,#1E1810,#161209);border:1px solid #4A3C1C;border-radius:12px}
+          .mono-ring{width:64px;height:64px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:24px;color:var(--gold-hi);background:radial-gradient(closest-side,rgba(212,167,60,0.12),rgba(212,167,60,0))}
+          .bigval{font-family:var(--serif);font-size:64px;line-height:1;color:var(--gold-hi)}
+          .malus{font-size:12px;font-weight:600;color:var(--danger);letter-spacing:0.04em}
+          .chip{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:100px;border:1px solid var(--gold-dim);color:var(--gold-hi);font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase}
+          .dot{width:7px;height:7px;border-radius:50%;background:#2E2718}
+          .dot-on{width:7px;height:7px;border-radius:50%;background:var(--gold)}
+          .statnum{font-family:var(--serif);font-size:40px;line-height:1;color:var(--text)}
+          .statlabel{font-size:10px;font-weight:600;letter-spacing:0.24em;color:var(--dim);text-transform:uppercase}
+          .banner{background:linear-gradient(160deg,rgba(212,167,60,0.16),rgba(212,167,60,0.05));border:1px solid #4A3C1C;border-radius:10px}
+          .evrow{border-left:2px solid var(--gold-dim);padding-left:12px;font-size:13px;color:var(--text);line-height:1.45}
+          .totcell{background:var(--surface);border:1px solid #2A2318;border-radius:10px;padding:14px}
+          .swatch{width:100%;height:56px;border-radius:8px;border:1px solid #2A2318}
+        </style>
+      </helmet>
+
+      <div class="flabel" style="left:40px;top:56px" data-drags-parent="1">01 · Home</div>
+      <div class="frame" style="left:40px" data-screen-label="Home">
+        <div class="glow"></div>
+        <div class="fx" style="justify-content:flex-end;padding:20px 20px 0 20px">
+          <div class="chip">EN</div>
+        </div>
+        <div class="fx col ac" style="padding:150px 28px 0 28px;text-align:center">
+          <div class="kicker">Uma carreira. Um veredito.</div>
+          <div class="display goldtext" style="font-size:72px;line-height:1.02;margin-top:18px">THE<br />GOAT</div>
+          <hr class="rule" style="width:180px;margin:26px 0" />
+          <div style="font-size:15px;line-height:1.6;color:var(--dim);max-width:280px">Roube das lendas. Viva uma carreira. Vire o GOAT.</div>
+        </div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:96px">
+          <div class="btn-gold">Começar carreira</div>
+          <div class="btn-ghost">Continuar carreira</div>
+        </div>
+        <div style="position:absolute;bottom:40px;left:0;right:0;text-align:center;font-size:11px;letter-spacing:0.2em;color:#5C543F;text-transform:uppercase">Grátis · Sem cadastro</div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:490px;top:56px" data-drags-parent="1">02 · Draft de Atributos</div>
+      <div class="frame" style="left:490px" data-screen-label="Draft de Atributos">
+        <div class="glow" style="opacity:0.6"></div>
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Rodada 3 / 8</div>
+          <div class="fx ac gap4">
+            <div class="dot-on"></div><div class="dot-on"></div><div class="dot-on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <div style="padding:26px 24px 0 24px;text-align:center">
+          <div class="kicker-gold">Roube seu</div>
+          <div class="display" style="font-size:34px;color:var(--text);margin-top:6px">Arremesso 3PT</div>
+        </div>
+        <div class="fx col gap12" style="padding:22px 24px 0 24px">
+          <div class="card-gold fx col" style="padding:18px">
+            <div class="fx ac gap16">
+              <div class="mono-ring">SC</div>
+              <div class="fx col" style="flex:1">
+                <div style="font-family:var(--serif);font-size:20px">Stephen Curry</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:2px">Assinatura · Arremesso 3PT</div>
+                <div class="malus" style="margin-top:8px">Herda Físico −8</div>
+              </div>
+              <div class="bigval">99</div>
+            </div>
+            <div class="btn-gold" style="height:46px;margin-top:16px;font-size:13px">Roubar</div>
+          </div>
+          <div class="fx ac gap16" style="padding:2px 0">
+            <hr class="rule" style="flex:1" />
+            <div class="display" style="font-size:18px;color:var(--gold)">VS</div>
+            <hr class="rule" style="flex:1" />
+          </div>
+          <div class="card fx col" style="padding:18px">
+            <div class="fx ac gap16">
+              <div class="mono-ring" style="border-color:#4A4234;color:var(--text)">LB</div>
+              <div class="fx col" style="flex:1">
+                <div style="font-family:var(--serif);font-size:20px">Larry Bird</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:2px">Assinatura · Arremesso 3PT</div>
+                <div class="malus" style="margin-top:8px">Herda Drible −6</div>
+              </div>
+              <div class="bigval" style="color:var(--text)">95</div>
+            </div>
+            <div class="btn-ghost" style="height:46px;margin-top:16px;font-size:13px;color:var(--text)">Roubar</div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:32px;left:24px;right:24px;text-align:center;font-size:12px;color:#5C543F;line-height:1.5">O valor mais alto sempre cobra um preço maior.</div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:940px;top:56px" data-drags-parent="1">03 · Draft da NBA</div>
+      <div class="frame" style="left:940px" data-screen-label="Draft da NBA">
+        <div class="glow" style="opacity:0.5"></div>
+        <div style="padding:56px 24px 0 24px;text-align:center">
+          <div class="kicker">Draft da NBA · 2026</div>
+          <div class="display goldtext" style="font-size:52px;margin-top:14px">PICK Nº 3</div>
+          <hr class="rule" style="width:140px;margin:20px auto" />
+          <div style="font-size:14px;color:var(--dim)">Três times chamaram. Escolha seu destino.</div>
+        </div>
+        <div class="fx col gap12" style="padding:28px 24px 0 24px">
+          <div class="card-gold" style="padding:18px">
+            <div class="fx ac jb">
+              <div class="fx col">
+                <div style="font-family:var(--serif);font-size:20px">Oklahoma City Thunder</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:4px">Título ao alcance, menos holofote</div>
+              </div>
+              <div class="chip">Contender</div>
+            </div>
+          </div>
+          <div class="card" style="padding:18px">
+            <div class="fx ac jb">
+              <div class="fx col">
+                <div style="font-family:var(--serif);font-size:20px">Utah Jazz</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:4px">O time é seu, título distante</div>
+              </div>
+              <div class="chip" style="border-color:#3A3122;color:var(--dim)">Rebuild</div>
+            </div>
+          </div>
+          <div class="card" style="padding:18px">
+            <div class="fx ac jb">
+              <div class="fx col">
+                <div style="font-family:var(--serif);font-size:20px">Los Angeles Lakers</div>
+                <div style="font-size:12px;color:var(--dim);margin-top:4px">Fama e pressão</div>
+              </div>
+              <div class="chip" style="border-color:#3A3122;color:var(--dim)">Mercado</div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;bottom:32px;left:24px;right:24px;text-align:center;font-size:12px;color:#5C543F;line-height:1.5">Contender encolhe seus números. Rebuild infla. O mercado lembra de tudo.</div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:1390px;top:56px" data-drags-parent="1">04 · Temporada</div>
+      <div class="frame" style="left:1390px" data-screen-label="Temporada">
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Temporada 2031 · 24 anos</div>
+          <div style="font-size:12px;color:var(--dim)">OKC</div>
+        </div>
+        <div style="padding:30px 24px 0 24px;text-align:center">
+          <div style="font-family:var(--serif);font-size:22px">Oklahoma City Thunder</div>
+          <div style="font-size:12px;color:var(--dim);margin-top:4px">78 jogos</div>
+        </div>
+        <div class="fx" style="justify-content:space-around;padding:26px 24px 0 24px">
+          <div class="fx col ac gap4"><div class="statnum">28.4</div><div class="statlabel">PTS</div></div>
+          <div class="fx col ac gap4"><div class="statnum">7.1</div><div class="statlabel">REB</div></div>
+          <div class="fx col ac gap4"><div class="statnum">5.3</div><div class="statlabel">AST</div></div>
+        </div>
+        <hr class="rule" style="margin:26px 24px" />
+        <div class="fx col gap12" style="padding:0 24px">
+          <div class="evrow">Rivalidade acesa — você joga mais nos playoffs</div>
+          <div class="banner fx col ac" style="padding:20px;text-align:center">
+            <div class="kicker-gold">Playoffs</div>
+            <div class="display goldtext" style="font-size:30px;margin-top:8px">CAMPEÃO DA NBA</div>
+          </div>
+          <div class="fx gap8" style="flex-wrap:wrap;justify-content:center;padding-top:4px">
+            <div class="chip">Anel</div>
+            <div class="chip">MVP das Finais</div>
+            <div class="chip" style="border-color:#3A3122;color:var(--dim)">All-Star</div>
+          </div>
+        </div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-gold">Avançar</div>
+        </div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:1840px;top:56px" data-drags-parent="1">05 · Veredito</div>
+      <div class="frame" style="left:1840px" data-screen-label="Veredito">
+        <div class="glow" style="height:520px;opacity:1.2"></div>
+        <div style="padding:80px 24px 0 24px;text-align:center">
+          <div class="kicker">O veredito</div>
+          <div class="display goldtext" style="font-size:64px;margin-top:16px">LENDA</div>
+          <div style="font-size:13px;color:var(--dim);margin-top:10px">Pontuação de legado · <span style="color:var(--gold-hi)">1.204</span></div>
+          <hr class="rule" style="width:180px;margin:24px auto" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:6px 24px 0 24px">
+          <div class="totcell fx col gap4"><div class="statlabel">Pontos</div><div style="font-family:var(--serif);font-size:26px">28.450</div></div>
+          <div class="totcell fx col gap4"><div class="statlabel">Temporadas</div><div style="font-family:var(--serif);font-size:26px">16</div></div>
+          <div class="totcell fx col gap4"><div class="statlabel">Anéis</div><div style="font-family:var(--serif);font-size:26px;color:var(--gold-hi)">3</div></div>
+          <div class="totcell fx col gap4"><div class="statlabel">MVPs</div><div style="font-family:var(--serif);font-size:26px">2</div></div>
+        </div>
+        <div class="fx gap8" style="flex-wrap:wrap;justify-content:center;padding:18px 24px 0 24px">
+          <div class="chip">12× All-Star</div>
+          <div class="chip">2× Cestinha</div>
+          <div class="chip">1× MVP Finais</div>
+        </div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-gold">Compartilhar</div>
+          <div class="btn-ghost">Jogar de novo</div>
+        </div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:2290px;top:56px" data-drags-parent="1">Tokens · Legado Dourado</div>
+      <div style="position:absolute;left:2290px;top:90px;width:390px;background:#12100B;border:1px solid #2A2318;border-radius:16px;padding:24px;font-family:var(--sans);color:var(--text)" data-screen-label="Tokens">
+        <div class="kicker-gold">Design tokens</div>
+        <div class="fx col gap8" style="margin-top:16px">
+          <div class="fx gap8">
+            <div class="fx col gap4" style="flex:1"><div class="swatch" style="background:#0D0B08"></div><div style="font-size:11px;color:var(--dim)">--bg #0D0B08</div></div>
+            <div class="fx col gap4" style="flex:1"><div class="swatch" style="background:#161209"></div><div style="font-size:11px;color:var(--dim)">--surface #161209</div></div>
+          </div>
+          <div class="fx gap8">
+            <div class="fx col gap4" style="flex:1"><div class="swatch" style="background:#D4A73C"></div><div style="font-size:11px;color:var(--dim)">--gold #D4A73C</div></div>
+            <div class="fx col gap4" style="flex:1"><div class="swatch" style="background:#EFC75E"></div><div style="font-size:11px;color:var(--dim)">--gold-hi #EFC75E</div></div>
+          </div>
+          <div class="fx gap8">
+            <div class="fx col gap4" style="flex:1"><div class="swatch" style="background:#F1EAD8"></div><div style="font-size:11px;color:var(--dim)">--text #F1EAD8</div></div>
+            <div class="fx col gap4" style="flex:1"><div class="swatch" style="background:#C4553B"></div><div style="font-size:11px;color:var(--dim)">--danger #C4553B</div></div>
+          </div>
+        </div>
+        <hr class="rule" style="margin:20px 0" />
+        <div class="fx col gap8">
+          <div style="font-family:var(--serif);font-size:24px">Marcellus — display</div>
+          <div style="font-size:14px;color:var(--dim)">Archivo — corpo, stats e botões</div>
+          <div style="font-size:12px;color:var(--dim);line-height:1.6;margin-top:8px">Kickers em caps com tracking 0.32em. Números grandes em Marcellus. Ouro só para o que importa: veredito, ação principal, conquista.</div>
+        </div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{}'
+    >
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

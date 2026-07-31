@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet data-dc-atomics>
+        <meta name="design_doc_mode" content="canvas" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Marcellus&amp;family=Archivo:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+        <style>
+          :root{
+            --bg:#0D0B08; --surface:#161209; --surface2:#1E1810;
+            --gold:#D4A73C; --gold-hi:#EFC75E; --gold-dim:#7A6224;
+            --text:#F1EAD8; --dim:#9C9080; --danger:#C4553B;
+            --serif:'Marcellus',serif; --sans:'Archivo',sans-serif;
+          }
+          a{color:#EFC75E}
+          a:hover{color:#F1EAD8}
+          .frame{position:absolute;top:90px;width:390px;height:844px;background:#0D0B08;border:1px solid #2A2318;border-radius:24px;overflow:hidden;font-family:var(--sans);color:var(--text)}
+          .flabel{position:absolute;font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:0.14em;color:#8B8171;text-transform:uppercase}
+          .glow{position:absolute;left:50%;top:-140px;transform:translateX(-50%);width:520px;height:420px;background:radial-gradient(closest-side,rgba(212,167,60,0.22),rgba(212,167,60,0));pointer-events:none}
+          .grain{position:absolute;inset:0;opacity:0.05;background-image:repeating-linear-gradient(0deg,#fff 0px,transparent 1px,transparent 3px);pointer-events:none}
+          .kicker{font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--dim)}
+          .kicker-gold{font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:var(--gold)}
+          .display{font-family:var(--serif);font-weight:400}
+          .goldtext{background:linear-gradient(160deg,#EFC75E 20%,#D4A73C 55%,#8A6B22 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+          .rule{height:1px;background:linear-gradient(90deg,rgba(212,167,60,0),rgba(212,167,60,0.7),rgba(212,167,60,0));border:none}
+          .btn-gold{display:flex;align-items:center;justify-content:center;height:56px;border-radius:8px;background:linear-gradient(160deg,#EFC75E,#C9992F);color:#14100A;font-family:var(--sans);font-size:15px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;box-shadow:0 6px 24px rgba(212,167,60,0.25)}
+          .btn-ghost{display:flex;align-items:center;justify-content:center;height:52px;border-radius:8px;border:1px solid #3A3122;color:var(--dim);font-size:14px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase}
+          .card{background:var(--surface);border:1px solid #2A2318;border-radius:12px}
+          .card-gold{background:linear-gradient(180deg,#1E1810,#161209);border:1px solid #4A3C1C;border-radius:12px}
+          .mono-ring{width:56px;height:56px;border-radius:50%;border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:20px;color:var(--gold-hi);background:radial-gradient(closest-side,rgba(212,167,60,0.12),rgba(212,167,60,0))}
+          .malus{font-size:12px;font-weight:600;color:var(--danger);letter-spacing:0.04em}
+          .chip{display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:100px;border:1px solid var(--gold-dim);color:var(--gold-hi);font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase}
+          .dot{width:7px;height:7px;border-radius:50%;background:#2E2718}
+          .dot-on{width:7px;height:7px;border-radius:50%;background:var(--gold)}
+          .statlabel{font-size:10px;font-weight:600;letter-spacing:0.24em;color:var(--dim);text-transform:uppercase}
+          .attrcell{background:var(--surface);border:1px solid #2A2318;border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
+          .attrcell-sel{background:linear-gradient(180deg,#1E1810,#161209);border:1px solid var(--gold);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 0 18px rgba(212,167,60,0.18)}
+          .attrcell-off{background:#100D08;border:1px solid #201B12;border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;opacity:0.55}
+          .attrval{font-family:var(--serif);font-size:24px;line-height:1;color:var(--text)}
+          .attrname{font-size:11px;font-weight:600;letter-spacing:0.14em;color:var(--dim);text-transform:uppercase}
+          .ownedtag{font-size:9px;font-weight:700;letter-spacing:0.16em;color:var(--gold-dim);text-transform:uppercase}
+          .previewbar{background:linear-gradient(160deg,rgba(196,85,59,0.14),rgba(196,85,59,0.05));border:1px solid #4A2A1E;border-radius:10px;padding:12px 16px;text-align:center;font-size:13px;line-height:1.5}
+        </style>
+      </helmet>
+
+      <div class="flabel" style="left:40px;top:56px" data-drags-parent="1">01 · Sorteio da rodada</div>
+      <div class="frame" style="left:40px" data-screen-label="Sorteio da rodada">
+        <div class="glow" style="opacity:0.6"></div>
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Rodada 1 / 8</div>
+          <div class="fx ac gap4">
+            <div class="dot-on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <div class="card-gold fx ac gap16" style="margin:24px 24px 0 24px;padding:16px 18px">
+          <div class="mono-ring">DW</div>
+          <div class="fx col" style="flex:1">
+            <div style="font-family:var(--serif);font-size:22px">Dwyane Wade</div>
+            <div style="font-size:12px;color:var(--dim);margin-top:2px">Fraqueza: Rebote</div>
+          </div>
+          <div class="chip">Anos 2000</div>
+        </div>
+        <div style="padding:20px 24px 0 24px;text-align:center">
+          <div class="kicker-gold">Escolha o que roubar</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 24px 0 24px">
+          <div class="attrcell"><div class="attrname">Três</div><div class="attrval">74</div></div>
+          <div class="attrcell"><div class="attrname">Finalização</div><div class="attrval">92</div></div>
+          <div class="attrcell"><div class="attrname">Passe</div><div class="attrval">84</div></div>
+          <div class="attrcell"><div class="attrname">Drible</div><div class="attrval">90</div></div>
+          <div class="attrcell"><div class="attrname">Defesa</div><div class="attrval">88</div></div>
+          <div class="attrcell"><div class="attrname">Rebote</div><div class="attrval">71</div></div>
+          <div class="attrcell"><div class="attrname">Físico</div><div class="attrval">89</div></div>
+          <div class="attrcell"><div class="attrname">Clutch</div><div class="attrval">95</div></div>
+        </div>
+        <div style="padding:18px 24px 0 24px;text-align:center;font-size:12px;color:#5C543F;line-height:1.5">Toque num atributo para ver o preço.<br />Quanto maior o valor, maior o custo na fraqueza dele.</div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-ghost">Sortear outro jogador · 1 restante</div>
+        </div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:490px;top:56px" data-drags-parent="1">02 · Atributo selecionado</div>
+      <div class="frame" style="left:490px" data-screen-label="Atributo selecionado">
+        <div class="glow" style="opacity:0.6"></div>
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Rodada 1 / 8</div>
+          <div class="fx ac gap4">
+            <div class="dot-on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <div class="card-gold fx ac gap16" style="margin:24px 24px 0 24px;padding:16px 18px">
+          <div class="mono-ring">DW</div>
+          <div class="fx col" style="flex:1">
+            <div style="font-family:var(--serif);font-size:22px">Dwyane Wade</div>
+            <div style="font-size:12px;color:var(--dim);margin-top:2px">Fraqueza: Rebote</div>
+          </div>
+          <div class="chip">Anos 2000</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:24px 24px 0 24px">
+          <div class="attrcell"><div class="attrname">Três</div><div class="attrval">74</div></div>
+          <div class="attrcell"><div class="attrname">Finalização</div><div class="attrval">92</div></div>
+          <div class="attrcell"><div class="attrname">Passe</div><div class="attrval">84</div></div>
+          <div class="attrcell"><div class="attrname">Drible</div><div class="attrval">90</div></div>
+          <div class="attrcell"><div class="attrname">Defesa</div><div class="attrval">88</div></div>
+          <div class="attrcell"><div class="attrname">Rebote</div><div class="attrval">71</div></div>
+          <div class="attrcell"><div class="attrname">Físico</div><div class="attrval">89</div></div>
+          <div class="attrcell-sel"><div class="attrname" style="color:var(--gold-hi)">Clutch</div><div class="attrval" style="color:var(--gold-hi)">95</div></div>
+        </div>
+        <div class="previewbar" style="margin:16px 24px 0 24px">
+          Roubar <span style="color:var(--gold-hi)">Clutch 95</span> herda a fraqueza do Wade:<br /><span class="malus" style="font-size:14px">Rebote −4</span>
+        </div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-gold">Roubar Clutch 95</div>
+          <div class="btn-ghost">Sortear outro jogador · 1 restante</div>
+        </div>
+        <div class="grain"></div>
+      </div>
+
+      <div class="flabel" style="left:940px;top:56px" data-drags-parent="1">03 · Meio do draft</div>
+      <div class="frame" style="left:940px" data-screen-label="Meio do draft">
+        <div class="fx ac jb" style="padding:22px 24px 0 24px">
+          <div class="kicker">Rodada 5 / 8</div>
+          <div class="fx ac gap4">
+            <div class="dot-on"></div><div class="dot-on"></div><div class="dot-on"></div><div class="dot-on"></div><div class="dot-on"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <div class="card-gold fx ac gap16" style="margin:24px 24px 0 24px;padding:16px 18px">
+          <div class="mono-ring">DN</div>
+          <div class="fx col" style="flex:1">
+            <div style="font-family:var(--serif);font-size:22px">Dirk Nowitzki</div>
+            <div style="font-size:12px;color:var(--dim);margin-top:2px">Fraqueza: Drible</div>
+          </div>
+          <div class="chip">Anos 2000</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:24px 24px 0 24px">
+          <div class="attrcell-off"><div class="fx col gap4"><div class="attrname">Três</div><div class="ownedtag">Seu · 95</div></div><div class="attrval" style="color:#5C543F">—</div></div>
+          <div class="attrcell"><div class="attrname">Finalização</div><div class="attrval">90</div></div>
+          <div class="attrcell-off"><div class="fx col gap4"><div class="attrname">Passe</div><div class="ownedtag">Seu · 88</div></div><div class="attrval" style="color:#5C543F">—</div></div>
+          <div class="attrcell-off"><div class="fx col gap4"><div class="attrname">Drible</div><div class="ownedtag">Seu · 90</div></div><div class="attrval" style="color:#5C543F">—</div></div>
+          <div class="attrcell"><div class="attrname">Defesa</div><div class="attrval">77</div></div>
+          <div class="attrcell"><div class="attrname">Rebote</div><div class="attrval">91</div></div>
+          <div class="attrcell-off"><div class="fx col gap4"><div class="attrname">Físico</div><div class="ownedtag">Seu · 86</div></div><div class="attrval" style="color:#5C543F">—</div></div>
+          <div class="attrcell"><div class="attrname">Clutch</div><div class="attrval">93</div></div>
+        </div>
+        <div style="padding:18px 24px 0 24px;text-align:center;font-size:12px;color:#5C543F;line-height:1.5">Atributos já roubados ficam travados.<br />Penalidades entram no fim do draft · piso 40.</div>
+        <div class="fx col gap12" style="position:absolute;left:24px;right:24px;bottom:40px">
+          <div class="btn-ghost" style="opacity:0.45">Sorteio extra já usado</div>
+        </div>
+        <div class="grain"></div>
+      </div>
+    </x-dc>
+    <script
+      type="text/x-dc"
+      data-dc-script
+      data-props='{}'
+    >
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

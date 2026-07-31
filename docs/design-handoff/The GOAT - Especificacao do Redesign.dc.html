@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=Archivo+Black&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
+        <style>
+          doc-page:not(:defined){visibility:hidden}
+          a{color:#A8231C}
+          a:hover{color:#1C1A16}
+        </style>
+        <script src="./doc-page.js"></script>
+      </helmet>
+
+      <doc-page margin="0.7in">
+        <div style="font-family:'Archivo',sans-serif;color:#1C1A16">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;border-bottom:3px double #A8231C;padding-bottom:12px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10pt;letter-spacing:0.18em;color:#6B6455">THE GOAT · ESPECIFICAÇÃO DE REDESIGN</div>
+              <div style="font-family:'Archivo Black',sans-serif;font-size:26pt;line-height:1;letter-spacing:-0.02em;text-transform:uppercase">Tema 2B e fluxo replanejado</div>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9pt;color:#6B6455;text-align:right;white-space:nowrap">v1 · JUL 2026<br />AlvaroRumpel/the_goat</div>
+          </div>
+
+          <p style="font-size:11pt;line-height:1.55;margin:16px 0 0 0">Referência para implementar o redesign aprovado no canvas <em>The GOAT — Redesign v1</em>. Cada seção aponta os arquivos reais do repositório. Nada aqui exige router: o fluxo continua sendo máquina de estados por <code style="font-family:'IBM Plex Mono',monospace;font-size:10pt">phase</code>.</p>
+
+          <h2 style="font-family:'Archivo Black',sans-serif;font-size:13pt;text-transform:uppercase;letter-spacing:0.02em;margin:26px 0 10px 0;border-bottom:1px solid #C6BCA2;padding-bottom:6px">1 · Tokens do tema 2B</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:10pt">
+            <thead>
+              <tr style="font-family:'IBM Plex Mono',monospace;font-size:8.5pt;letter-spacing:0.14em;color:#6B6455;text-align:left">
+                <th style="padding:6px 12px 6px 0;border-bottom:1px solid #C6BCA2;font-weight:500">TOKEN</th>
+                <th style="padding:6px 12px 6px 0;border-bottom:1px solid #C6BCA2;font-weight:500">VALOR</th>
+                <th style="padding:6px 0;border-bottom:1px solid #C6BCA2;font-weight:500">USO</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--paper</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#EDE6D6</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">fundo de todas as telas</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--paper-2</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#E7DFCD / #E4DAC4</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">papel de carta (aposentadoria) e linhas destacadas</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--ink</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#1C1A16</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">texto, faixas escuras, CTA neutro</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--red</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#A8231C</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">manchete, adversário, perda, ação irreversível</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--rule / --rule-soft</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#C6BCA2 / #DCD3BE</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">filetes de tabela e divisores</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--dim</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#6B6455</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">rótulos mono, valores secundários</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--on-red / --on-ink</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#F6F0E4 / #EDE6D6</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">texto sobre vermelho e sobre tinta</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">--accent-warm</td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8;font-family:'IBM Plex Mono',monospace">#E8B24A</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">só dentro de faixa preta: relógio, ganho, overall</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:10.5pt;line-height:1.55;margin:12px 0 0 0"><strong>Tipografia:</strong> Archivo Black para manchete e números grandes (caixa alta, tracking −0.02em a −0.04em), Archivo 400/500/700 para corpo, IBM Plex Mono para rótulos, dados e horários (tracking 0.12em–0.3em em caixa alta). <strong>Sem raio:</strong> nada arredondado além do monograma em anel. <strong>Sem sombra</strong> — exceto o cartão da encruzilhada.</p>
+
+          <h2 style="font-family:'Archivo Black',sans-serif;font-size:13pt;text-transform:uppercase;letter-spacing:0.02em;margin:26px 0 10px 0;border-bottom:1px solid #C6BCA2;padding-bottom:6px">2 · Primitivas visuais</h2>
+          <ul style="font-size:10.5pt;line-height:1.6;margin:0;padding-left:18px">
+            <li><strong>Cabeçalho de carreira</strong> — barra fixa: “T9 · 32 anos · OKC · 2 anéis” à esquerda, “Carreira ↗” em vermelho à direita. Presente em toda tela; substitui a ausência de histórico.</li>
+            <li><strong>Filete duplo</strong> (<code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">border-bottom:3px double var(--red)</code>) marca telas de peso: cerimônia, veredito, draft, série, resultado.</li>
+            <li><strong>Faixa de tinta</strong> — bloco preto full-bleed para placar ao vivo, decisão em aberto e valores-âncora. Um por tela, no máximo.</li>
+            <li><strong>Faixa vermelha</strong> — resultado, oferta destacada e ação irreversível.</li>
+            <li><strong>Tabela de linhas</strong> — filete 1px, rótulo mono à esquerda, número em Archivo Black à direita. Base de standings, ficha, lances e histórico de série.</li>
+            <li><strong>Botão-bloco</strong> — retângulo de 54px, Archivo Black caixa alta; preto = seguir, vermelho = irreversível, contorno = alternativa.</li>
+            <li><strong>Símbolos de franquia</strong> — losango (candidato), círculo (reconstrução), três barras (mercado grande). Sem logos reais.</li>
+          </ul>
+
+          <h2 style="font-family:'Archivo Black',sans-serif;font-size:13pt;text-transform:uppercase;letter-spacing:0.02em;margin:26px 0 10px 0;border-bottom:1px solid #C6BCA2;padding-bottom:6px">3 · Mudanças de fase (src/state.ts)</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:10pt">
+            <thead>
+              <tr style="font-family:'IBM Plex Mono',monospace;font-size:8.5pt;letter-spacing:0.14em;color:#6B6455;text-align:left">
+                <th style="padding:6px 12px 6px 0;border-bottom:1px solid #C6BCA2;font-weight:500">MUDANÇA</th>
+                <th style="padding:6px 12px 6px 0;border-bottom:1px solid #C6BCA2;font-weight:500">TELA</th>
+                <th style="padding:6px 0;border-bottom:1px solid #C6BCA2;font-weight:500">NOTA DE IMPLEMENTAÇÃO</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>+ <code style="font-family:'IBM Plex Mono',monospace">careerHub</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">4a</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">camada sobre a fase atual. Guardar <code style="font-family:'IBM Plex Mono',monospace">hubOpen:boolean</code> no state em vez de nova phase, para não sujar o grafo; lê só <code style="font-family:'IBM Plex Mono',monospace">career</code> e <code style="font-family:'IBM Plex Mono',monospace">build</code>.</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>+ <code style="font-family:'IBM Plex Mono',monospace">gameResult</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">6a</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">entra depois do 3º momento e depois de <code style="font-family:'IBM Plex Mono',monospace">SKIP_GAME</code>; precisa persistir as 3 escolhas resolvidas do jogo (<code style="font-family:'IBM Plex Mono',monospace">pendingChoices</code> já tem o dado, hoje descartado na UI).</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>+ <code style="font-family:'IBM Plex Mono',monospace">seasonAdvance</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">6b</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">torna visível o que <code style="font-family:'IBM Plex Mono',monospace">runSeasonSim</code> já calcula: expor os placares jogo a jogo e parar no próximo jogo-chave. Ações <code style="font-family:'IBM Plex Mono',monospace">TAKE_NEXT_GAME</code> e <code style="font-family:'IBM Plex Mono',monospace">RUN_TO_PLAYOFFS</code>.</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>~ <code style="font-family:'IBM Plex Mono',monospace">seasonResult</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">4b</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">4 abas → uma rolagem: resultado → linha da temporada → jogos vividos → liga → trajetória. O estado local de aba desaparece; <code style="font-family:'IBM Plex Mono',monospace">tabs.*</code> morre no i18n.</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>~ <code style="font-family:'IBM Plex Mono',monospace">keyGame</code>/<code style="font-family:'IBM Plex Mono',monospace">playoffGame</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">8a</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">precisa de um log de lances por jogo (5–7 entradas, geradas pelo mesmo RNG semeado) e do saldo por momento já decidido. Nada disso muda a resolução — é exposição de dados existentes.</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>~ <code style="font-family:'IBM Plex Mono',monospace">tradeDecision</code>/<code style="font-family:'IBM Plex Mono',monospace">eventDecision</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">5c</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">continuam como phases, mas renderizam sobre a tela anterior real (escurecida), com o par “se ficar / se aceitar” explícito.</td></tr>
+              <tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8"><strong>~ <code style="font-family:'IBM Plex Mono',monospace">home</code></strong></td><td style="padding:7px 12px 7px 0;border-bottom:1px solid #E2DAC8">3a</td><td style="padding:7px 0;border-bottom:1px solid #E2DAC8">ganha a linha “retomar carreira” quando existe save — passa a usar a chave morta <code style="font-family:'IBM Plex Mono',monospace">home.continue</code>; “nova carreira” avisa que apaga o save.</td></tr>
+            </tbody>
+          </table>
+
+          <h2 style="font-family:'Archivo Black',sans-serif;font-size:13pt;text-transform:uppercase;letter-spacing:0.02em;margin:26px 0 10px 0;border-bottom:1px solid #C6BCA2;padding-bottom:6px">4 · Dívidas a fechar no caminho</h2>
+          <ul style="font-size:10.5pt;line-height:1.6;margin:0;padding-left:18px">
+            <li>Toggle de idioma do Home passa a usar <code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">home.lang</code> em vez de texto fixo.</li>
+            <li><code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">archetype.*</code>: separar nome e posição em duas chaves e remover o <code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">.split(' (')[0]</code> em <code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">AttrDraft.tsx</code>.</li>
+            <li>Preço do roubo na tela 4c segue o engine: cai sempre na fraqueza da lenda (<code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">weakestSlot</code>) e vale de −1 a −5 (<code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">malusAmount</code>). Não inventar valores maiores na UI.</li>
+            <li><code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">computeVerdict</code> passa a ser calculado uma vez na transição para <code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">verdict</code> e guardado no state — o veredito revela por camadas e não pode recalcular a cada render.</li>
+            <li>Bump do save para <code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">thegoat:v5</code>: o contrato de dados muda (log de lances, escolhas resolvidas, veredito persistido).</li>
+          </ul>
+
+          <h2 style="font-family:'Archivo Black',sans-serif;font-size:13pt;text-transform:uppercase;letter-spacing:0.02em;margin:26px 0 10px 0;border-bottom:1px solid #C6BCA2;padding-bottom:6px">5 · Ordem sugerida</h2>
+          <ol style="font-size:10.5pt;line-height:1.6;margin:0;padding-left:18px">
+            <li><strong>Tema.</strong> Trocar <code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">tokens.css</code>/<code style="font-family:'IBM Plex Mono',monospace;font-size:9.5pt">base.css</code> para 2B e reescrever as primitivas (seção 2). Todas as 13 telas atuais já mudam de cara sem tocar no reducer.</li>
+            <li><strong>Cabeçalho de carreira + hub</strong> (4a) — resolve “não sei onde estou”.</li>
+            <li><strong>Balanço em rolagem</strong> (4b) — remove as abas.</li>
+            <li><strong>Jogo-chave</strong> (8a) + <strong>resultado</strong> (6a) — onde está o orçamento emocional.</li>
+            <li><strong>Avanço da temporada</strong> (6b), depois cerimônia, aposentadoria e veredito em camadas.</li>
+          </ol>
+
+          <div style="margin-top:26px;border-top:3px double #A8231C;padding-top:10px;font-family:'IBM Plex Mono',monospace;font-size:9pt;color:#6B6455">CANVAS DE REFERÊNCIA: THE GOAT — REDESIGN V1 · IDS 1A–8A</div>
+        </div>
+      </doc-page>
+</x-dc>
+</body>
+</html>
