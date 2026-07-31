@@ -184,6 +184,16 @@ export function Hub({ state, dispatch }: Props) {
           <section className="hub__contract" style={{ gridArea: 'contract' }}>
             <div className="mono-label">{t(lang, 'hub.contract', { n: contractYearsLeft })}</div>
             <div className="mono-label">{t(lang, 'hub.fame', { n: career.fame })}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+              <span className="mono-label">{t(lang, 'settings.timePressure')}</span>
+              <button
+                type="button"
+                className={`chip${state.timePressure ? ' chip--on' : ''}`}
+                onClick={() => dispatch({ type: 'TOGGLE_TIME_PRESSURE' })}
+              >
+                {t(lang, state.timePressure ? 'settings.on' : 'settings.off')}
+              </button>
+            </div>
           </section>
         </div>
       </div>

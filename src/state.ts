@@ -593,6 +593,7 @@ function reduce(state: GameState, action: Action): GameState {
         drawnIds: [first.id],
         league: initLeague(),
         phase: 'attrDraft',
+        timePressure: state.timePressure, // preserva o toggle escolhido na Home antes de "Nova carreira" (10)
       }
     }
 

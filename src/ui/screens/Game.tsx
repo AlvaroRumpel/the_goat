@@ -3,8 +3,9 @@ import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
 import type { PendingGame, WatchedGameResult } from '../../engine/types'
-import { scoreOf } from '../../engine/moments'
+import { scoreOf, defaultOption } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
+import { ClutchTimer } from '../components/ClutchTimer'
 import { usePlayReveal } from '../hooks/usePlayReveal'
 
 interface Props {
@@ -61,6 +62,7 @@ function MomentPanel({ state, dispatch }: Props) {
   const moment = pending.moments[pending.momentIndex]
   const ourId = (state.currentOffer?.teamId ?? state.pendingPlayoffs?.finalOffer.teamId ?? '').toUpperCase()
   const oppId = pending.context.opponentTeamId.toUpperCase()
+  const isClutch = moment?.id === 'clutch'
 
   const texts = pending.log.map(e => t(lang, e.textKey, e.params))
   const reveal = usePlayReveal({
@@ -161,6 +163,14 @@ function MomentPanel({ state, dispatch }: Props) {
           {reveal.done && moment && (
             <div className="game-decision">
               <div style={{ fontSize: 17, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
+              {state.timePressure && isClutch && reveal.done && (
+                <ClutchTimer
+                  ms={8000}
+                  paused={state.hubOpen}
+                  lang={lang}
+                  onExpire={() => dispatch({ type: 'DECIDE_MOMENT', optionId: defaultOption(moment).id })}
+                />
+              )}
               <div className="game-decision__options">
                 {moment.options.map((option, i) => (
                   <button key={option.id} type="button"
