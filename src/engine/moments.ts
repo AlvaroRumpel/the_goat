@@ -274,7 +274,7 @@ export function startWatchedGame(input: {
   const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)   // 1 call
   const log: PlayEntry[] = ambientAts(moments.map(m => m.at)).map((at, i) => {
     const variant = rng.int(0, 2)                        // call 1 da linha
-    const jitter = Math.round(rng.next() * 8 - 4)        // call 2 da linha
+    const jitter = Math.round(rng.next() * 8 - 4) || 0    // call 2 da linha; || 0 normaliza -0 (JSON round-trip perde o sinal)
     // linha 0 é sempre a abertura (at=3): chave própria pra não colidir com a linha
     // do quarto 0, que cai perto (at=firstMoment-4, ex. 6) — mesmo balde de 3 variantes.
     const bucket = i === 0 ? 'open' : quarterOf(at)

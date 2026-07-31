@@ -12,7 +12,7 @@ import {
 } from './engine/playoffs'
 import type { BracketState } from './engine/playoffs'
 import {
-  applyMoment, autoResolveGame, expectedAutoDelta, finishWatchedGame, scoreOf, selectKeyGames, startWatchedGame,
+  applyMoment, autoResolveGame, finishWatchedGame, scoreOf, selectKeyGames, startWatchedGame,
 } from './engine/moments'
 import { buildCalendar, DEADLINE_GAME, simStretch } from './engine/schedule'
 import { initLeague } from './data/league'
@@ -111,6 +111,7 @@ export interface GameState {
   calendar: SeasonCalendar | null   // walk da temporada regular em andamento (C2)
   lastGame: LastGame | null         // último jogo-chave resolvido, aguardando CONTINUE
   hubOpen: boolean
+  timePressure: boolean      // cronômetro do clutch (§6 do spec); default true
   resumePhase: Phase | null
   verdict: Verdict | null
 }
@@ -136,10 +137,11 @@ export type Action =
   | { type: 'RETIRE_DECISION'; retire: boolean }
   | { type: 'OPEN_HUB' }
   | { type: 'CLOSE_HUB' }
+  | { type: 'TOGGLE_TIME_PRESSURE' }
   | { type: 'RESUME' }
   | { type: 'RESET' }
 
-export const STORAGE_KEY = 'thegoat:v5'
+export const STORAGE_KEY = 'thegoat:v6'
 
 const VALID_PHASES = new Set<Phase>([
   'home', 'attrDraft', 'draftDone', 'nbaDraft', 'preseason',
@@ -201,34 +203,36 @@ export function initialState(lang: Lang = 'pt'): GameState {
     calendar: null,
     lastGame: null,
     hubOpen: false,
+    timePressure: true,
     resumePhase: null,
     verdict: null,
   }
 }
 
 // Ordem fixa de consumo de rng POR DISPATCH (replay do save depende dela; o custo de
-// um jogo assistido é fixo — GAME_RNG_CALLS = 21 — decidindo ou pulando):
+// um jogo assistido é variável — gameRngCalls(n) = 6n + 4, n = momentos sorteados (2-5) —
+// decidindo ou pulando):
 // PLAY_SEASON: rollEvents → [interativo: pausa eventDecision sem mais calls] →
 //   startSeasonCalendar: simRegularSeason → computeWinPct (segmento 1) → selectKeyGames(3)
 //   → buildCalendar(4) → advanceCalendar: simStretch (4/jogo) até a 1ª parada → pausa
 //   (seasonAdvance, tradeDecision no 55, ou fecha direto se não houver jogos-chave/deadline).
 // EVENT_DECISION: mesma cauda de startSeasonCalendar acima.
-// TAKE_NEXT_GAME: startWatchedGame(12) → pausa (keyGame).
-// DECIDE_MOMENT/SKIP_GAME em keyGame: applyMoment(3×N) → jogo fecha (finishKeyGame) →
+// TAKE_NEXT_GAME: startWatchedGame(3n+4) → pausa (keyGame).
+// DECIDE_MOMENT/SKIP_GAME em keyGame: applyMoment(3 por momento) → jogo fecha (finishKeyGame) →
 //   pausa (gameResult), sem mais rng.
-// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(3×N) → jogo fecha (pausePlayoffGame)
+// DECIDE_MOMENT/SKIP_GAME em playoffGame: applyMoment(3 por momento) → jogo fecha (pausePlayoffGame)
 //   → pausa (gameResult), sem mais rng — o roll de série/rounds fica todo para o CONTINUE.
 // CONTINUE (de gameResult): sem pendingPlayoffs → advanceCalendar — simStretch do próximo
 //   trecho → pausa (seasonAdvance/tradeDecision) ou, no fim da regular, closeRegularSeason:
 //   simStandings → simNpcLines → simAwards → sem seed: simBracket → finishPostseason
-//   (seasonResult); com seed: enterRound (npcRound + startWatchedGame(12)) → pausa
+//   (seasonResult); com seed: enterRound (npcRound + startWatchedGame(3n+4)) → pausa
 //   (playoffGame). Com pendingPlayoffs → continuePlayoffs: rounds 0-2: chance(shifted) →
-//   venceu: enterRound (npcRound + startWatchedGame(12)) → pausa; perdeu: resolveRest →
+//   venceu: enterRound (npcRound + startWatchedGame(3n+4)) → pausa; perdeu: resolveRest →
 //   finishPostseason (seasonResult). Finais: 4ª vitória/derrota fecha (finishPostseason),
 //   senão pausa na tela de série sem consumir mais rng.
 // TRADE_DECISION: [aceitou: computeWinPct do time novo] → advanceCalendar (como acima).
-// ADVANCE_GAME: startWatchedGame(12) → pausa (playoffGame com jogo aberto). SKIP_SERIES:
-//   repete, por jogo, [startWatchedGame(12) + applyMoment(9)] com pausa (pausePlayoffGame)
+// ADVANCE_GAME: startWatchedGame(3n+4) → pausa (playoffGame com jogo aberto). SKIP_SERIES:
+//   repete, por jogo, [startWatchedGame(3n+4) + applyMoment(3 por momento)] com pausa (pausePlayoffGame)
 //   e avanço (continuePlayoffs) fundidos no mesmo dispatch, sem tela por jogo, até a série
 //   fechar → finishPostseason.
 
@@ -242,12 +246,9 @@ export function initialState(lang: Lang = 'pt'): GameState {
 // empurrava a corrida de MVP (decidida por ~3 pontos de margem contra 270 NPCs).
 // E[ppgDelta] ≈ 0 na política auto, por construção, em qualquer faixa — e a política
 // ousada é que gera o desvio.
-function keyGameEffects(
-  results: WatchedGameResult[], build: Build, age: number,
-): { ppgDelta: number; injuredCount: number } {
+function keyGameEffects(results: WatchedGameResult[]): { ppgDelta: number; injuredCount: number } {
   const injuredCount = results.filter(r => r.injured).length
-  const swing = results.reduce((n, r) => n + r.outcomes.reduce((s, o) => s + o.delta, 0), 0)
-    - results.length * expectedAutoDelta(build, age)
+  const swing = results.reduce((n, r) => n + r.outcomes.reduce((s, o) => s + o.delta, 0) - r.expectedDelta, 0)
   return { ppgDelta: clamp(swing * 0.03, -0.5, 0.5) - injuredCount, injuredCount }
 }
 
@@ -288,7 +289,7 @@ function startSeasonCalendar(
 // Simula o walk até a próxima parada: slot de key game (seasonAdvance — ou joga direto
 // no autoRun), deadline 55 (tradeDecision) ou fim da regular (closeRegularSeason).
 // Ordem de rng POR DISPATCH: simStretch (4 calls/jogo) na ordem dos jogos; key game em
-// autoRun consome o contrato normal (GAME_RNG_CALLS).
+// autoRun consome o contrato normal (gameRngCalls(n)).
 function advanceCalendar(state: GameState, rng: Rng, calls: () => number): GameState {
   let s = state
   let guard = 0
@@ -363,7 +364,7 @@ function closeRegularSeason(state: GameState, rng: Rng, calls: () => number): Ga
   const cal = state.calendar!
   const regular0 = state.pendingRegular!
   const finalOffer = state.currentOffer!
-  const { ppgDelta, injuredCount } = keyGameEffects(state.keyGameResults, build, state.age)
+  const { ppgDelta, injuredCount } = keyGameEffects(state.keyGameResults)
   const regular: RegularSeasonResult = {
     ...regular0,
     games: Math.max(40, regular0.games - injuredCount * 10),
@@ -440,7 +441,7 @@ function openPlayoffGame(state: GameState, pp: PendingPlayoffs, rng: Rng, calls:
     ourStrength: watchedGameStrength(state, pp.finalOffer.teamId),
     oppStrength: rosterStrength(state.league!, pp.opponentTeamId),
     targetWinP: finals ? pp.pGame : pp.seriesProb,
-    expectedDelta: expectedAutoDelta(state.build!, state.age),
+    build: state.build!, age: state.age,
     marginBias: pp.playerOut ? PLAYER_OUT_MARGIN : 0,
     rng,
   })
@@ -560,17 +561,18 @@ function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): Pending
   const oppStrength = rosterStrength(state.league!, game.opponentTeamId)
   return startWatchedGame({
     context: { kind: game.kind, opponentTeamId: game.opponentTeamId },
-    ourStrength: watchedGameStrength(state, state.currentOffer!.teamId), oppStrength, rng,
-    // sem targetWinP (a margem sai da força); expectedDelta é o que centra o ppgDelta
-    // em keyGameEffects (o resultado do jogo em si entra literal no ticker)
-    expectedDelta: expectedAutoDelta(state.build!, state.age),
+    ourStrength: watchedGameStrength(state, state.currentOffer!.teamId), oppStrength,
+    build: state.build!, age: state.age, rng,
+    // sem targetWinP (a margem sai da força); expectedDelta é calculado dentro, sobre os
+    // momentos sorteados, e é o que centra o ppgDelta em keyGameEffects
   })
 }
 
-// Chamado após DECIDE_MOMENT/SKIP_GAME resolverem o jogo corrente até momentIndex 3.
+// Chamado após DECIDE_MOMENT/SKIP_GAME resolverem o momento corrente do jogo, até
+// momentIndex alcançar pending.moments.length (2-5, sorteado por jogo — Task 1-6).
 // Mesmo caminho para keyGame e playoffGame; só o branch de conclusão difere por fase.
 function advanceGame(state: GameState, pending: PendingGame, skipped: boolean, calls: () => number): GameState {
-  if (pending.momentIndex < 3) return { ...state, pendingGame: pending, rngCalls: calls() }
+  if (pending.momentIndex < pending.moments.length) return { ...state, pendingGame: pending, rngCalls: calls() }
   if (state.phase === 'playoffGame') return pausePlayoffGame(state, state.pendingPlayoffs!, pending, skipped, calls)
   return finishKeyGame(state, pending, skipped, calls)
 }
@@ -787,6 +789,9 @@ function reduce(state: GameState, action: Action): GameState {
     case 'CLOSE_HUB':
       return { ...state, hubOpen: false }
 
+    case 'TOGGLE_TIME_PRESSURE':
+      return { ...state, timePressure: !state.timePressure }
+
     case 'RESUME':
       if (!state.resumePhase) return state
       return { ...state, phase: state.resumePhase, resumePhase: null }
@@ -822,6 +827,7 @@ export function loadState(): GameState | null {
     localStorage.removeItem('thegoat:v2')
     localStorage.removeItem('thegoat:v3')
     localStorage.removeItem('thegoat:v4')
+    localStorage.removeItem('thegoat:v5')
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
@@ -841,6 +847,7 @@ export function loadState(): GameState | null {
     parsed.calendar = parsed.calendar ?? null
     parsed.lastGame = parsed.lastGame ?? null
     parsed.hubOpen = parsed.hubOpen ?? false
+    parsed.timePressure = parsed.timePressure ?? true
     parsed.resumePhase = parsed.resumePhase ?? null
     const effectiveVerdictPhase = (parsed.resumePhase ?? parsed.phase) === 'verdict'
     parsed.verdict = parsed.verdict ?? (effectiveVerdictPhase ? computeVerdict(parsed.career) : null)

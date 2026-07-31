@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { gameReducer, initialState, loadState, saveState } from '../src/state'
+import { gameReducer, initialState, loadState, saveState, STORAGE_KEY } from '../src/state'
 import type { GameState } from '../src/state'
 import { SLOT_ORDER } from '../src/engine/types'
 
@@ -39,6 +39,22 @@ function playToSeasonResult() {
   if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
   s = skipGames(s)
   if (s.phase === 'tradeDecision') s = skipGames(gameReducer(s, { type: 'TRADE_DECISION', accept: false }))
+  return s
+}
+
+// para no primeiro jogo-chave com um momento aberto
+function playToFirstKeyGame(): GameState {
+  let s = playToBuild()
+  s = gameReducer(s, { type: 'CHOOSE_OFFER', offer: s.offers[0] })
+  s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
+  if (s.phase === 'eventDecision') s = gameReducer(s, { type: 'EVENT_DECISION', choice: 'b' })
+  if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+  let guard = 0
+  while (s.phase !== 'keyGame' && guard++ < 20) {
+    if (s.phase === 'seasonAdvance') s = gameReducer(s, { type: 'TAKE_NEXT_GAME' })
+    else if (s.phase === 'tradeDecision') s = gameReducer(s, { type: 'TRADE_DECISION', accept: false })
+    else throw new Error('não chegou a um keyGame: ' + s.phase)
+  }
   return s
 }
 
@@ -154,13 +170,13 @@ describe('gameReducer', () => {
     const s = playToBuild()
     saveState(s)
     expect(loadState()).toEqual(s)
-    localStorage.setItem('thegoat:v5', '{broken')
+    localStorage.setItem(STORAGE_KEY, '{broken')
     expect(loadState()).toBeNull()
   })
   test('save sem liga completa (v2 e anteriores) é descartado', () => {
     const s = playToBuild()
     const { league: _drop, ...noLeague } = s
-    localStorage.setItem('thegoat:v5', JSON.stringify(noLeague))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(noLeague))
     expect(loadState()).toBeNull()
   })
   test('loadState normaliza save legado sem injuryProne/pendingEvents e com pendingRegular sem choices', () => {
@@ -186,7 +202,7 @@ describe('gameReducer', () => {
     }
     delete legacy.injuryProne
     delete legacy.pendingEvents
-    localStorage.setItem('thegoat:v5', JSON.stringify(legacy))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
 
     const loaded = loadState()!
     expect(loaded.pendingRegular!.choices).toEqual([])
@@ -218,7 +234,7 @@ describe('gameReducer', () => {
     let s = playToBuild()
     const legacy: Record<string, unknown> = { ...s, phase: 'verdict' }
     delete legacy.verdict
-    localStorage.setItem('thegoat:v5', JSON.stringify(legacy))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy))
     const loaded = loadState()!
     expect(loaded.verdict).not.toBeNull()
     expect(loaded.verdict!.tier).toBeTruthy()
@@ -362,19 +378,40 @@ describe('hub e resume (C1)', () => {
   test('loadState defaulta hubOpen/resumePhase em save v5 antigo', () => {
     const s = playToSeasonResult()
     const { hubOpen: _h, resumePhase: _r, ...old } = s as Record<string, unknown>
-    localStorage.setItem('thegoat:v5', JSON.stringify(old))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(old))
     const loaded = loadState()!
     expect(loaded.hubOpen).toBe(false)
     expect(loaded.resumePhase).toBeNull()
   })
   test('loadState rejeita phase fora do union Phase (whitelist)', () => {
     const s = playToBuild()
-    localStorage.setItem('thegoat:v5', JSON.stringify({ ...s, phase: 'totallyFakePhase' }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...s, phase: 'totallyFakePhase' }))
     expect(loadState()).toBeNull()
   })
   test('loadState rejeita resumePhase fora do union Phase', () => {
     const s = playToBuild()
-    localStorage.setItem('thegoat:v5', JSON.stringify({ ...s, phase: 'home', resumePhase: 'nonsense' }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...s, phase: 'home', resumePhase: 'nonsense' }))
     expect(loadState()).toBeNull()
+  })
+})
+
+describe('jogo vivo no reducer', () => {
+  test('jogo-chave fecha depois de moments.length decisões, não de 3', () => {
+    let s = playToFirstKeyGame()
+    const n = s.pendingGame!.moments.length
+    for (let i = 0; i < n; i++) {
+      expect(s.phase).toBe('keyGame')
+      s = gameReducer(s, { type: 'DECIDE_MOMENT', optionId: s.pendingGame!.moments[s.pendingGame!.momentIndex].options[0].id })
+    }
+    expect(s.phase).toBe('gameResult')
+    expect(s.lastGame!.result.outcomes).toHaveLength(n)
+  })
+  test('timePressure default true e alterna', () => {
+    const s0 = initialState('pt')
+    expect(s0.timePressure).toBe(true)
+    expect(gameReducer(s0, { type: 'TOGGLE_TIME_PRESSURE' }).timePressure).toBe(false)
+  })
+  test('STORAGE_KEY é v6', () => {
+    expect(STORAGE_KEY).toBe('thegoat:v6')
   })
 })

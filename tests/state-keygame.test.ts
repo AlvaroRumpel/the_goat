@@ -44,10 +44,11 @@ describe('fase keyGame', () => {
     expect(s.pendingGame).not.toBeNull()
     expect(s.pendingGame!.moments).toHaveLength(3)
   })
-  test('DECIDE_MOMENT ×3 fecha o jogo e pausa em gameResult; CONTINUE segue o calendário', () => {
+  test('DECIDE_MOMENT ×moments.length fecha o jogo e pausa em gameResult; CONTINUE segue o calendário', () => {
     let s = playToKeyGame(32)
     const nextSlotBefore = s.calendar!.nextSlot
-    for (let i = 0; i < 3; i++) {
+    const n = s.pendingGame!.moments.length
+    for (let i = 0; i < n; i++) {
       const opt = s.pendingGame!.moments[s.pendingGame!.momentIndex].options[0]
       s = gameReducer(s, { type: 'DECIDE_MOMENT', optionId: opt.id })
     }
