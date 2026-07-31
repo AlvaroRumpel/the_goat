@@ -26,10 +26,10 @@ function countedRng(seed: number) {
 }
 
 describe('contrato de rng calls', () => {
-  test('gameRngCalls(n) = 6n + 4', () => {
-    expect(gameRngCalls(2)).toBe(16)
-    expect(gameRngCalls(3)).toBe(22)
-    expect(gameRngCalls(5)).toBe(34)
+  test('gameRngCalls(n) = 4n + 4', () => {
+    expect(gameRngCalls(2)).toBe(12)
+    expect(gameRngCalls(3)).toBe(16)
+    expect(gameRngCalls(5)).toBe(24)
   })
   test('jogo completo assistido consome gameRngCalls(n)', () => {
     const { rng, calls } = countedRng(1)
@@ -67,18 +67,36 @@ describe('contrato de rng calls', () => {
 })
 
 describe('log do jogo', () => {
-  test('n+1 linhas de ambientação no início, 2n+1 ao final, ordenadas por at', () => {
-    const { rng } = countedRng(5)
-    const b = flatBuild(85)
-    let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 25, rng })
-    const n = g.moments.length
-    expect(g.log).toHaveLength(n + 1)
-    expect(g.log.every(e => !e.fromDecision)).toBe(true)
-    g = autoResolveGame(g, b, 25, rng)
-    expect(g.log).toHaveLength(2 * n + 1)
-    expect(g.log.filter(e => e.fromDecision)).toHaveLength(n)
-    const ats = g.log.map(e => e.at)
-    expect([...ats].sort((x, y) => x - y)).toEqual(ats)
+  test('play-by-play anda no relógio: sem buraco > 4.5 min entre linhas, ordenado por at', () => {
+    for (let s = 0; s < 20; s++) {
+      const { rng } = countedRng(5 + s)
+      const b = flatBuild(85)
+      let g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 25, rng })
+      const n = g.moments.length
+      const ambient = g.log.length
+      expect(g.log.every(e => !e.fromDecision)).toBe(true)
+      // o primeiro segmento revelado (linhas antes do 1º momento, em FIRST_AT=10) é
+      // sempre 3, 6 — invariante usado pelo e2e
+      expect(g.log.filter(e => e.at < g.moments[0].at).map(e => e.at)).toEqual([3, 6])
+      g = autoResolveGame(g, b, 25, rng)
+      expect(g.log).toHaveLength(ambient + n)
+      expect(g.log.filter(e => e.fromDecision)).toHaveLength(n)
+      const ats = g.log.map(e => e.at)
+      expect([...ats].sort((x, y) => x - y)).toEqual(ats)
+      // nenhum salto: é isso que faz o jogo parecer acontecer em vez de pular de
+      // momento decisivo em momento decisivo
+      const gaps = ats.slice(1).map((at, i) => at - ats[i])
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(4.5)
+    }
+  })
+  test('nenhuma fala de lance repete dentro do mesmo jogo', () => {
+    for (let s = 0; s < 20; s++) {
+      const { rng } = countedRng(700 + s)
+      const b = flatBuild(85)
+      const g = startWatchedGame({ context: ctx, ourStrength: 75, oppStrength: 72, build: b, age: 25, rng })
+      const pbp = g.log.map(e => e.textKey).filter(k => k.startsWith('play.pbp.'))
+      expect(new Set(pbp).size).toBe(pbp.length)
+    }
   })
   test('BUG 3: placar do log soma os deltas já ocorridos — nunca anda pra trás', () => {
     // seeds várias porque o bug só aparece quando um momento vencedor precede uma

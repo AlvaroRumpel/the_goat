@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch } from 'react'
+import { useEffect, useRef, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
@@ -72,6 +72,13 @@ function MomentPanel({ state, dispatch }: Props) {
     ats: pending.log.map(e => e.at),
     stopAt: moment?.at ?? null,
   })
+  // o log agora enche a tela (~15 linhas): a linha nova tem que ficar visível sozinha
+  const playsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = playsRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [reveal.shown, reveal.typing])
+
   const lastShown = pending.log[Math.max(0, reveal.shown - 1)]
   const clock = lastShown?.clock ?? '4Q 00:00'
   const { us, them } = reveal.done && pending.momentIndex >= pending.moments.length
@@ -102,7 +109,7 @@ function MomentPanel({ state, dispatch }: Props) {
           <span className="headline" style={{ fontSize: 26 }}><span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginRight: 6 }}>{oppId}</span>{them}</span>
         </div>
 
-        <div className="game-plays" onClick={reveal.skip}>
+        <div className="game-plays" ref={playsRef} onClick={reveal.skip}>
           {pending.log.slice(0, reveal.shown).map((e, i, arr) => {
             const opacity = [0.28, 0.42, 0.58, 0.75, 1][Math.max(0, 4 - (arr.length - 1 - i))]
             const behind = e.score.us < e.score.them

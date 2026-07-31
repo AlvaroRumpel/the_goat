@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { t } from '../src/i18n'
 import pt from '../src/data/i18n/pt.json'
 import en from '../src/data/i18n/en.json'
-import { SITUATIONS, SLOT_SEQUENCE, ALL_OPTION_IDS } from '../src/engine/moments'
+import { SITUATIONS, SLOT_SEQUENCE, ALL_OPTION_IDS, PBP_COUNT } from '../src/engine/moments'
 
 describe('i18n', () => {
   test('pt and en have identical key sets', () => {
@@ -24,6 +24,8 @@ describe('i18n do catálogo de momentos', () => {
     ...ALL_OPTION_IDS.flatMap(id => [
       `play.${id}.hit.v0`, `play.${id}.hit.v1`, `play.${id}.miss.v0`, `play.${id}.miss.v1`,
     ]),
+    ...Array.from({ length: PBP_COUNT }, (_, i) => `play.pbp.v${i}`),
+    ...[0, 1, 2].flatMap(v => [`play.ambient.open.v${v}`, ...[1, 2, 3].map(q => `play.ambient.${q}.v${v}`)]),
   ]
   test.each(['pt', 'en'] as const)('%s cobre todas as chaves do catálogo', lang => {
     const dict: Record<string, string> = lang === 'pt' ? pt : en

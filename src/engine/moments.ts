@@ -220,19 +220,27 @@ export function expectedAutoDelta(build: Build, age: number, moments: Moment[]):
 //    de ruído); no miolo P(won) = targetWinP exatamente.
 // Contrato de rng por jogo, agora função da contagem de momentos:
 //   1 (jitter da contagem) + n (situação de cada momento) + 1 (baseMargin)
-//   + 2×(n+1) (ambientação: variante + jitter do placar) + 3n (resolveMoment ×2 + variante da fala)
+//   + 2 (ambientação: início e passo do passeio pelo pool, o resto é derivado)
+//   + 3n (resolveMoment ×2 + variante da fala)
 export function gameRngCalls(n: number): number {
-  return 6 * n + 4
+  return 4 * n + 4
 }
 
-// quarto do jogo (0-3) — escolhe o balde de chaves play.ambient.<q>.v<0-2>
-function quarterOf(at: number): number {
-  return Math.min(3, Math.floor(at / 12))
-}
+// Uma linha de play-by-play a cada 3 minutos de relógio: o jogo ANDA no relógio em vez
+// de saltar de momento em momento (era uma linha só entre decisões). ~15 linhas por jogo.
+const PBP_STEP = 3
+export const PBP_COUNT = 20                  // play.pbp.v0..v19
+const PBP_STRIDES = [3, 7, 9, 11, 13, 17]    // coprimos com PBP_COUNT: sem fala repetida no jogo
 
-// n+1 posições de ambientação: uma de abertura e uma antes de cada momento.
+// Posições das linhas de ambientação: cadência fixa de PBP_STEP em PBP_STEP, pulando as
+// que caem em cima de um momento (o momento tem linha própria, em `applyMoment`).
 function ambientAts(momentAtsList: number[]): number[] {
-  return [3, ...momentAtsList.map(at => at - 4)]
+  const ats: number[] = []
+  for (let at = 3; at < CLUTCH_AT; at += PBP_STEP) {
+    if (momentAtsList.some(m => Math.abs(m - at) < PBP_STEP / 2)) continue
+    ats.push(at)
+  }
+  return ats
 }
 
 // placar do walk no minuto `at`: o jogo caminha para baseMargin + Σ deltas JÁ ocorridos
@@ -272,15 +280,24 @@ export function startWatchedGame(input: {
     : 2 * MARGIN_NOISE * targetWinP - MARGIN_NOISE + 0.5 - expectedDelta) + marginBias
   const winP = clamp((center + expectedDelta + MARGIN_NOISE - 0.5) / (2 * MARGIN_NOISE), 0, 1)
   const baseMargin = center + (rng.next() * 2 * MARGIN_NOISE - MARGIN_NOISE)   // 1 call
+  // 2 calls para o log inteiro (não 2 por linha): o passeio `base + p·stride` pelo pool
+  // já dá variedade sem repetir fala dentro do jogo, e o jitter do placar sai do mesmo
+  // par — o custo de rng não pode crescer com a densidade do play-by-play.
+  const base = rng.int(0, PBP_COUNT - 1)                                       // 1 call
+  const stride = PBP_STRIDES[rng.int(0, PBP_STRIDES.length - 1)]               // 1 call
+  let p = 0
   const log: PlayEntry[] = ambientAts(moments.map(m => m.at)).map((at, i) => {
-    const variant = rng.int(0, 2)                        // call 1 da linha
-    const jitter = Math.round(rng.next() * 8 - 4) || 0    // call 2 da linha; || 0 normaliza -0 (JSON round-trip perde o sinal)
-    // linha 0 é sempre a abertura (at=3): chave própria pra não colidir com a linha
-    // do quarto 0, que cai perto (at=firstMoment-4, ex. 6) — mesmo balde de 3 variantes.
-    const bucket = i === 0 ? 'open' : quarterOf(at)
+    // linha 0 = tap-off; 12/24/36 = abertura de quarto (fala de clima); resto = lance.
+    const quarterOpen = at % 12 === 0 ? at / 12 : null
+    const textKey = i === 0
+      ? `play.ambient.open.v${base % 3}`
+      : quarterOpen !== null
+        ? `play.ambient.${quarterOpen}.v${(base + quarterOpen) % 3}`
+        : `play.pbp.v${(base + p++ * stride) % PBP_COUNT}`
+    const jitter = ((base + i * 7) % 5) - 2
     return {
       at, clock: clockOf(at),
-      textKey: `play.ambient.${bucket}.v${variant}`,
+      textKey,
       params: { opp: context.opponentTeamId.toUpperCase() },
       jitter,
       score: logScore(baseMargin, 0, at, jitter),

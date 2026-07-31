@@ -90,9 +90,10 @@ describe('temporada regular no calendário', () => {
     const slot = s.calendar!.slots[0]
     s = step(s, { type: 'TAKE_NEXT_GAME' })
     expect(s.phase).toBe('keyGame')
-    // seed 42: o 1º key game sorteia 4 momentos (log = n+1 linhas de ambientação)
+    // seed 42: o 1º key game sorteia 4 momentos (log = linhas de play-by-play na
+    // cadência de 3', menos as que caem em cima de um momento)
     expect(s.pendingGame!.moments).toHaveLength(4)
-    expect(s.pendingGame!.log).toHaveLength(5)
+    expect(s.pendingGame!.log).toHaveLength(12)
     s = step(s, { type: 'SKIP_GAME' })
     expect(s.phase).toBe('gameResult')
     expect(s.lastGame!.skipped).toBe(true)

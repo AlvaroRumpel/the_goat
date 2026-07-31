@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-const CHAR_MS = 25
-const LINE_PAUSE_MS = 600
+// ~15 linhas de ambientação por jogo (cadência de 3' do engine): a digitação precisa ser
+// rápida o bastante para o trecho entre dois momentos passar em ~10s, não em ~30s.
+const CHAR_MS = 16
+const LINE_PAUSE_MS = 320
 
 // Quantas linhas do log podem aparecer antes de o painel de decisão abrir: todas as
 // que acontecem ANTES do minuto do momento pendente. `stopAt = null` = jogo sem momento
