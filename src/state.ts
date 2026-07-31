@@ -286,7 +286,7 @@ function startSeasonCalendar(
   const { slots } = buildCalendar(games, rng)
   const calendar: SeasonCalendar = {
     slots, nextSlot: 0, deadlineDone: !regular.tradeOffer, ticker: [], played: 0,
-    p, effClutch, autoRun: false,
+    p, effClutch, autoRun: state.career.mode === 'rapido',
   }
   return advanceCalendar({
     ...state, calendar, keyGameResults: [],
@@ -365,6 +365,23 @@ function finishKeyGame(state: GameState, pending: PendingGame, skipped: boolean,
   }
 }
 
+// Modo rápido: resolve a pós-temporada inteira sem telas — mesma sequência de calls
+// de um jogador dando SKIP em todos os jogos (contrato da decisão-chave 11).
+function fastForwardPostseason(state: GameState, rng: Rng, calls: () => number): GameState {
+  let s = state
+  let guard = 0
+  while (guard++ < 120) {
+    if (s.phase === 'gameResult' && s.pendingPlayoffs) { s = continuePlayoffs(s, rng, calls); continue }
+    if (s.phase === 'playoffGame' && s.pendingGame) {
+      s = pausePlayoffGame(s, s.pendingPlayoffs!, autoResolveGame(s.pendingGame, s.build!, s.age, rng), true, calls)
+      continue
+    }
+    if (s.phase === 'playoffGame' && s.pendingPlayoffs) { s = openPlayoffGame(s, s.pendingPlayoffs, rng, calls); continue }
+    return s
+  }
+  throw new Error('fastForwardPostseason: guard estourou')
+}
+
 // Regular fechada: registro literal vira o winPct realizado. Awards ANTES dos playoffs
 // (contrato do item 11 do handoff). O calendário morre aqui.
 function closeRegularSeason(state: GameState, rng: Rng, calls: () => number): GameState {
@@ -399,14 +416,17 @@ function closeRegularSeason(state: GameState, rng: Rng, calls: () => number): Ga
   })
   const base = { ...state, calendar: null, lastGame: null, pendingEvents: null, pendingRegular: null, pendingFocus: null }
   const common = { regular, finalOffer, winPct, awards, standings, lines, iconics: [], chokes: 0 }
-  if (seed === null) {
-    const bracket = simBracket({ standings, league: state.league!, playerTeamId: null, playerTitleProb: titleProb, rng })
-    return finishPostseason(base, { ...common, seed }, bracket, rng, calls)
-  }
-  return enterRound(base, {
-    ...common, bracket: seedBracket(standings), opponentTeamId: '', seriesUs: 0, seriesThem: 0,
-    pGame: 0, seriesProb: 0, titleProb, seed, playerOut: false,
-  }, rng, calls)
+  const result = seed === null
+    ? finishPostseason(
+        base, { ...common, seed },
+        simBracket({ standings, league: state.league!, playerTeamId: null, playerTitleProb: titleProb, rng }),
+        rng, calls,
+      )
+    : enterRound(base, {
+        ...common, bracket: seedBracket(standings), opponentTeamId: '', seriesUs: 0, seriesThem: 0,
+        pGame: 0, seriesProb: 0, titleProb, seed, playerOut: false,
+      }, rng, calls)
+  return state.career.mode === 'rapido' ? fastForwardPostseason(result, rng, calls) : result
 }
 
 // Entra num round: NPCs resolvem suas séries, o oponente do jogador é definido e o
