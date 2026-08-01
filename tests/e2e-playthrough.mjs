@@ -61,6 +61,22 @@ function firstOptionBtn(page) {
   return page.locator('.screen button:not(.btn):not(.topbar__link)').first()
 }
 
+// Setup is now a 2-step flow (Phase 2): Home "Nova carreira" -> 10b mode pick
+// -> 10c identity (name + number) -> BEGIN_CAREER -> draft, as before. `mode`
+// (optional) is the visible text of an unselected mode row on 10b (e.g.
+// "MODO RÁPIDO") to click before "Continuar"; omitted, CARREIRA (normal)
+// stays pre-selected.
+async function newCareer(page, { mode } = {}) {
+  await page.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+  if (mode) {
+    await page.locator('button', { hasText: mode }).click()
+  }
+  await page.locator('button.btn--ink', { hasText: 'Continuar' }).click()
+  await page.locator('input').first().fill('Teste Da Silva')
+  await page.locator('button', { hasText: '8' }).first().click()
+  await page.locator('button.btn--primary', { hasText: 'Começar a carreira' }).click()
+}
+
 async function main() {
   const consoleErrors = []
   let server
@@ -99,7 +115,8 @@ async function main() {
     await page.screenshot({ path: `${SHOTS_DIR}/01-home.png` })
 
     // Home's CTA is now `.btn--ink` ("Nova carreira") — `.btn--gold` is gone.
-    await page.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    // newCareer traverses the 10b/10c setup steps added in Phase 2.
+    await newCareer(page)
 
     log('draft: 8 steals')
     for (let i = 0; i < 8; i++) {
@@ -408,7 +425,7 @@ async function main() {
     const momentsTitleVisible = await page.locator('.mono-label', { hasText: 'Momentos' }).count() > 0
     const hasIconicMoments = await page.evaluate(() => {
       try {
-        const raw = localStorage.getItem('thegoat:v5')
+        const raw = localStorage.getItem('thegoat:v7')
         const s = raw ? JSON.parse(raw) : null
         return Boolean(s?.career?.seasons?.some(se => (se.iconicMoments ?? []).length > 0))
       } catch {
@@ -429,7 +446,7 @@ async function main() {
     if (!backAtHome) exitCode = 1
 
     log('resume flow: start a career, steal once, reload, resume')
-    await page.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    await newCareer(page)
     await page.locator('[data-testid="attr-row"]').first().click()
     await page.locator('button.btn--primary').click()
     await page.reload()
@@ -465,7 +482,7 @@ async function main() {
     if (!noHScroll) exitCode = 1
 
     log('desktop: quick draft to first keyGame, assert .game-side (9c grid) visible')
-    await desktopPage.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    await newCareer(desktopPage)
     for (let i = 0; i < 8; i++) {
       await desktopPage.locator('[data-testid="attr-row"]').first().click()
       await desktopPage.locator('button.btn--primary').click()
@@ -508,7 +525,7 @@ async function main() {
 
     log('timePressure off: toggle the Home chip, draft to first keyGame, reach the clutch moment')
     await noTimerPage.locator('button.chip', { hasText: 'LIGADO' }).click()
-    await noTimerPage.locator('button.btn--ink', { hasText: 'Nova carreira' }).click()
+    await newCareer(noTimerPage)
     for (let i = 0; i < 8; i++) {
       await noTimerPage.locator('[data-testid="attr-row"]').first().click()
       await noTimerPage.locator('button.btn--primary').click()
@@ -561,6 +578,65 @@ async function main() {
     if (!stillWaitingForClick) exitCode = 1
 
     await noTimerContext.close()
+
+    // ---- MODO RÁPIDO sanity: no game screens ever render (autoRun skips them
+    // in state.ts — key games and postseason resolve inline, see startSeasonCalendar/
+    // advanceCalendar/closeRegularSeason) — only the trade/event crossroads veils pause it ----
+    const rapidoContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+    const rapidoPage = await rapidoContext.newPage()
+    rapidoPage.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(`[rapido] ${msg.text()}`)
+    })
+    rapidoPage.on('pageerror', err => consoleErrors.push(`[rapido pageerror] ${err.message}`))
+    await rapidoPage.goto(BASE_URL)
+    await rapidoPage.evaluate(() => localStorage.clear())
+    await rapidoPage.reload()
+
+    log('modo rápido: newCareer with MODO RÁPIDO, quick draft, first offer, start season')
+    await newCareer(rapidoPage, { mode: 'MODO RÁPIDO' })
+    for (let i = 0; i < 8; i++) {
+      await rapidoPage.locator('[data-testid="attr-row"]').first().click()
+      await rapidoPage.locator('button.btn--primary').click()
+      await rapidoPage.waitForTimeout(50)
+    }
+    await rapidoPage.locator('button.btn--primary').click() // build confirm
+    await firstOptionBtn(rapidoPage).click() // nba draft: pick first offer
+    await rapidoPage.locator('button.btn--ink').click() // nba draft: confirm
+    await rapidoPage.locator('button.btn--primary', { hasText: 'Começar a temporada' }).click() // preseason -> start
+
+    log('modo rápido: loop only handling trade/event crossroads veils, asserting no game screens ever appear')
+    let rapidoReachedResult = false
+    for (let guard = 0; guard < 40; guard++) {
+      await rapidoPage.waitForSelector('.screen', { timeout: 10000 })
+
+      const gamePlaysCount = await rapidoPage.locator('.game-plays').count()
+      const gameOptionCount = await rapidoPage.locator('.game-option').count()
+      const takeNextCount = await rapidoPage.locator('button', { hasText: 'Assumir o próximo jogo' }).count()
+      if (gamePlaysCount > 0 || gameOptionCount > 0 || takeNextCount > 0) {
+        console.log(`[error] modo rápido: game screen rendered (.game-plays=${gamePlaysCount}, .game-option=${gameOptionCount}, "Assumir o próximo jogo"=${takeNextCount})`)
+        exitCode = 1
+        break
+      }
+
+      if (await rapidoPage.locator('.modal-veil').count() > 0) {
+        // reject/stay — same safe choice as the modal decision branch in the main loop
+        await rapidoPage.locator('.modal-veil button.btn--outline').click()
+        await rapidoPage.waitForTimeout(50)
+        continue
+      }
+
+      if (await rapidoPage.locator('text=Ver o balanço').count() > 0
+          || await rapidoPage.locator('text=A TEMPORADA EM CINCO LINHAS').count() > 0) {
+        rapidoReachedResult = true
+        break
+      }
+
+      await rapidoPage.waitForTimeout(100)
+    }
+    console.log(`[assert] modo rápido: season landed at the ceremony/seasonResult without any game screen: ${rapidoReachedResult}`)
+    if (!rapidoReachedResult) exitCode = 1
+
+    await rapidoContext.close()
 
     await browser.close()
 
