@@ -1,6 +1,7 @@
 import { useReducer } from 'react'
 import { gameReducer, initialState, loadState } from './state'
 import { Home } from './ui/screens/Home'
+import { Setup } from './ui/screens/Setup'
 import { AttrDraft } from './ui/screens/AttrDraft'
 import { NbaDraft } from './ui/screens/NbaDraft'
 import { Season } from './ui/screens/Season'
@@ -22,6 +23,7 @@ export default function App() {
   const p = state.phase
   const screen =
     p === 'home' ? <Home state={state} dispatch={dispatch} /> :
+    p === 'setupMode' || p === 'setupIdentity' ? <Setup state={state} dispatch={dispatch} /> :
     p === 'attrDraft' || p === 'draftDone' ? <AttrDraft state={state} dispatch={dispatch} /> :
     p === 'nbaDraft' ? <NbaDraft state={state} dispatch={dispatch} /> :
     p === 'verdict' ? <Verdict state={state} dispatch={dispatch} /> :
