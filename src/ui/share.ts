@@ -188,9 +188,9 @@ export function drawShareCard(canvas: HTMLCanvasElement, data: CardData): void {
     ctx.restore()
   })
 
-  // 7. faixa de percentil
-  const pctY = 900
+  // 7. faixa de percentil (flush contra o rodapé — sem papel entre as duas faixas)
   const pctH = 170
+  const pctY = H - 90 - pctH
   ctx.fillStyle = INK
   ctx.fillRect(0, pctY, W, pctH)
   const p = percentileOf(score)
