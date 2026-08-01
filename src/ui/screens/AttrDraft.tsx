@@ -177,7 +177,7 @@ export function AttrDraft({ state, dispatch }: Props) {
           </button>
         )}
 
-        <div className="hint">{t(lang, 'draft.hint')}</div>
+        <div className="hint">{t(lang, goat ? 'draft.goat.hint' : 'draft.hint')}</div>
       </div>
     </div>
   )

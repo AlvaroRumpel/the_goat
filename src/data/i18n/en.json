@@ -493,6 +493,7 @@
   "mode.rapido.line3": "One season in a few taps — ideal for chasing the verdict.",
   "bar.metaId": "{name} · {number} · S{n} · {team}",
   "draft.goat.stealBtn": "Steal {slot}",
+  "draft.goat.hint": "Tap an attribute to pick it. In GOAT mode you steal without seeing the numbers.",
   "card.final": "FINAL BOX SCORE · {from}—{to}",
   "card.mode": "MODE · {mode}",
   "card.verdictLabel": "THE VERDICT",

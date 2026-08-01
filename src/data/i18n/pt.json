@@ -493,6 +493,7 @@
   "mode.rapido.line3": "Uma temporada em poucos toques — ideal pra correr atrás do veredito.",
   "bar.metaId": "{name} · {number} · T{n} · {team}",
   "draft.goat.stealBtn": "Roubar {slot}",
+  "draft.goat.hint": "Toque num atributo pra escolher. No modo GOAT você rouba sem ver os números.",
   "card.final": "SÚMULA FINAL · {from}—{to}",
   "card.mode": "MODO · {mode}",
   "card.verdictLabel": "O VEREDITO",
