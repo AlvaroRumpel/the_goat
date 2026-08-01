@@ -15,6 +15,7 @@ export function AttrDraft({ state, dispatch }: Props) {
   if (state.phase === 'draftDone') return <DraftDone state={state} dispatch={dispatch} />
 
   const lang = state.lang
+  const goat = state.career.mode === 'goat'
   const player = playerById(state.currentPlayerId!)
   const taken = new Map(state.picks.map(pk => [pk.slot, pk]))
   const sel = selected && !taken.has(selected) ? selected : null
@@ -70,7 +71,9 @@ export function AttrDraft({ state, dispatch }: Props) {
               {nameLine1}<br />{nameLine2}
             </div>
             <div className="mono-label" style={{ marginTop: 6 }}>
-              {t(lang, 'draft.legendMeta', { era: t(lang, 'era.' + player.era), slot: t(lang, 'slot.' + globalWeak) })}
+              {goat
+                ? t(lang, 'era.' + player.era)
+                : t(lang, 'draft.legendMeta', { era: t(lang, 'era.' + player.era), slot: t(lang, 'slot.' + globalWeak) })}
             </div>
           </div>
           <div className="mono-ring">{initials}</div>
@@ -121,23 +124,27 @@ export function AttrDraft({ state, dispatch }: Props) {
                     <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase' }}>
                       {t(lang, 'slot.' + slot)}
                     </div>
-                    <div className="mono-label" style={{ marginTop: 4 }}>
-                      {t(lang, 'draft.price', {
-                        slot: t(lang, 'slot.' + weakestSlot(player, slot)),
-                        n: malusAmount(player.attrs[slot]),
-                      })}
-                    </div>
+                    {!goat && (
+                      <div className="mono-label" style={{ marginTop: 4 }}>
+                        {t(lang, 'draft.price', {
+                          slot: t(lang, 'slot.' + weakestSlot(player, slot)),
+                          n: malusAmount(player.attrs[slot]),
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <div className="headline" style={{ fontSize: 22, color: isSel ? 'var(--accent-warm)' : undefined }}>
-                      {player.attrs[slot]}
+                      {goat ? '??' : player.attrs[slot]}
                     </div>
-                    <div
-                      className="mono"
-                      style={{ fontSize: 11, marginTop: 2, color: isSel ? 'var(--on-ink-dim)' : 'var(--dim)' }}
-                    >
-                      {t(lang, 'draft.yours', { legend: player.attrs[slot], yours: '—' })}
-                    </div>
+                    {!goat && (
+                      <div
+                        className="mono"
+                        style={{ fontSize: 11, marginTop: 2, color: isSel ? 'var(--on-ink-dim)' : 'var(--dim)' }}
+                      >
+                        {t(lang, 'draft.yours', { legend: player.attrs[slot], yours: '—' })}
+                      </div>
+                    )}
                   </div>
                 </button>
                 {!isLast && <hr className="rule--soft" />}
@@ -146,7 +153,7 @@ export function AttrDraft({ state, dispatch }: Props) {
           })}
         </div>
 
-        {sel && (
+        {sel && !goat && (
           <div style={{ borderLeft: '2px solid var(--red)', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 13 }}>
               {t(lang, 'draft.preview', { name: player.name, slot: t(lang, 'slot.' + malusSlot!), n: malusN })}
@@ -157,16 +164,18 @@ export function AttrDraft({ state, dispatch }: Props) {
 
         {sel && (
           <button type="button" className="btn btn--primary" onClick={() => steal(sel)}>
-            {t(lang, 'draft.stealBtn', { slot: t(lang, 'slot.' + sel), n: player.attrs[sel] })}
+            {goat ? t(lang, 'draft.goat.stealBtn', { slot: t(lang, 'slot.' + sel) }) : t(lang, 'draft.stealBtn', { slot: t(lang, 'slot.' + sel), n: player.attrs[sel] })}
           </button>
         )}
 
-        <button
-          type="button" className="btn btn--outline" disabled={state.rerollUsed}
-          onClick={reroll}
-        >
-          {state.rerollUsed ? t(lang, 'draft.rerollUsed') : t(lang, 'draft.reroll')}
-        </button>
+        {!goat && (
+          <button
+            type="button" className="btn btn--outline" disabled={state.rerollUsed}
+            onClick={reroll}
+          >
+            {state.rerollUsed ? t(lang, 'draft.rerollUsed') : t(lang, 'draft.reroll')}
+          </button>
+        )}
 
         <div className="hint">{t(lang, 'draft.hint')}</div>
       </div>
