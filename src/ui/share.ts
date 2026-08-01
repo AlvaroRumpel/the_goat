@@ -1,5 +1,5 @@
 import { t, type Lang } from '../i18n'
-import type { Build, Verdict } from '../engine/types'
+import type { GameMode, Verdict } from '../engine/types'
 
 export function shareText(lang: Lang, verdict: Verdict): string {
   return t(lang, 'share.text', {
@@ -10,97 +10,214 @@ export function shareText(lang: Lang, verdict: Verdict): string {
   })
 }
 
+export interface CardData {
+  verdict: Verdict
+  name: string
+  number: number
+  mode: GameMode
+  teamLabel: string
+  seasons: number
+  yearFrom: number
+  yearTo: number
+  memories: { year: number; text: string }[]
+  lang: Lang
+}
+
+// Tabela fixa de faixas de legado → percentil (apresentação, não fórmula travada;
+// aproximada das distribuições do harness de calibração).
+const PERCENTILE_BANDS: Array<[number, number]> = [
+  [1950, 99], [1400, 96], [1000, 88], [700, 72], [450, 52], [250, 30], [0, 10],
+]
+export function percentileOf(score: number): number {
+  return PERCENTILE_BANDS.find(([min]) => score >= min)![1]
+}
+
 const W = 1080
 const H = 1350
-const CX = W / 2
+const PAD = 52
 
-// ponytail: build is part of the interface contract (brief) but the approved
-// card design doesn't render anything from it. Kept unused rather than
-// inventing a use for it.
-export function drawShareCard(canvas: HTMLCanvasElement, verdict: Verdict, _build: Build, lang: Lang): void {
+const INK = '#1C1A16'
+const PAPER = '#EDE6D6'
+const RED = '#A8231C'
+const LABEL = '#6B6455'
+const CELL_BG = '#C6BCA2'
+const GOLD = '#E8B24A'
+const TRACKING = '4px'
+
+function hasLetterSpacing(ctx: CanvasRenderingContext2D): boolean {
+  return 'letterSpacing' in ctx
+}
+
+// Rótulo mono, uppercase, com tracking largo (letterSpacing nativo se disponível;
+// senão espaçamento manual simples via join — cobre o design mas não é pixel-perfect).
+function label(
+  ctx: CanvasRenderingContext2D, text: string, x: number, y: number,
+  opts: { size: number; color: string; align?: CanvasTextAlign },
+): void {
+  ctx.save()
+  ctx.font = `${opts.size}px "IBM Plex Mono", monospace`
+  ctx.fillStyle = opts.color
+  ctx.textAlign = opts.align ?? 'left'
+  ctx.textBaseline = 'alphabetic'
+  const upper = text.toUpperCase()
+  if (hasLetterSpacing(ctx)) {
+    ;(ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = TRACKING
+    ctx.fillText(upper, x, y)
+  } else {
+    ctx.fillText(upper.split('').join(' '), x, y)
+  }
+  ctx.restore()
+}
+
+function black(
+  ctx: CanvasRenderingContext2D, text: string, x: number, y: number,
+  opts: { size: number; color: string; align?: CanvasTextAlign },
+): void {
+  ctx.save()
+  ctx.font = `${opts.size}px "Archivo Black", sans-serif`
+  ctx.fillStyle = opts.color
+  ctx.textAlign = opts.align ?? 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText(text.toUpperCase(), x, y)
+  ctx.restore()
+}
+
+export function drawShareCard(canvas: HTMLCanvasElement, data: CardData): void {
   canvas.width = W
   canvas.height = H
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  const { totals, counts, tier } = verdict
+  const { verdict, lang } = data
+  const { totals, counts, tier, score } = verdict
+  const fmtPoints = totals.points.toLocaleString(lang === 'pt' ? 'pt-BR' : 'en-US')
 
-  // bg
-  ctx.fillStyle = '#0d0b08'
+  // 1. fundo
+  ctx.fillStyle = PAPER
   ctx.fillRect(0, 0, W, H)
 
-  // radial gold glow, top-center
-  const glow = ctx.createRadialGradient(CX, 80, 0, CX, 80, 500)
-  glow.addColorStop(0, 'rgba(212,167,60,0.22)')
-  glow.addColorStop(1, 'rgba(212,167,60,0)')
-  ctx.fillStyle = glow
-  ctx.fillRect(0, 0, W, H)
+  // 2. cabeçalho
+  label(ctx, t(lang, 'card.final', { from: data.yearFrom, to: data.yearTo }), PAD, 64, { size: 22, color: LABEL })
+  label(ctx, t(lang, 'card.mode', { mode: t(lang, 'mode.' + data.mode + '.name') }), W - PAD, 64, { size: 22, color: LABEL, align: 'right' })
 
-  ctx.textAlign = 'center'
+  // 3. filete duplo vermelho
+  ctx.fillStyle = RED
+  ctx.fillRect(PAD, 92, W - PAD * 2, 3)
+  ctx.fillRect(PAD, 97, W - PAD * 2, 3)
 
-  // kicker
-  ctx.fillStyle = '#d4a73c'
-  ctx.font = 'bold 28px "Archivo", sans-serif'
-  ctx.fillText(t(lang, 'share.card.kicker'), CX, 140)
+  // 4. bloco de identidade
+  label(ctx, t(lang, 'card.verdictLabel'), PAD, 150, { size: 22, color: LABEL })
 
-  // tier name, huge serif, gold gradient, auto-shrink to fit width
   const tierLabel = t(lang, 'tier.' + tier)
-  let tierSize = 140
-  ctx.font = `${tierSize}px "Marcellus", serif`
-  const maxTierWidth = W - 120
-  while (ctx.measureText(tierLabel).width > maxTierWidth && tierSize > 40) {
+  let tierSize = 168
+  ctx.font = `${tierSize}px "Archivo Black", sans-serif`
+  const maxTierWidth = W - 300
+  while (ctx.measureText(tierLabel.toUpperCase()).width > maxTierWidth && tierSize > 40) {
     tierSize -= 4
-    ctx.font = `${tierSize}px "Marcellus", serif`
+    ctx.font = `${tierSize}px "Archivo Black", sans-serif`
   }
-  const tierY = 420
-  const tierGrad = ctx.createLinearGradient(0, tierY - tierSize, 0, tierY + 20)
-  tierGrad.addColorStop(0, '#efc75e')
-  tierGrad.addColorStop(1, '#8a6b22')
-  ctx.fillStyle = tierGrad
-  ctx.fillText(tierLabel, CX, tierY)
+  black(ctx, tierLabel, PAD, 320, { size: tierSize, color: RED })
 
-  // thin gold rule under tier
-  const ruleY = 480
-  const ruleGrad = ctx.createLinearGradient(CX - 200, 0, CX + 200, 0)
-  ruleGrad.addColorStop(0, 'rgba(212,167,60,0)')
-  ruleGrad.addColorStop(0.5, '#d4a73c')
-  ruleGrad.addColorStop(1, 'rgba(212,167,60,0)')
-  ctx.fillStyle = ruleGrad
-  ctx.fillRect(CX - 200, ruleY, 400, 2)
+  ctx.save()
+  ctx.font = '700 40px "Archivo", sans-serif'
+  ctx.fillStyle = INK
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText(data.name.toUpperCase(), PAD, 370)
+  ctx.restore()
 
-  // stat columns: rings, mvps, points
-  const stats: { value: number | string; label: string; gold: boolean }[] = [
-    { value: counts.ring, label: t(lang, 'verdict.rings'), gold: true },
-    { value: counts.mvp, label: t(lang, 'verdict.mvps'), gold: false },
-    { value: totals.points, label: t(lang, 'verdict.points'), gold: false },
+  label(ctx, t(lang, 'card.teamSeasons', { team: data.teamLabel, n: data.seasons }), PAD, 410, { size: 24, color: LABEL })
+
+  const boxSize = 192
+  const boxX = W - PAD - boxSize
+  const boxY = 150
+  ctx.save()
+  ctx.strokeStyle = INK
+  ctx.lineWidth = 4
+  ctx.strokeRect(boxX + 2, boxY + 2, boxSize - 4, boxSize - 4)
+  ctx.restore()
+  black(ctx, String(data.number), boxX + boxSize / 2, boxY + boxSize / 2 + 36, { size: 104, color: INK, align: 'center' })
+
+  // 5. grade de 4 números
+  const gridY = 470
+  const gridH = 150
+  const gridW = W - PAD * 2
+  const gap = 2
+  const colW = (gridW - gap * 3) / 4
+  ctx.fillStyle = CELL_BG
+  ctx.fillRect(PAD, gridY, gridW, gridH)
+  const stats: { label: string; value: string; color: string }[] = [
+    { label: t(lang, 'card.points'), value: fmtPoints, color: INK },
+    { label: t(lang, 'card.rings'), value: String(counts.ring), color: INK },
+    { label: t(lang, 'card.mvps'), value: String(counts.mvp), color: INK },
+    { label: t(lang, 'card.legacy'), value: String(score), color: RED },
   ]
-  const colY = 700
-  const labelY = colY + 50
   stats.forEach((s, i) => {
-    const x = (W / 3) * (i + 0.5)
-    ctx.font = '64px "Marcellus", serif'
-    ctx.fillStyle = s.gold ? '#efc75e' : '#f1ead8'
-    ctx.fillText(String(s.value), x, colY)
-    ctx.font = 'bold 20px "Archivo", sans-serif'
-    ctx.fillStyle = '#9c9080'
-    ctx.fillText(s.label.toUpperCase(), x, labelY)
+    const cellX = PAD + i * (colW + gap)
+    ctx.fillStyle = PAPER
+    ctx.fillRect(cellX, gridY, colW, gridH)
+    const padding = 24
+    label(ctx, s.label, cellX + padding, gridY + padding + 18, { size: 18, color: LABEL })
+    black(ctx, s.value, cellX + padding, gridY + gridH - padding, { size: 48, color: s.color })
   })
 
-  // footer
-  ctx.font = '32px "Archivo", sans-serif'
-  ctx.fillStyle = '#9c9080'
-  ctx.fillText(t(lang, 'share.card.seasons', { n: totals.seasons, allstars: counts.allstar }), CX, 1150)
-  ctx.fillText(t(lang, 'share.card.hook'), CX, 1200)
+  // 6. memórias
+  const memY = 680
+  label(ctx, t(lang, 'card.memory'), PAD, memY, { size: 22, color: LABEL })
+  const rowH = 56
+  data.memories.slice(0, 2).forEach((m, i) => {
+    const rowY = memY + 40 + i * rowH
+    if (i > 0) {
+      ctx.fillStyle = '#DCD3BE'
+      ctx.fillRect(PAD, rowY - rowH + 20, W - PAD * 2, 1)
+    }
+    ctx.save()
+    ctx.font = '24px "IBM Plex Mono", monospace'
+    ctx.fillStyle = RED
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(String(m.year), PAD, rowY)
+    ctx.restore()
 
-  // bottom branding
-  ctx.font = 'bold 24px "Archivo", sans-serif'
-  ctx.fillStyle = '#5c543f'
-  ctx.fillText('THE GOAT', CX, 1300)
+    ctx.save()
+    ctx.font = '30px "Archivo", sans-serif'
+    ctx.fillStyle = INK
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(m.text, PAD + 76, rowY)
+    ctx.restore()
+  })
 
-  // vignette
-  const vignette = ctx.createRadialGradient(CX, H / 2, H * 0.35, CX, H / 2, H * 0.75)
-  vignette.addColorStop(0, 'rgba(0,0,0,0)')
-  vignette.addColorStop(1, 'rgba(0,0,0,0.55)')
-  ctx.fillStyle = vignette
-  ctx.fillRect(0, 0, W, H)
+  // 7. faixa de percentil
+  const pctY = 900
+  const pctH = 170
+  ctx.fillStyle = INK
+  ctx.fillRect(0, pctY, W, pctH)
+  const p = percentileOf(score)
+  label(ctx, t(lang, 'card.pct', { p }), PAD, pctY + 46, { size: 22, color: '#A79C86' })
+  label(ctx, t(lang, 'card.tierSub.' + tier), W - PAD, pctY + 46, { size: 22, color: GOLD, align: 'right' })
+
+  const barY = pctY + 74
+  const barH = 14
+  const barW = W - PAD * 2
+  ctx.fillStyle = '#3D382D'
+  ctx.fillRect(PAD, barY, barW, barH)
+  ctx.fillStyle = GOLD
+  ctx.fillRect(PAD, barY, barW * (p / 100), barH)
+
+  const scaleKeys = ['reserva', 'titular', 'estrela', 'lenda', 'goat']
+  const scaleY = barY + barH + 34
+  scaleKeys.forEach((key, i) => {
+    const align: CanvasTextAlign = i === 0 ? 'left' : i === scaleKeys.length - 1 ? 'right' : 'center'
+    const x = PAD + (barW * i) / (scaleKeys.length - 1)
+    label(ctx, t(lang, 'card.scale.' + key), x, scaleY, { size: 18, color: '#8B8171', align })
+  })
+
+  // 8. rodapé vermelho
+  const footH = 90
+  const footY = H - footH
+  ctx.fillStyle = RED
+  ctx.fillRect(0, footY, W, footH)
+  black(ctx, 'THE GOAT', PAD, footY + footH / 2 + 12, { size: 30, color: '#F6F0E4' })
+  label(ctx, t(lang, 'share.card.hook'), W - PAD, footY + footH / 2 + 8, { size: 22, color: '#F0C4C0', align: 'right' })
 }

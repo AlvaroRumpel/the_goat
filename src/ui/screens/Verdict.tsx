@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import type { Award } from '../../engine/types'
-import { drawShareCard, shareText } from '../share'
+import { teamById } from '../../data/teams'
+import { drawShareCard, shareText, type CardData } from '../share'
 import { CareerBar } from '../components/CareerBar'
 import { Icon } from '../components/Icon'
 
@@ -21,12 +22,25 @@ export function Verdict({ state, dispatch }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [copied, setCopied] = useState(false)
 
+  const finalTeamId = state.career.seasons.at(-1)?.finalTeamId
+  const finalTeam = finalTeamId ? teamById(finalTeamId) : null
+  const teamLabel = finalTeam ? `${finalTeam.id.toUpperCase()} ${finalTeam.name.toUpperCase()}` : ''
+  const memories = state.career.seasons
+    .flatMap((s, i) => s.iconicMoments.map(id => ({ year: state.leagueHistory[i]?.year ?? 0, text: t(lang, 'iconic.' + id) })))
+    .slice(0, 2)
+
   useEffect(() => {
     const canvas = canvasRef.current
-    const build = state.build
-    if (!canvas || !build) return
-    document.fonts.ready.then(() => drawShareCard(canvas, verdict, build, lang))
-  }, [lang, state.build, verdict])
+    if (!canvas) return
+    const data: CardData = {
+      verdict, name: state.career.name, number: state.career.number ?? 0, mode: state.career.mode ?? 'normal',
+      teamLabel, seasons: state.career.seasons.length,
+      yearFrom: state.leagueHistory[0]?.year ?? 0, yearTo: state.leagueHistory.at(-1)?.year ?? 0,
+      memories, lang,
+    }
+    document.fonts.ready.then(() => drawShareCard(canvas, data))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, verdict, state.career, state.leagueHistory, teamLabel])
 
   async function handleShare() {
     const text = shareText(lang, verdict)

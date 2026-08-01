@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { shareText } from '../src/ui/share'
+import { percentileOf, shareText } from '../src/ui/share'
 import type { Verdict } from '../src/engine/types'
 
 const v: Verdict = {
@@ -13,4 +13,14 @@ test('shareText fills template', () => {
   expect(s).toContain('5')      // rings
   expect(s).toContain('30000')  // points
   expect(s).toContain('🐐')
+})
+
+test('percentil é monotônico e bate as faixas', () => {
+  expect(percentileOf(2000)).toBe(99)
+  expect(percentileOf(1500)).toBe(96)
+  expect(percentileOf(100)).toBe(10)
+  let prev = -1
+  for (const s of [0, 200, 400, 600, 900, 1200, 1600, 2000]) {
+    expect(percentileOf(s)).toBeGreaterThanOrEqual(prev); prev = percentileOf(s)
+  }
 })
