@@ -64,7 +64,7 @@ function label(
     ;(ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = TRACKING
     ctx.fillText(upper, x, y)
   } else {
-    ctx.fillText(upper.split('').join(' '), x, y)
+    ctx.fillText(upper, x, y)
   }
   ctx.restore()
 }

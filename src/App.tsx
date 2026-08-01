@@ -18,7 +18,9 @@ export default function App() {
     if (saved.phase === 'home') return saved
     // boot sempre na Home; nada é persistido até o primeiro dispatch (spec §4)
     const midSetup = saved.phase === 'setupMode' || saved.phase === 'setupIdentity'
-    return { ...saved, phase: 'home' as const, resumePhase: midSetup ? null : saved.phase, hubOpen: false }
+    // Save só é apagado em BEGIN_CAREER ("Começar a carreira", irreversível) — abrir/
+    // navegar o Setup preserva o resumePhase do save anterior (Setup não tem back).
+    return { ...saved, phase: 'home' as const, resumePhase: midSetup ? (saved.resumePhase ?? null) : saved.phase, hubOpen: false }
   })
   const p = state.phase
   const screen =
