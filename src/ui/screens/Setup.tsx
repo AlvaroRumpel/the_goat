@@ -179,26 +179,27 @@ function ModeStep({ state, dispatch }: Props) {
         {MODE_ORDER.map((id, i) => {
           const isSel = id === sel
           const isLast = i === MODE_ORDER.length - 1
+          const lines = (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+              {LINE_KEYS.map((lineKey, li) => (
+                <div key={lineKey} style={{ display: 'flex' }}>
+                  <span className="mono" style={{ fontSize: 11, color: isSel ? 'var(--accent-warm)' : 'var(--red)', width: 14 }}>
+                    {String(li + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ fontSize: 12.5, lineHeight: 1.45 }}>{t(lang, `mode.${id}.${lineKey}`)}</span>
+                </div>
+              ))}
+            </div>
+          )
           if (isSel) {
             return (
               <div key={id}>
-                <div className="strip strip--ink" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 13 }}>
+                <div className="strip strip--ink" style={{ padding: '16px 18px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="headline" style={{ fontSize: 15 }}>{t(lang, `mode.${id}.name`)}</div>
                     <span className="mono-label" style={{ color: 'var(--accent-warm)' }}>{t(lang, 'setup.chosen')}</span>
                   </div>
-                  <hr style={{ border: 'none', borderTop: '1px solid var(--ink-3)', margin: 0 }} />
-                  <span className="mono-label" style={{ fontSize: 9 }}>{t(lang, 'setup.how')}</span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {LINE_KEYS.map((lineKey, li) => (
-                      <div key={lineKey} style={{ display: 'flex' }}>
-                        <span className="mono" style={{ fontSize: 11, color: 'var(--accent-warm)', width: 14 }}>
-                          {String(li + 1).padStart(2, '0')}
-                        </span>
-                        <span style={{ fontSize: 12.5, lineHeight: 1.45 }}>{t(lang, `mode.${id}.${lineKey}`)}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {lines}
                 </div>
                 {!isLast && <hr className="rule" />}
               </div>
@@ -209,16 +210,13 @@ function ModeStep({ state, dispatch }: Props) {
               <button
                 type="button"
                 onClick={() => setSel(id)}
-                style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%',
-                  textAlign: 'left', padding: '15px 0',
-                }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', padding: '15px 0' }}
               >
-                <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: 15, fontWeight: 700, textTransform: 'uppercase' }}>{t(lang, `mode.${id}.name`)}</div>
-                  <div style={{ fontSize: 12, marginTop: 4, color: 'var(--body-dim)' }}>{t(lang, `mode.${id}.desc`)}</div>
+                  <span className="mono" style={{ fontSize: 10 }}>{t(lang, `mode.${id}.meta`)}</span>
                 </div>
-                <span className="mono" style={{ fontSize: 10 }}>{t(lang, `mode.${id}.meta`)}</span>
+                {lines}
               </button>
               {!isLast && <hr className="rule" />}
             </div>
