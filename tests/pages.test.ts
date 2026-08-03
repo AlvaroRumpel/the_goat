@@ -32,3 +32,20 @@ describe('páginas estáticas PT', () => {
     expect(text.split(/\s+/).filter(Boolean).length).toBeGreaterThan(500)
   })
 })
+
+const EN_PAGES: Array<[string, string, string]> = [
+  ['en/how-to-play.html', '/en/how-to-play', '/como-jogar'],
+  ['en/about.html', '/en/about', '/sobre'],
+  ['en/privacy.html', '/en/privacy', '/privacidade'],
+]
+
+describe('páginas estáticas EN', () => {
+  it.each(EN_PAGES)('%s existe com canonical e hreflang cruzado', (file, path, ptPath) => {
+    expect(existsSync(resolve(file))).toBe(true)
+    const html = readPage(file)
+    expect(html).toContain(`<link rel="canonical" href="${ORIGIN}${path}" />`)
+    expect(html).toContain(`hreflang="en" href="${ORIGIN}${path}"`)
+    expect(html).toContain(`hreflang="pt-BR" href="${ORIGIN}${ptPath}"`)
+    expect(html).toContain('lang="en"')
+  })
+})
