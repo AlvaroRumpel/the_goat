@@ -247,7 +247,7 @@ function SeriesScreen({ state, dispatch }: Props) {
   const seriesOver = pp.seriesThem === 3
 
   return (
-    <div className="screen screen--wide">
+    <div className="screen">
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'game.round.' + pp.bracket.round)}</div>
