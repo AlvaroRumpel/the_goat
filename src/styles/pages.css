@@ -1,0 +1,25 @@
+/* Tema jornal para as páginas estáticas de conteúdo (fora do app React). */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700&family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import './tokens.css';
+
+* { margin: 0; box-sizing: border-box; }
+body.page {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  line-height: 1.55;
+}
+.page-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--dim); }
+.page-rule { border: 0; height: 3px; background: var(--red); margin: 10px 0 0; }
+.page-rule + .page-rule { margin-top: 4px; }
+.page h1 { font-family: var(--black); font-size: 42px; line-height: 0.95; letter-spacing: -0.02em; color: var(--red); margin: 28px 0 18px; }
+.page h2 { font-family: var(--black); font-size: 22px; margin: 32px 0 10px; }
+.page p, .page li { font-size: 16px; margin-bottom: 12px; }
+.page ul, .page ol { padding-left: 22px; margin-bottom: 12px; }
+.page a { color: var(--red); }
+.page header a, .page footer a { font-family: var(--mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; }
+.page header { display: flex; justify-content: space-between; align-items: baseline; }
+.page footer { margin-top: 48px; border-top: 1px solid var(--ink); padding-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; }
