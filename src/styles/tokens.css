@@ -18,7 +18,6 @@
   --dim: #6B6455;        /* rótulos mono e valores secundários */
   --body-dim: #3A362E;   /* corpo secundário */
   --accent-warm: #E8B24A;/* SÓ dentro de faixa preta (relógio, ganho, OVR) */
-  --canvas: #17150F;     /* fundo fora do app (desktop) */
 
   --sans: 'Archivo', sans-serif;
   --black: 'Archivo Black', sans-serif;

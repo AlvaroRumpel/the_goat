@@ -14,7 +14,7 @@ body,
 }
 
 body {
-  background: var(--canvas);
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
