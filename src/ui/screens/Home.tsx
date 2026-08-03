@@ -76,16 +76,18 @@ export function Home({ state, dispatch }: Props) {
           </>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
-          <span className="mono-label">{t(lang, 'settings.timePressure')}</span>
-          <button
-            type="button"
-            className={`chip${state.timePressure ? ' chip--on' : ''}`}
-            onClick={() => dispatch({ type: 'TOGGLE_TIME_PRESSURE' })}
-          >
-            {t(lang, state.timePressure ? 'settings.on' : 'settings.off')}
-          </button>
-        </div>
+        {resumePhase !== null && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0' }}>
+            <span className="mono-label">{t(lang, 'settings.timePressure')}</span>
+            <button
+              type="button"
+              className={`chip${state.timePressure ? ' chip--on' : ''}`}
+              onClick={() => dispatch({ type: 'TOGGLE_TIME_PRESSURE' })}
+            >
+              {t(lang, state.timePressure ? 'settings.on' : 'settings.off')}
+            </button>
+          </div>
+        )}
 
         <button
           type="button"

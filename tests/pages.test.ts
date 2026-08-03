@@ -65,6 +65,13 @@ describe('sitemap e robots', () => {
   })
 })
 
+describe('CTA de bloco nas páginas de guia', () => {
+  it('guia PT e EN têm CTA de bloco', () => {
+    expect(readPage('como-jogar.html')).toContain('class="page-cta"')
+    expect(readPage('en/how-to-play.html')).toContain('class="page-cta"')
+  })
+})
+
 describe('ad slots nas páginas estáticas', () => {
   const PAGES = ['como-jogar.html', 'sobre.html', 'privacidade.html', 'en/how-to-play.html', 'en/about.html', 'en/privacy.html']
   it.each(PAGES)('%s tem div de ad slot', file => {
