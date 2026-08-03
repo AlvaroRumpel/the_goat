@@ -78,3 +78,13 @@ describe('ad slots nas páginas estáticas', () => {
     expect(readPage(file)).toContain('class="ad-slot" data-slot="page"')
   })
 })
+
+describe('AdSense (verificação do site)', () => {
+  const ALL_HTML = ['index.html', 'como-jogar.html', 'sobre.html', 'privacidade.html', 'en/how-to-play.html', 'en/about.html', 'en/privacy.html']
+  it.each(ALL_HTML)('%s carrega o script adsbygoogle com o pub id', file => {
+    expect(readPage(file)).toContain('adsbygoogle.js?client=ca-pub-3920668331202711')
+  })
+  it('ads.txt declara o publisher', () => {
+    expect(readPage('public/ads.txt')).toContain('google.com, pub-3920668331202711, DIRECT, f08c47fec0942fa0')
+  })
+})
