@@ -4,7 +4,6 @@
   "home.play": "Nova carreira",
   "home.continue": "RETOMAR →",
   "draft.round": "Rodada {n} de 8",
-  "draft.preview": "Se você roubar, herda a fraqueza de {name}: {slot} −{n}",
   "draft.stealBtn": "Roubar {slot} {n}",
   "draft.reroll": "Sortear outro jogador · 1 restante",
   "draft.rerollUsed": "Sorteio extra já usado",

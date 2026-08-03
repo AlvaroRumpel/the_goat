@@ -4,7 +4,6 @@
   "home.play": "New career",
   "home.continue": "RESUME →",
   "draft.round": "Round {n} of 8",
-  "draft.preview": "Stealing inherits {name}'s weakness: {slot} −{n}",
   "draft.stealBtn": "Steal {slot} {n}",
   "draft.reroll": "Draw another player · 1 left",
   "draft.rerollUsed": "Extra draw already used",
