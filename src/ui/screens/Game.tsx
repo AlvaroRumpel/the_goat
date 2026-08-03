@@ -123,7 +123,7 @@ function MomentPanel({ state, dispatch }: Props) {
         </div>
 
         <div className="game-plays" ref={playsRef} onClick={reveal.skip}>
-          {reveal.shown === 0 && (
+          {reveal.shown === 0 && reveal.typing === null && (
             <div className="game-play game-play--pending">
               <span className="mono-label">{t(lang, 'game.warmup')}</span>
             </div>
