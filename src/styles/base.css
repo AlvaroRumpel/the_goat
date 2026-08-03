@@ -48,8 +48,12 @@ button {
 }
 @media (min-width: 900px) {
   .screen {
-    max-width: 1280px;
+    max-width: 560px;
     padding: 0 32px calc(48px + var(--ad-h) + env(safe-area-inset-bottom, 0px));
+  }
+  .screen--wide,
+  .hub .screen {
+    max-width: 1280px;
   }
 }
 

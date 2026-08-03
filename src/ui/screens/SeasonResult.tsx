@@ -51,7 +51,7 @@ export function SeasonResult({ state, dispatch }: Props) {
 
   if (view === 'ceremony') {
     return (
-      <div className="screen">
+      <div className="screen screen--wide">
         <CareerBar state={state} dispatch={dispatch} heavy />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, alignItems: 'center', textAlign: 'center', flex: 1, justifyContent: 'center' }}>
           <div className="mono-label">{t(lang, 'ceremony.title')} · {year}</div>
@@ -96,7 +96,7 @@ export function SeasonResult({ state, dispatch }: Props) {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--wide">
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div className="result">
         <div className="strip strip--red result__banner">

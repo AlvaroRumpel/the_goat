@@ -112,7 +112,7 @@ function MomentPanel({ state, dispatch }: Props) {
   }, [moment, dispatch, state.hubOpen, reveal.done])
 
   return (
-    <div className="screen">
+    <div className="screen screen--wide">
       <CareerBar state={state} dispatch={dispatch} />
       <GameHeader state={state} />
       <div className="game-layout">
@@ -247,7 +247,7 @@ function SeriesScreen({ state, dispatch }: Props) {
   const seriesOver = pp.seriesThem === 3
 
   return (
-    <div className="screen">
+    <div className="screen screen--wide">
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div className="mono-label" style={{ textAlign: 'center' }}>{t(lang, 'game.round.' + pp.bracket.round)}</div>
