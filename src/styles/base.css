@@ -588,10 +588,13 @@ button {
 }
 .game-play--decision { border-left: 2px solid var(--red); margin-left: -12px; padding-left: 10px; }
 .game-play--typing span:last-child::after { content: '▌'; color: var(--red); }
+.game-play--pending { opacity: 0.55; animation: pending-pulse 1.6s ease-in-out infinite; }
+@keyframes pending-pulse { 50% { opacity: 0.25; } }
 /* reduce desliga só o cosmético (fade/cursor) — o ritmo do relógio é conteúdo e fica */
 @media (prefers-reduced-motion: reduce) {
   .game-play { animation: none; }
   .game-play--typing span:last-child::after { content: ''; }
+  .game-play--pending { animation: none; }
 }
 .game-decision { background: var(--ink); color: var(--on-ink); margin: 0 -22px; margin-top: auto;
   padding: 16px 22px calc(16px + var(--ad-h)); display: flex; flex-direction: column; gap: 12px; }
@@ -601,7 +604,8 @@ button {
 .clutch-timer__num { position: absolute; right: 0; top: 8px; font-size: 10px; color: var(--red); }
 .game-option { background: var(--ink-2); color: var(--on-ink); padding: 12px 14px; text-align: left;
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border: 0; }
-.game-option--bold { background: var(--paper); color: var(--ink); }
+.game-option--bold { border-left: 3px solid var(--accent-warm); }
+.game-option--reckless { border-left: 3px solid var(--red); background: var(--red); color: var(--on-red); }
 .moment-strip { display: flex; gap: 8px; }
 .moment-card { flex: 1; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
 .moment-card--done { background: var(--paper-3); border: 1px solid var(--rule); opacity: 0.7; }
@@ -626,7 +630,7 @@ button {
   .game-side { grid-column: 2; grid-row: 1 / span 2; border-left: 1px solid var(--rule);
     padding-left: 24px; margin-left: 24px; display: flex; flex-direction: column; gap: 18px; }
   .game-side .moment-strip { flex-direction: column; }
-  .game-side .game-decision { margin: auto 0 0; }
+  .game-side .game-decision { margin: 0; }
 }
 
 /* aposentadoria (3c) — papel de carta, única manchete não-Black do app */

@@ -130,6 +130,7 @@
   "game.now": "NOW",
   "game.keys": "KEYS 1 · 2 · 3 CHOOSE",
   "game.clutchTimer": "8 SECONDS TO DECIDE",
+  "game.warmup": "TIP-OFF · GAME ABOUT TO START",
   "game.tutorial": "Safe hits more often and is worth less. Bold hits less and is worth more — it pays off once your attributes are high. Reckless never pays off on average, but carries the biggest prize. Closing it safe, however well you play it, never makes an iconic moment.",
   "moment.openTone.label": "1Q · THE TONE",
   "moment.openTone.s0": "Tip-off done, first possession against the {opp}. The game has no shape yet — you decide the tone right away.",
