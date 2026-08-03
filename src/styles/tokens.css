@@ -19,6 +19,7 @@
   --body-dim: #3A362E;   /* corpo secundário */
   --accent-warm: #E8B24A;/* SÓ dentro de faixa preta (relógio, ganho, OVR) */
   --canvas: #17150F;     /* fundo fora do app (desktop) */
+  --ad-h: 0px;           /* altura reservada pro banner fixo — ciclo 3 liga (ex.: 60px) */
 
   --sans: 'Archivo', sans-serif;
   --black: 'Archivo Black', sans-serif;

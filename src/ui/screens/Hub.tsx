@@ -7,6 +7,7 @@ import { SLOT_ORDER, type Award } from '../../engine/types'
 import { StandingsTable } from '../components/LeaguePanels'
 import { Crest } from '../components/Crest'
 import { Icon } from '../components/Icon'
+import { AdSlot } from '../components/AdSlot'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
 
@@ -200,6 +201,7 @@ export function Hub({ state, dispatch }: Props) {
               </button>
             </div>
           </section>
+          <AdSlot slot="pause" />
         </div>
       </div>
     </div>

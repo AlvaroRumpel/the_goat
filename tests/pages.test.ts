@@ -64,3 +64,10 @@ describe('sitemap e robots', () => {
     expect(txt).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`)
   })
 })
+
+describe('ad slots nas páginas estáticas', () => {
+  const PAGES = ['como-jogar.html', 'sobre.html', 'privacidade.html', 'en/how-to-play.html', 'en/about.html', 'en/privacy.html']
+  it.each(PAGES)('%s tem div de ad slot', file => {
+    expect(readPage(file)).toContain('class="ad-slot" data-slot="page"')
+  })
+})

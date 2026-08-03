@@ -41,7 +41,7 @@ button {
   min-height: 100dvh;
   max-width: 430px;
   margin: 0 auto;
-  padding: 0 22px 40px;
+  padding: 0 22px calc(40px + var(--ad-h) + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   background: var(--paper);
@@ -49,7 +49,7 @@ button {
 @media (min-width: 900px) {
   .screen {
     max-width: 1280px;
-    padding: 0 32px 48px;
+    padding: 0 32px calc(48px + var(--ad-h) + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -421,6 +421,7 @@ button {
   overflow-y: auto;
   background: var(--paper);
   z-index: 20;
+  padding-bottom: var(--ad-h);
 }
 .hub__inner {
   gap: 24px;
@@ -589,7 +590,7 @@ button {
   .game-play--typing span:last-child::after { content: ''; }
 }
 .game-decision { background: var(--ink); color: var(--on-ink); margin: 0 -22px; margin-top: auto;
-  padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+  padding: 16px 22px calc(16px + var(--ad-h)); display: flex; flex-direction: column; gap: 12px; }
 .game-decision__options { display: flex; flex-direction: column; gap: 1px; background: var(--ink-3); }
 .clutch-timer { position: relative; height: 6px; background: var(--ink-3); margin: 0 0 10px; }
 .clutch-timer__bar { height: 100%; background: var(--red); transition: width 100ms linear; }
@@ -690,3 +691,7 @@ button {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- ad slots (ciclo 2: placeholders; ciclo 3 preenche) --- */
+.ad-bar { position: fixed; left: 0; right: 0; bottom: 0; height: var(--ad-h); z-index: 40; }
+.ad-slot:empty { display: none; }
