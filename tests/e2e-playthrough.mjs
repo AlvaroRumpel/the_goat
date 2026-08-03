@@ -528,6 +528,11 @@ async function main() {
     await noTimerPage.reload()
 
     log('timePressure off: toggle the Home chip, draft to first keyGame, reach the clutch moment')
+    // the toggle only renders once a save exists (resumePhase !== null) — create a throwaway
+    // career first, reload to land on Home with RETOMAR + the toggle, flip it off, then
+    // "Nova carreira" wipes that save but preserves the timePressure choice (state.ts:637).
+    await newCareer(noTimerPage)
+    await noTimerPage.reload()
     await noTimerPage.locator('button.chip', { hasText: 'LIGADO' }).click()
     await newCareer(noTimerPage)
     for (let i = 0; i < 8; i++) {

@@ -24,3 +24,4 @@ body.page {
 .page header { display: flex; justify-content: space-between; align-items: baseline; }
 .page footer { margin-top: 48px; border-top: 1px solid var(--ink); padding-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; }
 .page-cta { display: block; background: var(--red); color: var(--paper); font-family: var(--black); text-transform: uppercase; letter-spacing: 0.06em; text-align: center; padding: 16px 20px; margin: 28px 0 8px; text-decoration: none; font-size: 16px; }
+.page a.page-cta { color: var(--paper); }
