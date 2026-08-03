@@ -120,7 +120,7 @@ export function RaceBars(props: { races: AwardRace[]; lang: Lang }) {
         return (
           <div key={race.award} className="result__race">
             <div className="mono-label">
-              {t(lang, 'award.' + race.award)} — {leader ? (leader.id === 'you' ? t(lang, 'races.you') : leader.name) : '—'}
+              {t(lang, 'award.' + race.award)} — {leader ? (leader.id === 'you' ? t(lang, 'races.you') : leader.name) : t(lang, 'races.none')}
             </div>
             {leader && (
               <div className="bar"><div className="bar__fill" style={{ width: '100%' }} /></div>

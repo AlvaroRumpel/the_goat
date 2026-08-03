@@ -18,6 +18,7 @@
   --dim: #6B6455;        /* rótulos mono e valores secundários */
   --body-dim: #3A362E;   /* corpo secundário */
   --accent-warm: #E8B24A;/* SÓ dentro de faixa preta (relógio, ganho, OVR) */
+  --ad-h: 0px;           /* altura reservada pro banner fixo — ciclo 3 liga (ex.: 60px) */
 
   --sans: 'Archivo', sans-serif;
   --black: 'Archivo Black', sans-serif;

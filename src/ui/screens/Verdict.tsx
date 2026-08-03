@@ -6,6 +6,7 @@ import { teamById } from '../../data/teams'
 import { drawShareCard, shareText, type CardData } from '../share'
 import { CareerBar } from '../components/CareerBar'
 import { Icon } from '../components/Icon'
+import { AdSlot } from '../components/AdSlot'
 
 interface Props {
   state: GameState
@@ -123,9 +124,10 @@ export function Verdict({ state, dispatch }: Props) {
 
           <canvas
             ref={canvasRef}
-            style={{ width: '100%', maxWidth: 280, aspectRatio: '1080 / 1350', border: '1px solid var(--on-red-dim)', borderRadius: 8, margin: '0 auto' }}
+            style={{ display: 'none' }}
           />
 
+          <AdSlot slot="pause" />
           <button type="button" className="btn btn--primary" style={{ width: '100%' }} onClick={handleShare}>
             {t(lang, copied ? 'share.copied' : 'share.button')}
           </button>

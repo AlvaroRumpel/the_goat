@@ -112,7 +112,7 @@ function MomentPanel({ state, dispatch }: Props) {
   }, [moment, dispatch, state.hubOpen, reveal.done])
 
   return (
-    <div className="screen">
+    <div className="screen screen--wide">
       <CareerBar state={state} dispatch={dispatch} />
       <GameHeader state={state} />
       <div className="game-layout">
@@ -123,6 +123,11 @@ function MomentPanel({ state, dispatch }: Props) {
         </div>
 
         <div className="game-plays" ref={playsRef} onClick={reveal.skip}>
+          {reveal.shown === 0 && reveal.typing === null && (
+            <div className="game-play game-play--pending">
+              <span className="mono-label">{t(lang, 'game.warmup')}</span>
+            </div>
+          )}
           {pending.log.slice(0, reveal.shown).map((e, i, arr) => {
             const opacity = [0.28, 0.42, 0.58, 0.75, 1][Math.max(0, 4 - (arr.length - 1 - i))]
             const behind = e.score.us < e.score.them
@@ -208,14 +213,14 @@ function MomentPanel({ state, dispatch }: Props) {
               <div className="game-decision__options">
                 {moment.options.map((option, i) => (
                   <button key={option.id} type="button"
-                    className={option.risk === 'bold' ? 'game-option game-option--bold' : 'game-option'}
+                    className={`game-option${option.risk === 'bold' ? ' game-option--bold' : option.risk === 'reckless' ? ' game-option--reckless' : ''}`}
                     onClick={() => dispatch({ type: 'DECIDE_MOMENT', optionId: option.id })}>
                     <span style={{ fontWeight: 700, fontSize: 14 }}>
                       <span className="mono" style={{ fontSize: 10, marginRight: 8, opacity: 0.6 }}>{i + 1}</span>
                       {t(lang, 'option.' + option.id)}
-                      {option.risk !== 'safe' && <span className="mono" style={{ fontSize: 9, color: 'var(--red)', marginLeft: 8 }}>{t(lang, 'risk.' + option.risk).toUpperCase()}</span>}
+                      {option.risk !== 'safe' && <span className="mono" style={{ fontSize: 9, color: option.risk === 'reckless' ? 'var(--on-red)' : 'var(--red)', marginLeft: 8 }}>{t(lang, 'risk.' + option.risk).toUpperCase()}</span>}
                     </span>
-                    <span className="mono" style={{ fontSize: 10, color: option.risk === 'bold' ? 'var(--dim)' : 'var(--on-ink-dim)' }}>
+                    <span className="mono" style={{ fontSize: 10, color: option.risk === 'reckless' ? 'var(--on-red-dim)' : 'var(--on-ink-dim)' }}>
                       {t(lang, 'slot.' + option.attr)}{option.injuryRisk !== undefined ? ` · ${t(lang, 'risk.injury')}` : ''}
                     </span>
                   </button>

@@ -8,6 +8,8 @@ import { StandingsTop4, RaceBars, TrajectoryBars } from '../components/LeaguePan
 import { StatLine } from '../components/StatLine'
 import { resultScoreText } from './Game'
 import { Icon } from '../components/Icon'
+import { AdSlot } from '../components/AdSlot'
+import { interstitialAt } from '../ads'
 
 interface Props {
   state: GameState
@@ -94,7 +96,7 @@ export function SeasonResult({ state, dispatch }: Props) {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen--wide">
       <CareerBar state={state} dispatch={dispatch} heavy />
       <div className="result">
         <div className="strip strip--red result__banner">
@@ -154,7 +156,8 @@ export function SeasonResult({ state, dispatch }: Props) {
         </div>
 
         <div className="result__footer">
-          <button type="button" className="btn btn--ink" onClick={() => dispatch({ type: 'ADVANCE' })}>
+          <AdSlot slot="pause" />
+          <button type="button" className="btn btn--ink" onClick={() => { interstitialAt('seasonEnd'); dispatch({ type: 'ADVANCE' }) }}>
             {t(lang, 'result.advance', { year })}
           </button>
           <button type="button" className="btn btn--outline result__view-career" onClick={() => dispatch({ type: 'OPEN_HUB' })}>

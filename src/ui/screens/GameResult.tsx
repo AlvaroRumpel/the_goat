@@ -50,6 +50,7 @@ export function GameResult({ state, dispatch }: Props) {
         <div className="hint" style={{ textAlign: 'center' }}>
           {t(lang, 'result.impact', { you: formatSignedDelta(yourImpact, 0), team: formatSignedDelta(teamImpact, 0) })}
         </div>
+        <div className="hint" style={{ textAlign: 'center', opacity: 0.8 }}>{t(lang, 'result.impactNote')}</div>
 
         {!skipped && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

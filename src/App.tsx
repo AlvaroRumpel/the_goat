@@ -10,6 +10,7 @@ import { Game } from './ui/screens/Game'
 import { GameResult } from './ui/screens/GameResult'
 import { SeasonAdvance } from './ui/screens/SeasonAdvance'
 import { Hub } from './ui/screens/Hub'
+import { AdSlot } from './ui/components/AdSlot'
 
 export default function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, () => {
@@ -37,6 +38,7 @@ export default function App() {
     <>
       {screen}
       {state.hubOpen && <Hub state={state} dispatch={dispatch} />}
+      <AdSlot slot="bar" />
     </>
   )
 }
