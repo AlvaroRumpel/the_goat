@@ -1,39 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <url>
-    <loc>https://thegoatgame.app/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://thegoatgame.app/como-jogar</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://thegoatgame.app/en/how-to-play"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://thegoatgame.app/como-jogar"/>
-  </url>
-  <url>
-    <loc>https://thegoatgame.app/sobre</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://thegoatgame.app/en/about"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://thegoatgame.app/sobre"/>
-  </url>
-  <url>
-    <loc>https://thegoatgame.app/privacidade</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://thegoatgame.app/en/privacy"/>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://thegoatgame.app/privacidade"/>
-  </url>
-  <url>
-    <loc>https://thegoatgame.app/en/how-to-play</loc>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://thegoatgame.app/como-jogar"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://thegoatgame.app/en/how-to-play"/>
-  </url>
-  <url>
-    <loc>https://thegoatgame.app/en/about</loc>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://thegoatgame.app/sobre"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://thegoatgame.app/en/about"/>
-  </url>
-  <url>
-    <loc>https://thegoatgame.app/en/privacy</loc>
-    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://thegoatgame.app/privacidade"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://thegoatgame.app/en/privacy"/>
-  </url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://thegoatgame.app/</loc><lastmod>2026-08-03</lastmod></url>
+  <url><loc>https://thegoatgame.app/como-jogar</loc><lastmod>2026-08-03</lastmod></url>
+  <url><loc>https://thegoatgame.app/sobre</loc><lastmod>2026-08-03</lastmod></url>
+  <url><loc>https://thegoatgame.app/privacidade</loc><lastmod>2026-08-03</lastmod></url>
+  <url><loc>https://thegoatgame.app/en/how-to-play</loc><lastmod>2026-08-03</lastmod></url>
+  <url><loc>https://thegoatgame.app/en/about</loc><lastmod>2026-08-03</lastmod></url>
+  <url><loc>https://thegoatgame.app/en/privacy</loc><lastmod>2026-08-03</lastmod></url>
 </urlset>
