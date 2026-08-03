@@ -49,3 +49,18 @@ describe('páginas estáticas EN', () => {
     expect(html).toContain('lang="en"')
   })
 })
+
+describe('sitemap e robots', () => {
+  const ALL_PATHS = ['/', '/como-jogar', '/sobre', '/privacidade', '/en/how-to-play', '/en/about', '/en/privacy']
+
+  it('sitemap.xml lista as 7 URLs canônicas', () => {
+    const xml = readPage('public/sitemap.xml')
+    for (const p of ALL_PATHS) expect(xml).toContain(`<loc>${ORIGIN}${p}</loc>`)
+  })
+
+  it('robots.txt libera tudo e aponta o sitemap', () => {
+    const txt = readPage('public/robots.txt')
+    expect(txt).toContain('Allow: /')
+    expect(txt).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`)
+  })
+})
