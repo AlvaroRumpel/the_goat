@@ -80,6 +80,10 @@ button {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--red);
+  padding: 14px;
+  margin: -14px;
+  position: relative;
+  z-index: 1;
 }
 
 /* filetes */
@@ -665,6 +669,15 @@ button {
 .verdict-screen .btn--outline {
   border-color: var(--on-red-dim);
   color: var(--on-red-dim);
+}
+.verdict-screen .topbar {
+  border-bottom-color: var(--on-red-dim);
+}
+.verdict-screen .topbar__meta {
+  color: var(--on-red-dim);
+}
+.verdict-screen .topbar__link {
+  color: var(--on-red);
 }
 .verdict-totals {
   display: grid;

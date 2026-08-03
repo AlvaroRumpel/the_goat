@@ -124,7 +124,7 @@ export function Verdict({ state, dispatch }: Props) {
 
           <canvas
             ref={canvasRef}
-            style={{ width: '100%', maxWidth: 280, aspectRatio: '1080 / 1350', border: '1px solid var(--on-red-dim)', borderRadius: 8, margin: '0 auto' }}
+            style={{ display: 'none' }}
           />
 
           <AdSlot slot="pause" />
