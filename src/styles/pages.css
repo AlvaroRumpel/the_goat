@@ -17,6 +17,7 @@ body.page {
 .page-rule + .page-rule { margin-top: 4px; }
 .page h1 { font-family: var(--black); font-size: 42px; line-height: 0.95; letter-spacing: -0.02em; color: var(--red); margin: 28px 0 18px; }
 .page h2 { font-family: var(--black); font-size: 22px; margin: 32px 0 10px; }
+.page h3 { font-family: var(--sans); font-weight: 700; font-size: 16.5px; margin: 20px 0 6px; }
 .page p, .page li { font-size: 16px; margin-bottom: 12px; }
 .page ul, .page ol { padding-left: 22px; margin-bottom: 12px; }
 .page a { color: var(--red); }
