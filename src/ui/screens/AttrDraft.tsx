@@ -19,8 +19,6 @@ export function AttrDraft({ state, dispatch }: Props) {
   const player = playerById(state.currentPlayerId!)
   const taken = new Map(state.picks.map(pk => [pk.slot, pk]))
   const sel = selected && !taken.has(selected) ? selected : null
-  const malusSlot = sel ? weakestSlot(player, sel) : null
-  const malusN = sel ? malusAmount(player.attrs[sel]) : 0
   // fraqueza global (sem exclusão) — só para exibição no card do jogador
   const globalWeak = SLOT_ORDER.reduce((w, s) => (player.attrs[s] < player.attrs[w] ? s : w), SLOT_ORDER[0])
 
@@ -77,6 +75,11 @@ export function AttrDraft({ state, dispatch }: Props) {
             </div>
           </div>
           <div className="mono-ring">{initials}</div>
+        </div>
+
+        <div>
+          <div className="hint" style={{ fontSize: 12.5 }}>{t(lang, goat ? 'draft.goat.hint' : 'draft.hint')}</div>
+          {!goat && <div className="mono-label" style={{ marginTop: 4, fontSize: 9 }}>{t(lang, 'draft.legend')}</div>}
         </div>
 
         <div>
@@ -155,9 +158,6 @@ export function AttrDraft({ state, dispatch }: Props) {
 
         {sel && !goat && (
           <div style={{ borderLeft: '2px solid var(--red)', paddingLeft: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 13 }}>
-              {t(lang, 'draft.preview', { name: player.name, slot: t(lang, 'slot.' + malusSlot!), n: malusN })}
-            </div>
             <div className="mono-label">{t(lang, 'draft.projected', { n: projectedOvr })}</div>
           </div>
         )}
@@ -176,8 +176,6 @@ export function AttrDraft({ state, dispatch }: Props) {
             {state.rerollUsed ? t(lang, 'draft.rerollUsed') : t(lang, 'draft.reroll')}
           </button>
         )}
-
-        <div className="hint">{t(lang, goat ? 'draft.goat.hint' : 'draft.hint')}</div>
       </div>
     </div>
   )
