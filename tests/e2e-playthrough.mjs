@@ -114,6 +114,10 @@ async function main() {
     log('home')
     await page.screenshot({ path: `${SHOTS_DIR}/01-home.png` })
 
+    const footerLinks = await page.locator('.home-footer a').count()
+    console.log(`[assert] home footer nav links: ${footerLinks} (expect 3)`)
+    if (footerLinks !== 3) exitCode = 1
+
     // Home's CTA is now `.btn--ink` ("Nova carreira") — `.btn--gold` is gone.
     // newCareer traverses the 10b/10c setup steps added in Phase 2.
     await newCareer(page)

@@ -99,6 +99,18 @@ export function Home({ state, dispatch }: Props) {
         <div className="mono-label" style={{ textAlign: 'center', marginTop: 12 }}>
           {t(lang, resumePhase !== null ? 'home.noteSetup' : 'home.note')}
         </div>
+
+        <nav className="home-footer" style={{ display: 'flex', justifyContent: 'center', gap: 14, marginTop: 14, paddingBottom: 6 }}>
+          {([
+            ['footer.howto', lang === 'pt' ? '/como-jogar' : '/en/how-to-play'],
+            ['footer.about', lang === 'pt' ? '/sobre' : '/en/about'],
+            ['footer.privacy', lang === 'pt' ? '/privacidade' : '/en/privacy'],
+          ] as const).map(([key, href]) => (
+            <a key={key} href={href} className="mono-label" style={{ color: 'var(--dim)', textDecoration: 'none' }}>
+              {t(lang, key)}
+            </a>
+          ))}
+        </nav>
       </div>
     </div>
   )
