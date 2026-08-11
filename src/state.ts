@@ -891,6 +891,7 @@ export function loadState(): GameState | null {
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
     parsed.rerollsLeft = parsed.rerollsLeft ?? (parsed.rerollUsed ? 1 : 2)
+    delete parsed.rerollUsed
     parsed.pendingEvents = parsed.pendingEvents ?? null
     parsed.pendingGame = parsed.pendingGame ?? null
     parsed.pendingPlayoffs = parsed.pendingPlayoffs ?? null
