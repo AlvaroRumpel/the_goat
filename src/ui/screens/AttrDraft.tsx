@@ -3,7 +3,7 @@ import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { SLOT_ORDER, type SlotId } from '../../engine/types'
 import { playerById } from '../../data/players'
-import { malusAmount, weakestSlot } from '../../engine/draft'
+import { draftAttrs, malusAmount, weakestSlot } from '../../engine/draft'
 
 interface Props {
   state: GameState
@@ -18,6 +18,7 @@ export function AttrDraft({ state, dispatch }: Props) {
   const goat = state.career.mode === 'goat'
   const player = playerById(state.currentPlayerId!)
   const taken = new Map(state.picks.map(pk => [pk.slot, pk]))
+  const { owned: myAttrs, pending: pendingMalus } = draftAttrs(state.picks)
   const sel = selected && !taken.has(selected) ? selected : null
   // fraqueza global (sem exclusão) — só para exibição no card do jogador
   const globalWeak = SLOT_ORDER.reduce((w, s) => (player.attrs[s] < player.attrs[w] ? s : w), SLOT_ORDER[0])
@@ -37,10 +38,11 @@ export function AttrDraft({ state, dispatch }: Props) {
   const initials = player.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
   const projectedOvr = sel
-    ? Math.round(
-        (state.picks.reduce((sum, pk) => sum + playerById(pk.playerId).attrs[pk.slot], 0) + player.attrs[sel]) /
-          (state.picks.length + 1),
-      )
+    ? (() => {
+        const after = draftAttrs([...state.picks, { playerId: player.id, slot: sel }]).owned
+        const vals = Object.values(after) as number[]
+        return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
+      })()
     : 0
 
   return (
@@ -88,23 +90,26 @@ export function AttrDraft({ state, dispatch }: Props) {
             const isLast = i === SLOT_ORDER.length - 1
             if (owned) {
               const round = state.picks.indexOf(owned) + 1
+              const mine = myAttrs[slot]!
+              const origin = playerById(owned.playerId).attrs[slot]
               return (
                 <div key={slot}>
                   <div
                     style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '11px 0', opacity: 0.45,
+                      padding: '11px 0', opacity: 0.6,
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', textDecoration: 'line-through' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase' }}>
                         {t(lang, 'slot.' + slot)}
                       </div>
                       <div className="mono-label" style={{ marginTop: 4 }}>
                         {t(lang, 'draft.ownedRound', { n: round })}
+                        {mine < origin ? ' · ' + t(lang, 'draft.ownedFrom', { from: origin }) : ''}
                       </div>
                     </div>
-                    <div className="headline" style={{ fontSize: 22 }}>—</div>
+                    <div className="headline" style={{ fontSize: 22 }}>{mine}</div>
                   </div>
                   {!isLast && <hr className="rule--soft" />}
                 </div>
@@ -145,7 +150,10 @@ export function AttrDraft({ state, dispatch }: Props) {
                         className="mono"
                         style={{ fontSize: 11, marginTop: 2, color: isSel ? 'var(--on-ink-dim)' : 'var(--dim)' }}
                       >
-                        {t(lang, 'draft.yours', { legend: player.attrs[slot], yours: '—' })}
+                        {t(lang, 'draft.yours', {
+                          legend: player.attrs[slot],
+                          yours: Math.max(40, player.attrs[slot] - pendingMalus[slot]),
+                        })}
                       </div>
                     )}
                   </div>
@@ -170,10 +178,14 @@ export function AttrDraft({ state, dispatch }: Props) {
 
         {!goat && (
           <button
-            type="button" className="btn btn--outline" disabled={state.rerollUsed}
+            type="button" className="btn btn--outline" disabled={state.rerollsLeft <= 0}
             onClick={reroll}
           >
-            {state.rerollUsed ? t(lang, 'draft.rerollUsed') : t(lang, 'draft.reroll')}
+            {state.rerollsLeft <= 0
+              ? t(lang, 'draft.rerollUsed')
+              : state.rerollsLeft === 1
+                ? t(lang, 'draft.rerollOne')
+                : t(lang, 'draft.reroll', { n: state.rerollsLeft })}
           </button>
         )}
       </div>
