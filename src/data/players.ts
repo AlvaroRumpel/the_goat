@@ -35,19 +35,16 @@ export const PLAYERS: Player[] = [
   p('kobe',    'Kobe Bryant',           '2000s', [78, 93, 72, 88, 85, 62, 80, 97]),
   p('durant',  'Kevin Durant',          '2010s', [88, 94, 72, 78, 68, 68, 78, 94]),
 
-  // ---- 50s (10) ----
+  // ---- 50s (7) ----
   p('mikan',     'George Mikan',      '50s', [40, 90, 50, 45, 70, 88, 88, 72]),
   p('cousy',     'Bob Cousy',         '50s', [50, 65, 95, 92, 58, 42, 55, 80]),
   p('pettit',    'Bob Pettit',        '50s', [42, 85, 55, 48, 65, 92, 80, 78]),
   p('schayes',   'Dolph Schayes',     '50s', [55, 78, 60, 50, 48, 85, 72, 70]),
   p('arizin',    'Paul Arizin',       '50s', [58, 82, 52, 55, 45, 68, 68, 75]),
   p('njohnston', 'Neil Johnston',     '50s', [40, 80, 45, 42, 58, 82, 75, 65]),
-  p('macauley',  'Ed Macauley',       '50s', [45, 72, 68, 50, 55, 70, 52, 68]),
-  p('smartin',   'Slater Martin',     '50s', [48, 55, 72, 68, 78, 50, 60, 65]),
-  p('foust',     'Larry Foust',       '50s', [40, 68, 45, 42, 60, 75, 70, 55]),
   p('gallatin',  'Harry Gallatin',    '50s', [40, 60, 45, 45, 65, 88, 72, 58]),
 
-  // ---- 60s (15) ----
+  // ---- 60s (12) ----
   p('west',        'Jerry West',        '60s', [65, 85, 80, 82, 85, 55, 72, 97]),
   p('baylor',      'Elgin Baylor',      '60s', [45, 90, 65, 75, 60, 85, 82, 80]),
   p('reed',        'Willis Reed',       '60s', [40, 80, 55, 50, 78, 85, 80, 88]),
@@ -57,11 +54,8 @@ export const PLAYERS: Player[] = [
   p('havlicek',    'John Havlicek',     '60s', [55, 75, 65, 68, 80, 58, 75, 82]),
   p('thurmond',    'Nate Thurmond',     '60s', [40, 68, 50, 45, 90, 93, 82, 65]),
   p('bellamy',     'Walt Bellamy',      '60s', [40, 78, 50, 45, 60, 85, 78, 50]),
-  p('greer',       'Hal Greer',         '60s', [58, 78, 62, 65, 65, 50, 60, 75]),
-  p('bing',        'Dave Bing',         '60s', [55, 78, 68, 70, 60, 48, 62, 72]),
-  p('cwalker',     'Chet Walker',       '60s', [50, 75, 58, 60, 55, 65, 65, 68]),
 
-  // ---- 70s (15) ----
+  // ---- 70s (14) ----
   p('barry',     'Rick Barry',       '70s', [70, 85, 75, 68, 65, 72, 65, 85]),
   p('drj',       'Julius Erving',    '70s', [50, 92, 68, 80, 68, 75, 85, 88]),
   p('frazier',   'Walt Frazier',     '70s', [52, 75, 80, 82, 88, 58, 68, 80]),
@@ -72,12 +66,11 @@ export const PLAYERS: Player[] = [
   p('cowens',    'Dave Cowens',      '70s', [42, 75, 60, 58, 80, 88, 78, 75]),
   p('walton',    'Bill Walton',      '70s', [40, 80, 85, 55, 85, 88, 60, 70]),
   p('archibald', 'Nate Archibald',   '70s', [55, 80, 85, 85, 55, 42, 58, 78]),
-  p('westphal',  'Paul Westphal',    '70s', [58, 78, 68, 72, 60, 45, 58, 75]),
   p('gilmore',   'Artis Gilmore',    '70s', [40, 85, 50, 45, 75, 90, 92, 65]),
   p('hawkins',   'Connie Hawkins',   '70s', [48, 85, 65, 78, 58, 68, 78, 72]),
   p('haywood',   'Spencer Haywood',  '70s', [45, 85, 52, 55, 58, 85, 80, 68]),
 
-  // ---- 80s (30) ----
+  // ---- 80s (24) ----
   p('isiah',      'Isiah Thomas',            '80s', [68, 82, 93, 90, 72, 50, 60, 92]),
   p('mchale',     'Kevin McHale',            '80s', [40, 93, 55, 50, 75, 82, 78, 78]),
   p('parish',     'Robert Parish',           '80s', [42, 82, 52, 48, 70, 85, 80, 68]),
@@ -97,16 +90,10 @@ export const PLAYERS: Player[] = [
   p('cheeks',     'Maurice Cheeks',          '80s', [50, 62, 80, 78, 85, 45, 58, 72]),
   p('nance',      'Larry Nance',             '80s', [40, 85, 52, 58, 78, 80, 82, 65]),
   p('vandeweghe', 'Kiki Vandeweghe',         '80s', [58, 85, 52, 62, 42, 55, 60, 72]),
-  p('birdsong',   'Otis Birdsong',           '80s', [55, 80, 55, 65, 50, 45, 58, 68]),
-  p('mrrichardson','Micheal Ray Richardson', '80s', [52, 72, 75, 80, 78, 50, 68, 55]),
-  p('bscott',     'Byron Scott',             '80s', [65, 72, 55, 62, 55, 42, 60, 72]),
   p('nixon',      'Norm Nixon',              '80s', [55, 72, 82, 80, 58, 40, 58, 70]),
-  p('wilkes',     'Jamaal Wilkes',           '80s', [55, 80, 55, 60, 52, 62, 65, 68]),
   p('laimbeer',   'Bill Laimbeer',           '80s', [58, 68, 52, 45, 72, 85, 75, 68]),
-  p('vjohnson',   'Vinnie Johnson',          '80s', [55, 80, 50, 68, 55, 42, 62, 80]),
-  p('blackman',   'Rolando Blackman',        '80s', [58, 78, 55, 65, 52, 42, 60, 75]),
 
-  // ---- 90s (35, 5 já listados acima: jordan, hakeem, karl, penny, rodman) ----
+  // ---- 90s (30, 5 já listados acima: jordan, hakeem, karl, penny, rodman) ----
   p('stockton',  'John Stockton',    '90s', [58, 60, 97, 85, 82, 45, 55, 80]),
   p('drobinson', 'David Robinson',   '90s', [42, 90, 62, 55, 92, 88, 90, 78]),
   p('barkley',   'Charles Barkley',  '90s', [48, 88, 65, 68, 68, 93, 90, 82]),
@@ -123,22 +110,17 @@ export const PLAYERS: Player[] = [
   p('sprewell',  'Latrell Sprewell', '90s', [58, 82, 60, 78, 68, 55, 75, 80]),
   p('grice',     'Glen Rice',        '90s', [90, 78, 52, 58, 50, 52, 60, 75]),
   p('mutombo',   'Dikembe Mutombo',  '90s', [40, 68, 48, 42, 95, 92, 85, 60]),
-  p('divac',     'Vlade Divac',      '90s', [45, 75, 80, 58, 68, 80, 68, 65]),
-  p('schrempf',  'Detlef Schrempf',  '90s', [65, 75, 78, 68, 60, 68, 65, 70]),
   p('hgrant',    'Horace Grant',     '90s', [42, 72, 58, 55, 80, 85, 78, 65]),
   p('kukoc',     'Toni Kukoc',       '90s', [68, 72, 85, 75, 58, 62, 60, 72]),
-  p('ssmith',    'Steve Smith',      '90s', [70, 78, 62, 68, 58, 50, 65, 75]),
   p('hornacek',  'Jeff Hornacek',    '90s', [85, 68, 68, 62, 55, 42, 58, 72]),
   p('price',     'Mark Price',       '90s', [88, 68, 85, 78, 55, 40, 55, 80]),
   p('majerle',   'Dan Majerle',      '90s', [82, 65, 55, 62, 72, 52, 68, 72]),
-  p('smits',     'Rik Smits',        '90s', [55, 80, 52, 45, 58, 72, 60, 68]),
-  p('laettner',  'Christian Laettner','90s', [58, 78, 60, 58, 52, 68, 68, 58]),
   p('ljohnson',  'Larry Johnson',    '90s', [45, 82, 58, 62, 60, 82, 85, 68]),
   p('mourning',  'Alonzo Mourning',  '90s', [40, 82, 50, 48, 92, 85, 88, 72]),
   p('coleman',   'Derrick Coleman',  '90s', [48, 80, 60, 62, 58, 85, 80, 55]),
   p('mullin',    'Chris Mullin',     '90s', [88, 78, 68, 65, 58, 52, 58, 75]),
 
-  // ---- 2000s (35, 6 já listados acima: shaq, duncan, kobe, iverson, nash, ray) ----
+  // ---- 2000s (32, 6 já listados acima: shaq, duncan, kobe, iverson, nash, ray) ----
   p('garnett',    'Kevin Garnett',      '2000s', [55, 85, 72, 68, 93, 92, 85, 82]),
   p('dirk',       'Dirk Nowitzki',      '2000s', [90, 88, 60, 60, 55, 75, 68, 88]),
   p('carter',     'Vince Carter',       '2000s', [70, 88, 58, 78, 52, 55, 88, 72]),
@@ -149,7 +131,6 @@ export const PLAYERS: Player[] = [
   p('bwallace',   'Ben Wallace',        '2000s', [40, 55, 45, 42, 95, 94, 90, 55]),
   p('wade',       'Dwyane Wade',        '2000s', [55, 90, 75, 85, 80, 62, 85, 90]),
   p('billups',    'Chauncey Billups',   '2000s', [78, 72, 82, 75, 68, 50, 65, 92]),
-  p('rwallace',   'Rasheed Wallace',    '2000s', [75, 78, 58, 55, 75, 80, 75, 58]),
   p('bdavis',     'Baron Davis',        '2000s', [68, 80, 78, 85, 58, 50, 75, 75]),
   p('arenas',     'Gilbert Arenas',     '2000s', [78, 82, 65, 80, 50, 45, 65, 82]),
   p('ginobili',   'Manu Ginobili',      '2000s', [75, 82, 78, 82, 68, 50, 65, 88]),
@@ -163,13 +144,11 @@ export const PLAYERS: Player[] = [
   p('carmelo',    'Carmelo Anthony',    '2000s', [68, 90, 58, 75, 50, 68, 78, 85]),
   p('dhoward',    'Dwight Howard',      '2000s', [40, 85, 50, 48, 90, 93, 93, 55]),
   p('dwilliams',  'Deron Williams',     '2000s', [68, 78, 88, 82, 60, 55, 72, 78]),
-  p('jjohnson',   'Joe Johnson',        '2000s', [70, 78, 68, 72, 52, 55, 65, 80]),
-  p('hamilton',   'Rip Hamilton',       '2000s', [65, 80, 60, 68, 58, 42, 60, 78]),
   p('marion',     'Shawn Marion',       '2000s', [58, 80, 55, 68, 85, 88, 85, 68]),
   p('redd',       'Michael Redd',       '2000s', [82, 78, 55, 62, 50, 48, 62, 72]),
   p('peja',       'Peja Stojakovic',    '2000s', [92, 68, 55, 58, 48, 48, 58, 75]),
 
-  // ---- 2010s (35, 6 já listados acima: lebron, curry, kawhi, kyrie, giannis, durant) ----
+  // ---- 2010s (43, 6 já listados acima: lebron, curry, kawhi, kyrie, giannis, durant) ----
   p('harden',    'James Harden',       '2010s', [85, 88, 88, 90, 55, 55, 68, 85]),
   p('westbrook', 'Russell Westbrook',  '2010s', [55, 85, 85, 88, 68, 85, 90, 78]),
   p('cpaul',     'Chris Paul',         '2010s', [78, 72, 94, 90, 85, 48, 60, 85]),
@@ -185,22 +164,30 @@ export const PLAYERS: Player[] = [
   p('rondo',     'Rajon Rondo',        '2010s', [40, 62, 95, 82, 78, 72, 62, 68]),
   p('jwall',     'John Wall',          '2010s', [45, 78, 88, 90, 72, 55, 80, 72]),
   p('mgasol',    'Marc Gasol',         '2010s', [58, 78, 82, 55, 88, 80, 72, 72]),
-  p('horford',   'Al Horford',         '2010s', [72, 75, 72, 58, 80, 78, 72, 72]),
   p('cousins',   'DeMarcus Cousins',   '2010s', [58, 85, 68, 62, 62, 88, 85, 55]),
   p('aldridge',  'LaMarcus Aldridge',  '2010s', [55, 85, 55, 52, 65, 80, 75, 72]),
-  p('conley',    'Mike Conley',        '2010s', [72, 72, 80, 78, 78, 50, 62, 75]),
   p('ithomas',   'Isaiah Thomas',      '2010s', [72, 85, 68, 80, 45, 42, 55, 88]),
-  p('hayward',   'Gordon Hayward',     '2010s', [68, 78, 68, 70, 55, 58, 68, 72]),
   p('ibaka',     'Serge Ibaka',        '2010s', [68, 75, 50, 48, 82, 78, 78, 62]),
-  p('kwalker',   'Kemba Walker',       '2010s', [78, 78, 68, 80, 55, 42, 60, 80]),
   p('iguodala',  'Andre Iguodala',     '2010s', [58, 72, 72, 68, 85, 68, 75, 75]),
   p('zrandolph', 'Zach Randolph',      '2010s', [40, 85, 55, 52, 55, 88, 85, 72]),
   p('dgreen',    'Danny Green',        '2010s', [82, 58, 55, 58, 80, 52, 65, 68]),
   p('vucevic',   'Nikola Vucevic',     '2010s', [68, 80, 68, 55, 58, 85, 72, 65]),
   p('oladipo',   'Victor Oladipo',     '2010s', [65, 78, 62, 75, 85, 55, 72, 75]),
-  p('mccollum',  'CJ McCollum',        '2010s', [78, 80, 62, 78, 52, 42, 60, 78]),
+  p('bosh',      'Chris Bosh',         '2010s', [82, 82, 55, 52, 68, 82, 75, 78]),
+  p('klove',     'Kevin Love',         '2010s', [84, 78, 75, 52, 52, 92, 78, 72]),
+  p('korver',    'Kyle Korver',        '2010s', [96, 58, 58, 52, 52, 45, 55, 75]),
+  p('jredick',   'JJ Redick',          '2010s', [90, 62, 58, 62, 48, 40, 52, 78]),
+  p('drummond',  'Andre Drummond',     '2010s', [40, 78, 45, 42, 65, 96, 90, 50]),
+  p('capela',    'Clint Capela',       '2010s', [40, 82, 40, 42, 78, 90, 85, 55]),
+  p('sadams',    'Steven Adams',       '2010s', [40, 75, 55, 45, 80, 88, 92, 60]),
+  p('tallen',    'Tony Allen',         '2010s', [40, 62, 45, 55, 95, 55, 78, 60]),
+  p('smart',     'Marcus Smart',       '2010s', [62, 62, 78, 68, 90, 55, 75, 78]),
+  p('covington', 'Robert Covington',   '2010s', [82, 58, 48, 50, 88, 62, 70, 62]),
+  p('jcrawford', 'Jamal Crawford',     '2010s', [80, 75, 68, 92, 42, 40, 55, 85]),
+  p('louwill',   'Lou Williams',       '2010s', [78, 82, 68, 82, 42, 40, 55, 88]),
+  p('rubio',     'Ricky Rubio',        '2010s', [55, 55, 88, 80, 78, 55, 55, 62]),
 
-  // ---- 2020s (25) ----
+  // ---- 2020s (38) ----
   p('jokic',      'Nikola Jokic',              '2020s', [65, 88, 97, 78, 68, 90, 72, 85]),
   p('embiid',      'Joel Embiid',              '2020s', [78, 92, 68, 62, 82, 90, 88, 82]),
   p('luka',        'Luka Doncic',              '2020s', [82, 88, 92, 90, 55, 68, 75, 90]),
@@ -226,6 +213,19 @@ export const PLAYERS: Player[] = [
   p('holiday',       'Jrue Holiday',           '2020s', [72, 72, 75, 75, 90, 60, 72, 78]),
   p('ingram',        'Brandon Ingram',         '2020s', [68, 82, 65, 72, 55, 58, 68, 75]),
   p('porzingis',     'Kristaps Porzingis',     '2020s', [80, 85, 58, 55, 80, 78, 82, 68]),
+  p('cade',          'Cade Cunningham',        '2020s', [70, 80, 88, 82, 60, 62, 75, 78]),
+  p('lamelo',        'LaMelo Ball',            '2020s', [78, 72, 90, 88, 50, 60, 65, 72]),
+  p('sengun',        'Alperen Sengun',         '2020s', [48, 85, 88, 60, 55, 85, 72, 70]),
+  p('brunson',       'Jalen Brunson',          '2020s', [78, 85, 78, 88, 55, 42, 65, 90]),
+  p('maxey',         'Tyrese Maxey',           '2020s', [82, 85, 72, 85, 55, 40, 72, 80]),
+  p('lavine',        'Zach LaVine',            '2020s', [82, 88, 60, 78, 48, 45, 82, 75]),
+  p('randle',        'Julius Randle',          '2020s', [68, 85, 68, 68, 52, 78, 85, 70]),
+  p('bane',          'Desmond Bane',           '2020s', [88, 75, 65, 70, 68, 52, 68, 78]),
+  p('mbridges',      'Mikal Bridges',          '2020s', [78, 78, 55, 68, 88, 50, 72, 72]),
+  p('anunoby',       'OG Anunoby',             '2020s', [75, 75, 45, 58, 90, 62, 82, 65]),
+  p('mobley',        'Evan Mobley',            '2020s', [50, 78, 65, 52, 90, 82, 78, 62]),
+  p('chet',          'Chet Holmgren',          '2020s', [72, 78, 58, 52, 90, 78, 65, 62]),
+  p('jallen',        'Jarrett Allen',          '2020s', [40, 85, 45, 42, 80, 88, 82, 58]),
 ]
 
 const byId = new Map(PLAYERS.map(pl => [pl.id, pl]))
