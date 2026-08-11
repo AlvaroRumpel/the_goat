@@ -87,7 +87,7 @@ export interface GameState {
   rngCalls: number           // replay counter — see persistence note
   currentPlayerId: string | null  // player currently up for draft
   drawnIds: string[]         // players already drawn (no repeats)
-  rerollUsed: boolean        // one extra draw allowed per draft
+  rerollsLeft: number        // sorteios extras de carta restantes no draft
   draftRound: number         // 0..7
   picks: DraftPick[]
   build: Build | null
@@ -186,7 +186,7 @@ export function initialState(lang: Lang = 'pt'): GameState {
     rngCalls: 0,
     currentPlayerId: null,
     drawnIds: [],
-    rerollUsed: false,
+    rerollsLeft: 2,
     draftRound: 0,
     picks: [],
     build: null,
@@ -657,11 +657,11 @@ function reduce(state: GameState, action: Action): GameState {
 
     case 'DRAFT_REROLL': {
       if (state.career.mode === 'goat') return state
-      if (state.rerollUsed || state.phase !== 'attrDraft') return state
+      if (state.rerollsLeft <= 0 || state.phase !== 'attrDraft') return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const next = drawPlayer(rng, state.drawnIds)
       return {
-        ...state, rerollUsed: true,
+        ...state, rerollsLeft: state.rerollsLeft - 1,
         currentPlayerId: next.id, drawnIds: [...state.drawnIds, next.id], rngCalls: calls(),
       }
     }
@@ -890,6 +890,7 @@ export function loadState(): GameState | null {
     parsed.setup = parsed.setup ?? { mode: null }
     if (parsed.pendingRegular && !parsed.pendingRegular.choices) parsed.pendingRegular.choices = []
     parsed.injuryProne = parsed.injuryProne ?? false
+    parsed.rerollsLeft = parsed.rerollsLeft ?? (parsed.rerollUsed ? 1 : 2)
     parsed.pendingEvents = parsed.pendingEvents ?? null
     parsed.pendingGame = parsed.pendingGame ?? null
     parsed.pendingPlayoffs = parsed.pendingPlayoffs ?? null

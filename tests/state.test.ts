@@ -65,7 +65,7 @@ describe('draft fenomeno', () => {
     expect(s.phase).toBe('attrDraft')
     expect(s.currentPlayerId).toBeTruthy()
     expect(s.drawnIds).toEqual([s.currentPlayerId])
-    expect(s.rerollUsed).toBe(false)
+    expect(s.rerollsLeft).toBe(2)
   })
   test('DRAFT_STEAL preenche slot e sorteia o próximo; 8º vai para draftDone', () => {
     let s = beginCareer({ seed: 2 })
@@ -88,12 +88,16 @@ describe('draft fenomeno', () => {
     const s = initialState('pt')
     expect(gameReducer(s, { type: 'DRAFT_STEAL', slot: 'three' })).toBe(s)
   })
-  test('DRAFT_REROLL troca o jogador uma vez; segunda é no-op', () => {
+  test('DRAFT_REROLL troca o jogador duas vezes; terceira é no-op', () => {
     let s = beginCareer({ seed: 4 })
     const first = s.currentPlayerId
     s = gameReducer(s, { type: 'DRAFT_REROLL' })
-    expect(s.currentPlayerId).not.toBe(first)
-    expect(s.rerollUsed).toBe(true)
+    const second = s.currentPlayerId
+    expect(second).not.toBe(first)
+    expect(s.rerollsLeft).toBe(1)
+    s = gameReducer(s, { type: 'DRAFT_REROLL' })
+    expect(s.currentPlayerId).not.toBe(second)
+    expect(s.rerollsLeft).toBe(0)
     const after = s
     s = gameReducer(s, { type: 'DRAFT_REROLL' })
     expect(s).toBe(after)
@@ -443,13 +447,22 @@ describe('setup de carreira', () => {
     const before = s.rngCalls
     s = gameReducer(s, { type: 'DRAFT_REROLL' })
     expect(s.rngCalls).toBe(before)
-    expect(s.rerollUsed).toBe(false)
+    expect(s.rerollsLeft).toBe(2)
   })
 
   it('save v6 é descartado no load; v7 sobrevive', () => {
     localStorage.setItem('thegoat:v6', JSON.stringify({ seed: 1, phase: 'home' }))
     expect(loadState()).toBeNull()
     expect(localStorage.getItem('thegoat:v6')).toBeNull()
+  })
+
+  it('save antigo com rerollUsed migra para rerollsLeft', () => {
+    saveState(beginCareer({ seed: 9 }))
+    const base = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...base, rerollUsed: true, rerollsLeft: undefined }))
+    expect(loadState()!.rerollsLeft).toBe(1)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...base, rerollUsed: false, rerollsLeft: undefined }))
+    expect(loadState()!.rerollsLeft).toBe(2)
   })
 
   it('loadState sobrevive a um save em setupMode/setupIdentity (league e career ainda vazios)', () => {
