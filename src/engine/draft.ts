@@ -32,14 +32,32 @@ export function malusAmount(value: number): number {
   return Math.min(5, Math.max(1, Math.round((value - 71) / 6)))
 }
 
-export function resolveBuild(picks: DraftPick[]): Build {
-  const attrs = {} as Record<SlotId, number>
-  for (const pk of picks) attrs[pk.slot] = playerById(pk.playerId).attrs[pk.slot]
+// Estado parcial da build durante o draft. `owned` = slots já roubados com os maluses
+// descontados (piso 40); `pending` = malus já direcionado a um slot ainda vazio, que
+// será cobrado quando (e se) aquele slot for roubado.
+export function draftAttrs(picks: DraftPick[]): {
+  owned: Partial<Record<SlotId, number>>
+  pending: Record<SlotId, number>
+} {
+  const base: Partial<Record<SlotId, number>> = {}
+  const pending = Object.fromEntries(SLOT_ORDER.map(s => [s, 0])) as Record<SlotId, number>
+  for (const pk of picks) base[pk.slot] = playerById(pk.playerId).attrs[pk.slot]
   for (const pk of picks) {
     const player = playerById(pk.playerId)
-    const target = weakestSlot(player, pk.slot)
-    attrs[target] = Math.max(40, attrs[target] - malusAmount(player.attrs[pk.slot]))
+    pending[weakestSlot(player, pk.slot)] += malusAmount(player.attrs[pk.slot])
   }
+  const owned: Partial<Record<SlotId, number>> = {}
+  for (const slot of SLOT_ORDER) {
+    const v = base[slot]
+    if (v === undefined) continue
+    owned[slot] = Math.max(40, v - pending[slot])
+    pending[slot] = 0
+  }
+  return { owned, pending }
+}
+
+export function resolveBuild(picks: DraftPick[]): Build {
+  const attrs = draftAttrs(picks).owned as Record<SlotId, number>
   return {
     attributes: attrs,
     picks,
