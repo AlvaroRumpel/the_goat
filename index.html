@@ -24,6 +24,39 @@
     <meta name="twitter:title" content="The GOAT — jogo de carreira NBA no navegador" />
     <meta name="twitter:description" content="Roube atributos das lendas, viva uma carreira inteira e persiga o veredito de GOAT. Grátis, sem cadastro, PT/EN." />
     <meta name="twitter:image" content="https://thegoatgame.app/og-image.png" />
+    <style>
+      /* Seção estática abaixo do app — indexável, visível ao rolar. */
+      .home-static {
+        max-width: 430px;
+        margin: 0 auto;
+        padding: 40px 22px 64px;
+        border-top: 3px solid var(--red, #A8231C);
+        line-height: 1.55;
+      }
+      .home-static h2 {
+        font-family: var(--black, 'Archivo Black', sans-serif);
+        font-size: 22px;
+        margin: 28px 0 10px;
+      }
+      .home-static h2:first-child { margin-top: 0; }
+      .home-static h3 { font-size: 16.5px; font-weight: 700; margin: 18px 0 6px; }
+      .home-static p, .home-static li { font-size: 15px; margin-bottom: 10px; color: var(--ink, #1A1712); }
+      .home-static ul { padding-left: 20px; margin-bottom: 12px; }
+      .home-static nav {
+        margin-top: 36px;
+        border-top: 1px solid var(--ink, #1A1712);
+        padding-top: 14px;
+        display: flex;
+        gap: 14px 18px;
+        flex-wrap: wrap;
+      }
+      .home-static nav a {
+        font-family: var(--mono, 'IBM Plex Mono', monospace);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+    </style>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -45,6 +78,49 @@
   </head>
   <body>
     <div id="root"></div>
+    <section class="home-static">
+      <h2>O que é o The GOAT</h2>
+      <p>The GOAT é um jogo gratuito de carreira de basquete que roda direto no navegador, sem cadastro e sem download. Você começa no draft roubando atributos das maiores lendas da NBA — cada roubo tem preço e consequência — e depois vive uma carreira completa, temporada a temporada, numa liga simulada de 30 times com prêmios, playoffs e trocas.</p>
+      <p>No fim, o jogo entrega um veredito sobre o seu legado: você foi um bom jogador, um All-Star, uma lenda — ou o GOAT? Alcançar o topo exige uma carreira icônica de verdade, calibrada contra as distribuições históricas da liga.</p>
+      <h2>Por que jogar</h2>
+      <ul>
+        <li><strong>Draft com dilema:</strong> roubar o arremesso de uma lenda custa caro em outro atributo. Cada build é uma aposta.</li>
+        <li><strong>Simulação profunda:</strong> até duas décadas de temporadas, com momentos de decisão nos jogos-chave.</li>
+        <li><strong>Leve e offline-friendly:</strong> roda em qualquer celular; o save fica no seu navegador.</li>
+        <li><strong>PT e EN:</strong> troque de idioma a qualquer momento.</li>
+      </ul>
+      <h2>Perguntas frequentes</h2>
+      <h3>O jogo é grátis mesmo?</h3>
+      <p>Sim. O The GOAT é 100% gratuito e se mantém com anúncios discretos. Não há compras, moedas nem conteúdo pago.</p>
+      <h3>Preciso criar conta?</h3>
+      <p>Não. O progresso é salvo automaticamente no seu navegador. Limpar os dados do navegador apaga o save — detalhes na <a href="/privacidade">política de privacidade</a>.</p>
+      <h3>Funciona no celular?</h3>
+      <p>Sim, o jogo foi desenhado mobile-first e roda em qualquer navegador moderno, no celular ou no desktop.</p>
+      <h3>Como eu viro o GOAT?</h3>
+      <p>Títulos, MVPs, recordes e consistência ao longo de muitas temporadas. O caminho completo está no <a href="/guia-veredito">guia do veredito</a> e no <a href="/como-jogar">guia de como jogar</a>.</p>
+      <nav aria-label="Páginas do site">
+        <a href="/como-jogar">Como jogar</a>
+        <a href="/guia-draft">Guia do draft</a>
+        <a href="/guia-atributos">Atributos</a>
+        <a href="/guia-modos">Modos de jogo</a>
+        <a href="/guia-veredito">Veredito GOAT</a>
+        <a href="/sobre">Sobre</a>
+        <a href="/privacidade">Privacidade</a>
+        <a href="/en/how-to-play">English</a>
+      </nav>
+    </section>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "O The GOAT é grátis?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O The GOAT é 100% gratuito, roda no navegador sem cadastro nem download, e se mantém com anúncios discretos. Não há compras nem conteúdo pago." } },
+        { "@type": "Question", "name": "Preciso criar conta para jogar?", "acceptedAnswer": { "@type": "Answer", "text": "Não. O progresso é salvo automaticamente no armazenamento local do seu navegador. Limpar os dados do navegador apaga o save." } },
+        { "@type": "Question", "name": "O jogo funciona no celular?", "acceptedAnswer": { "@type": "Answer", "text": "Sim. O jogo foi desenhado mobile-first e roda em qualquer navegador moderno, no celular ou no desktop." } },
+        { "@type": "Question", "name": "Como eu viro o GOAT?", "acceptedAnswer": { "@type": "Answer", "text": "Acumulando títulos, MVPs, recordes e consistência ao longo de muitas temporadas. Só carreiras verdadeiramente icônicas recebem o veredito de GOAT." } }
+      ]
+    }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
