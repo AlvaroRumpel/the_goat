@@ -50,25 +50,35 @@ Fases (~25–40s):
 4. **Pressão**: **torcida fora de casa** — tremor da mira (amplitude por `noise(team) = 0.6 × strength/85 + 0.4 × bigMarket` menos `clutch`-mod), medidor 15% mais rápido; casa = estável. **Fadiga no 4Q** (físico < 65: força máxima −15%, ápice −20%). **Relógio real do lance**: o `moment.clock` (ex.: 0:21) corre em tempo real do início da fase 2; zerou = sem arremesso (`turnover`, "estourou o relógio"). **Placar vivo no fundo**: placar/série/torcida reagem ao desfecho (explode/silencia).
 5. **Desfecho** (obedece o engine): swish / bate e entra / curto / longo / girou e saiu / toco.
 
-## 4. MURALHA — posse defensiva em fases
+## 4. MURALHA — duelo 1x1 contínuo (estilo Basketball Stars), câmera atrás de você
 
-Atacante = **estrela do adversário, tendências escondidas** (shooter: 60% arremessa de longe, 20% infiltra, 20% passa; playmaker: 45% passa; rebounder/defender: 55% infiltra). Fases (~30–45s):
+**Revisado com o dono em 2026-09-02** (substitui a versão "posse em fases"): a defesa é um **duelo contínuo**, não uma sequência de batidas com janelas. Referência explícita do dono: o modo ataque × defesa do Basketball Stars (Miniclip). Atacante = **estrela do adversário** com **tendências conhecidas** (cartão antes da posse: "arremessa 55% · infiltra pela direita 30% · passa 15%", derivado das tags/ovr do NPC; a série de jogadas anteriores dele na partida aparece como histórico). As três sensações que o dono quer: **muralha** (ele não passa), **ladrão** (roubo na hora certa e contra-ataque), **tocador** (subir e dar o toco).
 
-1. **Perímetro (6–9 batidas)**: v1 ampliada — `left/right/hesi/expose/drive/shoot` com combos (finta+cruzada, hesi+drive) e ritmo crescente (`delay` cai 8% por batida); janela por `defense`-mod ÷ `difficulty`. Ações: ← →, segurar na finta, **ROUBAR** (na `expose`), **TOMAR A CARGA** (na `drive`: `TimingBar` curta; acerto = falta de ataque, posse nossa; erro = falta sua → lances livres deles), **FALTA TÁTICA** (a qualquer hora: encerra em lances livres deles).
-2. **Passe** (se a tendência sortear passe ou você segurou 4 batidas): o atacante cospe a bola — 3 linhas de passe aparecem 0.8s; **fechar a linha certa** = interceptação (roubo); errada = o recebedor está aberto → fase 3 contra ele (closeout mais longo).
-3. **Contestar**: o arremessador sobe — **TOCO com timing** (`TimingBar`: ápice = toco, bola nossa; cedo = falta → lances livres; tarde = arremesso sai) ou ↑ CONTESTAR (sem timing, só reduz a abertura dele).
-4. **Box-out** (se o arremesso saiu e não foi toco): `TimingBar` por `rebounding` vs o `rebounder` deles; acerto = rebote nosso; erro = putback deles (2 batidas rápidas de contestação).
+Loop (uma posse, relógio de posse 8s + o tempo que ele gastar no arremesso):
 
-**Cadeia completa** (dono): roubo/toco/carga/interceptação → contra-ataque animado (bola vai pro outro lado, cesta nossa) e `quality` final = 1; lances livres deles = 2 arremessos por rng local (`p` por ovr): 2/2 = **forçado erro** ("cesta deles"), 1/2 = `quality` 0.45, 0/2 = `quality` 0.7; putback deles convertido = erro forçado.
-
-**Mapeamento**: roubo/carga/interceptação → `mgSteal` (reckless); toco → `mgContest` (bold); contido/box-out/falta tática → `mgLock` (safe). `quality` das fases sem cadeia = acertos ÷ batidas (perímetro) ponderado 0.6 + contestação 0.25 + box-out 0.15.
+- **Ele dribla livre** (IA a 20Hz, rng local): alterna `hesitação`, `cruzada esquerda/direita`, `giro`, `entre as pernas` (bola exposta por 0.35s), `infiltração` (arranca pro lado escolhido), `finta de arremesso` (sobe meio corpo, não solta), `arremesso` (sobe de verdade). A escolha segue as tendências do cartão com jitter — quem lê o cartão antecipa.
+- **Você sombreia** em tempo real: **swipe esquerda/direita** desloca seu defensor lateralmente (velocidade por `physical`+`defense`); ficar na frente dele conta "contenção" (fração do tempo com o atacante dentro do seu cone de 40°). Antecipar (deslizar ANTES da cruzada) vale mais que reagir: contenção pesa 0.5 da `quality`.
+- **Toque = tentativa de roubo**: só faz sentido quando a bola está exposta (entre as pernas, cruzada larga); acertou a janela (largura por `defense`; ±120ms) = **roubo** → contra-ataque animado e `mgSteal` com `quality 1`; errou = ele passa por você (perde contenção por 1.2s) e, na 2ª tentativa errada, **falta** (lances livres dele por rng local).
+- **Swipe pra cima = salto pra toco**: se ele está subindo de verdade, ápice dentro da janela (por `physical`) = **toco** → `mgContest` `quality 1`; subir na **finta de arremesso** = você no ar, ele infiltra livre (contenção zera por 1.5s) ou puxa falta.
+- **Fim**: arremesso dele (contestado ou não), infiltração até a bandeja, roubo, toco, ou relógio.
+- **Quality** sem roubo/toco: `0.5 × contenção + 0.3 × contestação no arremesso (distância da sua mão ao release) + 0.2 × (não caiu em finta)`. Mapeamento: roubo → `mgSteal`; toco ou contestação forte (mão a < 0.6m no release) → `mgContest`; contido sem contestar → `mgLock`. Falta sua (2ª tentativa de roubo errada, ou salto em cima dele) → `mgLock` com `quality 0.35` e, se ele acerta os dois lances livres, erro forçado.
+- **Escala**: velocidade dos dribles e janelas por `difficulty(ctx, star)`; sua velocidade lateral e janelas por `attrMods`.
 
 ## 5. Tela e apresentação
 
-- Moldura comum (`ArcadePanel`) ganha: **fase atual** (mono-label vermelha: LEITURA · DESENHAR · RODAR · REBOTE…), o adversário (nome curto + tag), o relógio da fase. Barra de ações do quadro com ícones do `Icon.tsx` onde existir.
+- Moldura comum (`ArcadePanel`) ganha: **fase atual** (mono-label vermelha: LEITURA · DESENHAR · RODAR · REBOTE…), o adversário (nome curto + tag + cartão de tendências na muralha), o relógio da fase.
+- **Controles da muralha**: swipes (esquerda/direita = deslocar; toque = roubo; pra cima = salto) como principal; teclado no desktop (setas + espaço); sem botões de apoio (decisão do dono). Barra de ações do quadro com ícones do `Icon.tsx` onde existir.
 - Desenho de rotas: pointer events com captura; no desktop também Shift+arrasto pra polilinha; mobile 346px: ímãs com hit-area r=75 (já existe), rotas com traço de 6px.
 - Sem nota S/A/B/C, sem tutorial guiado (dono recusou). A linha de dica fica por fase (`mg.hint.<kind>.<phase>`).
 - i18n: ~120 chaves novas (fases, ações, esquemas, tipos de arremesso, cadeia, narração curta).
+
+## 8. Estilo visual (fechado com o dono em 2026-09-02, canvas `Minigames do The GOAT`)
+
+- **JOGADA (prancheta)** — **plano refinado, 2D/SVG**: vista de cima, piso em madeira sépia (tabuado `#DDD0B3`/`#D3C4A3`, juntas `#BFAE86`), linhas em tinta a 80%, ímãs redondos com sombra projetada e número (vermelho = nós, tinta = eles) com nome curto do NPC real abaixo, rota tracejada vermelha à mão com marca de bloqueio, manchete de jornal (Archivo Black, vermelho com sombra de papel) por cima nos lances grandes. Sem 3D.
+- **ARREMESSO** — **3D com three.js**, arena "meio-termo" (visível, não preta; luz de ginásio real, sombras suaves; holofotes quentes), câmera baixa atrás-direita do arremessador (V1). **Bonecos realistas low-poly**: proporção 7.5 cabeças, músculo sugerido, rosto com nariz/boca, cabelo com volume, pele com variação; uniforme com número grande e nome nas costas; você com faixa vermelha. **Arquibancada com cadeiras individuais e torcedores com cabeça e braços** (alguns de pé, braços pra cima), não cápsulas. Tabela de vidro, aro vermelho, relógio de posse aceso, faixa vermelha no primeiro degrau. Mira por arrasto/medidor + timing do salto (spec §3, mantido).
+- **MURALHA** — **mesmo motor 3D e mesma arena**, câmera atrás de você (de costas, número visível), atacante de frente com o número, cartão de tendências no canto; contra-ataque, toco e roubo animados na cena.
+- Paleta do jogo em tudo (papel/tinta/vermelho/âmbar; madeira sépia); vermelho só em nós, aro, faixa e placar. Nenhuma imagem/logo real.
+- **Custo aceito**: dependência `three` (~150 KB gz), WebGL; fallback sem WebGL = painel 2D simplificado (arremesso lateral em SVG, muralha em prancheta) com a mesma mecânica.
 
 ## 6. Estrutura e testes
 
@@ -77,7 +87,7 @@ src/engine/minigames/common.ts    opponentFive, difficulty, attrMods, timingWind
 src/engine/minigames/playbook.ts  v2: rotas/desenho, esquemas, ações, rebote ofensivo
 src/engine/minigames/shot.ts      v2: repertório, closeout, salto, pressão, tabela, lances livres
 src/engine/minigames/defense.ts   v2: fases, tendências, passe, toco, box-out, cadeia
-src/ui/minigames/TimingBar.tsx, FreeThrows.tsx (dentro de Shot), Playbook/Shot/Defense v2
+src/ui/minigames/TimingBar.tsx, FreeThrows.tsx (dentro de Shot), Playbook (SVG) / Shot e Defense (three.js: src/ui/minigames/three/{arena,human,camera}.ts compartilhados) v2
 ```
 Testes por módulo (determinismo, invariantes de quadra, cada esquema produz o sinal esperado, monotonicidade dos mods de atributo, transições de fase, cadeia → mapeamento de opção, quality em [0,1]); `state-arcade` cobre `mgFreeThrow`; e2e arcade mantém o bloco (defesa por teclado atravessa as fases; "Simular o resto" fecha).
 
