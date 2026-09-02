@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch } from 'react'
+import { useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { teamById } from '../../data/teams'
@@ -9,6 +9,7 @@ import { ClutchTimer } from '../components/ClutchTimer'
 import { Icon } from '../components/Icon'
 import { usePlayReveal } from '../hooks/usePlayReveal'
 import { formatSignedDelta } from '../format'
+import { ArcadePanel } from '../minigames/Minigame'
 
 interface Props {
   state: GameState
@@ -66,6 +67,18 @@ function MomentPanel({ state, dispatch }: Props) {
   const oppId = pending.context.opponentTeamId.toUpperCase()
   const isClutch = moment?.id === 'clutch'
   const firstGame = state.career.seasons.length === 0 && state.keyGameResults.length === 0
+  const arcade = state.career.mode === 'arcade'
+
+  // A5: faixa de desfecho (1.3s) depois de cada decisão — no arcade o próprio minigame
+  // anima o desfecho, então a faixa só existe no modo normal.
+  const [bannerFor, setBannerFor] = useState(0)
+  useEffect(() => {
+    if (arcade || pending.outcomes.length === 0) return
+    setBannerFor(pending.outcomes.length)
+    const id = setTimeout(() => setBannerFor(0), 1300)
+    return () => clearTimeout(id)
+  }, [pending.outcomes.length, arcade])
+  const banner = bannerFor > 0 ? pending.outcomes[bannerFor - 1] : null
 
   const texts = pending.log.map(e => t(lang, e.textKey, e.params))
   const reveal = usePlayReveal({
@@ -103,13 +116,13 @@ function MomentPanel({ state, dispatch }: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (state.hubOpen) return
       if (!reveal.done) return
-      if (!moment) return
+      if (!moment || arcade) return
       const i = ['1', '2', '3'].indexOf(e.key)
       if (i >= 0 && moment.options[i]) dispatch({ type: 'DECIDE_MOMENT', optionId: moment.options[i].id })
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [moment, dispatch, state.hubOpen, reveal.done])
+  }, [moment, dispatch, state.hubOpen, reveal.done, arcade])
 
   return (
     <div className="screen screen--wide">
@@ -117,9 +130,19 @@ function MomentPanel({ state, dispatch }: Props) {
       <GameHeader state={state} />
       <div className="game-layout">
         <div className="game-score">
-          <span className="headline" style={{ fontSize: 26 }}>{us}<span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginLeft: 6 }}>{ourId}</span></span>
+          <span className="headline" style={{ fontSize: 26 }}><span key={us} className="game-score__num">{us}</span><span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginLeft: 6 }}>{ourId}</span></span>
           <span className="mono" style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent-warm)' }}>{clock}</span>
-          <span className="headline" style={{ fontSize: 26 }}><span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginRight: 6 }}>{oppId}</span>{them}</span>
+          <span className="headline" style={{ fontSize: 26 }}><span className="mono" style={{ fontSize: 10, color: 'var(--on-ink-dim)', marginRight: 6 }}>{oppId}</span><span key={them} className="game-score__num">{them}</span></span>
+          {/* A5: barra de momento — quem está por cima AGORA (placar exibido, nunca a margem final) */}
+          <div className="game-momentum" aria-hidden="true">
+            <div className="game-momentum__marker" style={{ left: `${Math.min(92, Math.max(8, 50 + (us - them) * 2.5))}%` }} />
+          </div>
+          {banner && (
+            <div className={`game-banner${banner.injury || !banner.success ? ' game-banner--bad' : ''}`}>
+              {t(lang, banner.injury ? 'game.banner.injury' : banner.success ? 'game.banner.hit' : 'game.banner.miss')}
+              <span className="mono" style={{ marginLeft: 10, fontSize: 12 }}>{formatSignedDelta(banner.delta)}</span>
+            </div>
+          )}
         </div>
 
         <div className="game-plays" ref={playsRef} onClick={reveal.skip}>
@@ -194,7 +217,8 @@ function MomentPanel({ state, dispatch }: Props) {
             </div>
           </div>
 
-          {reveal.done && moment && (
+          {arcade && <ArcadePanel state={state} dispatch={dispatch} active={reveal.done && !!moment} />}
+          {!arcade && reveal.done && moment && (
             <div className="game-decision">
               {firstGame && (
                 <div className="hint" style={{ borderLeft: '2px solid var(--red)', paddingLeft: 10, marginBottom: 10 }}>

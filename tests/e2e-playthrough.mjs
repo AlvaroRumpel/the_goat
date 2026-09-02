@@ -203,6 +203,9 @@ async function main() {
         if (!sawSeasonAdvanceShot) {
           sawSeasonAdvanceShot = true
           await page.screenshot({ path: `${SHOTS_DIR}/08-season-advance.png` })
+          // A4 (decisão 23): o ticker REVELA os jogos por ~1.3s com o rótulo "SIMULANDO…";
+          // "PLACARES ENTRANDO" só volta quando o reveal termina — espera em vez de ler na hora.
+          await page.waitForSelector('text=PLACARES ENTRANDO', { timeout: 8000 }).catch(() => {})
           const tickerVisible = await page.locator('text=PLACARES ENTRANDO').count() > 0
           console.log(`[assert] seasonAdvance "placares entrando" visible: ${tickerVisible}`)
           if (!tickerVisible) exitCode = 1
@@ -646,6 +649,67 @@ async function main() {
     if (!rapidoReachedResult) exitCode = 1
 
     await rapidoContext.close()
+
+    // ---- MODO ARCADE sanity: the first key game opens a minigame instead of the
+    // 2-3 option list; "Simular o resto do jogo" (SKIP_GAME) still closes the game;
+    // the reaction defense is played with the keyboard when it shows up first.
+    const arcadeContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' })
+    const arcadePage = await arcadeContext.newPage()
+    arcadePage.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(`[arcade] ${msg.text()}`)
+    })
+    arcadePage.on('pageerror', err => consoleErrors.push(`[arcade pageerror] ${err.message}`))
+    await arcadePage.goto(BASE_URL)
+    await arcadePage.evaluate(() => localStorage.clear())
+    await arcadePage.reload()
+
+    log('modo arcade: newCareer with MODO ARCADE, quick draft, first offer, start season')
+    await newCareer(arcadePage, { mode: 'MODO ARCADE' })
+    for (let i = 0; i < 8; i++) {
+      await arcadePage.locator('[data-testid="attr-row"]').first().click()
+      await arcadePage.locator('button.btn--primary').click()
+      await arcadePage.waitForTimeout(50)
+    }
+    await arcadePage.locator('button.btn--primary').click() // build confirm
+    await firstOptionBtn(arcadePage).click() // nba draft: pick first offer
+    await arcadePage.locator('button.btn--ink').click() // nba draft: confirm
+    await arcadePage.locator('button.btn--primary', { hasText: 'Começar a temporada' }).click() // preseason -> start
+    await arcadePage.waitForTimeout(200)
+    if (await arcadePage.locator('.modal-veil').count() > 0) {
+      await arcadePage.locator('.modal-veil button.btn--outline').click()
+    }
+    await arcadePage.locator('button.btn--ink', { hasText: 'Assumir o próximo jogo' }).click()
+    await arcadePage.waitForSelector('.game-plays', { timeout: 10000 })
+    await arcadePage.locator('.game-plays').click() // skip the reveal → first moment opens
+    await arcadePage.waitForSelector('.mg', { timeout: 15000 })
+    const optionCount = await arcadePage.locator('.game-option').count()
+    const mgCount = await arcadePage.locator('.mg').count()
+    console.log(`[assert] modo arcade: minigame open (${mgCount}) and no .game-option (${optionCount})`)
+    if (mgCount !== 1 || optionCount !== 0) exitCode = 1
+    await arcadePage.screenshot({ path: `${SHOTS_DIR}/20-arcade-minigame.png` })
+
+    // play the first moment if it's the reaction defense (keyboard); otherwise just
+    // hand the rest to the auto policy — the point here is the wiring, not the skill.
+    if (await arcadePage.locator('.mg-defense').count() > 0) {
+      for (let k = 0; k < 10; k++) { await arcadePage.keyboard.press('ArrowLeft'); await arcadePage.waitForTimeout(450) }
+      await arcadePage.waitForSelector('.mg-result', { timeout: 10000 }).catch(() => {})
+      const resolved = await arcadePage.locator('.mg-result').count()
+      console.log(`[assert] modo arcade: defense minigame resolved with an outcome overlay: ${resolved === 1}`)
+      if (resolved !== 1) exitCode = 1
+      await arcadePage.screenshot({ path: `${SHOTS_DIR}/21-arcade-outcome.png` })
+      await arcadePage.waitForTimeout(1600)
+    }
+    const sim = arcadePage.locator('button', { hasText: 'SIMULAR O RESTO DO JOGO' })
+    if (await sim.count() === 0) {
+      // between moments the panel is hidden while the clock runs — skip the feed first
+      await arcadePage.locator('.game-plays').click().catch(() => {})
+      await arcadePage.waitForSelector('.mg', { timeout: 20000 }).catch(() => {})
+    }
+    await arcadePage.locator('button', { hasText: 'SIMULAR O RESTO DO JOGO' }).click()
+    await arcadePage.waitForSelector('text=PLACAR FINAL', { timeout: 10000 })
+    console.log('[assert] modo arcade: SKIP_GAME from a minigame lands on gameResult: true')
+
+    await arcadeContext.close()
 
     await browser.close()
 

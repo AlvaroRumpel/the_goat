@@ -2,7 +2,9 @@ import { useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { SLOT_ORDER, type SlotId } from '../../engine/types'
-import { playerById } from '../../data/players'
+import { PLAYERS, playerById } from '../../data/players'
+import { useSpin } from '../hooks/useMotion'
+import { CountUp } from '../components/CountUp'
 import { draftAttrs, malusAmount, weakestSlot } from '../../engine/draft'
 
 interface Props {
@@ -10,13 +12,19 @@ interface Props {
   dispatch: Dispatch<Action>
 }
 
-export function AttrDraft({ state, dispatch }: Props) {
-  const [selected, setSelected] = useState<SlotId | null>(null)
-  if (state.phase === 'draftDone') return <DraftDone state={state} dispatch={dispatch} />
+export function AttrDraft(props: Props) {
+  if (props.state.phase === 'draftDone') return <DraftDone {...props} />
+  return <DraftRound {...props} />
+}
 
+function DraftRound({ state, dispatch }: Props) {
+  const [selected, setSelected] = useState<SlotId | null>(null)
   const lang = state.lang
   const goat = state.career.mode === 'goat'
   const player = playerById(state.currentPlayerId!)
+  // A2: o sorteio é visto — o nome cicla outras lendas (índices fixos, zero RNG) por ~700ms
+  const spinAlts = Array.from({ length: 12 }, (_, i) => PLAYERS[(PLAYERS.indexOf(player) + 17 * (i + 1)) % PLAYERS.length].name)
+  const spin = useSpin(player.id, player.name, spinAlts, 700)
   const taken = new Map(state.picks.map(pk => [pk.slot, pk]))
   const { owned: myAttrs, pending: pendingMalus } = draftAttrs(state.picks)
   const sel = selected && !taken.has(selected) ? selected : null
@@ -32,10 +40,11 @@ export function AttrDraft({ state, dispatch }: Props) {
     setSelected(null)
   }
 
-  const spaceIdx = player.name.indexOf(' ')
-  const nameLine1 = spaceIdx === -1 ? player.name : player.name.slice(0, spaceIdx)
-  const nameLine2 = spaceIdx === -1 ? '' : player.name.slice(spaceIdx + 1)
-  const initials = player.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  const shownName = spin.text
+  const spaceIdx = shownName.indexOf(' ')
+  const nameLine1 = spaceIdx === -1 ? shownName : shownName.slice(0, spaceIdx)
+  const nameLine2 = spaceIdx === -1 ? '' : shownName.slice(spaceIdx + 1)
+  const initials = shownName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
   const projectedOvr = sel
     ? (() => {
@@ -65,9 +74,9 @@ export function AttrDraft({ state, dispatch }: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }} onClick={spin.skip}>
           <div style={{ flex: 1 }}>
-            <div className="headline" style={{ fontSize: 27 }}>
+            <div className="headline" style={{ fontSize: 27, opacity: spin.settled ? 1 : 0.55 }}>
               {nameLine1}<br />{nameLine2}
             </div>
             <div className="mono-label" style={{ marginTop: 6 }}>
@@ -143,7 +152,7 @@ export function AttrDraft({ state, dispatch }: Props) {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <div className="headline" style={{ fontSize: 22, color: isSel ? 'var(--accent-warm)' : undefined }}>
-                      {goat ? '??' : player.attrs[slot]}
+                      {goat ? '??' : <CountUp key={player.id} value={player.attrs[slot]} ms={550} />}
                     </div>
                     {!goat && (
                       <div
@@ -213,7 +222,7 @@ function DraftDone({ state, dispatch }: Props) {
 
         <div className="strip strip--ink" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div className="mono-label" style={{ color: 'var(--on-ink-dim)' }}>{t(lang, 'draft.done.debutOvr')}</div>
-          <div className="headline" style={{ fontSize: 38, color: 'var(--accent-warm)' }}>{build.overall}</div>
+          <div className="headline" style={{ fontSize: 38, color: 'var(--accent-warm)' }}><CountUp value={build.overall} ms={900} /></div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

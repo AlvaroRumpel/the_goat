@@ -8,7 +8,7 @@ interface Props {
   dispatch: Dispatch<Action>
 }
 
-const MODE_ORDER: readonly GameMode[] = ['normal', 'goat', 'rapido']
+const MODE_ORDER: readonly GameMode[] = ['normal', 'arcade', 'goat', 'rapido']
 const LINE_KEYS = ['line1', 'line2', 'line3'] as const
 
 export function Setup({ state, dispatch }: Props) {

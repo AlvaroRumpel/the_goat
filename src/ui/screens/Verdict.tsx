@@ -7,6 +7,8 @@ import { drawShareCard, shareText, type CardData } from '../share'
 import { CareerBar } from '../components/CareerBar'
 import { Icon } from '../components/Icon'
 import { AdSlot } from '../components/AdSlot'
+import { useSpin } from '../hooks/useMotion'
+import { CountUp } from '../components/CountUp'
 
 interface Props {
   state: GameState
@@ -14,6 +16,7 @@ interface Props {
 }
 
 const AWARDS: Award[] = ['allstar', 'mvp', 'dpoy', 'scoring', 'fmvp', 'ring']
+const TIERS = ['peladeiro', 'rolePlayer', 'starter', 'allstar', 'superstar', 'legend', 'goat'] as const
 
 export function Verdict({ state, dispatch }: Props) {
   const lang = state.lang
@@ -22,6 +25,8 @@ export function Verdict({ state, dispatch }: Props) {
   const iconicMoments = state.career.seasons.flatMap(s => s.iconicMoments ?? [])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [copied, setCopied] = useState(false)
+  // A7: roleta do tier — cicla os 7 tiers por 1.4s antes de cravar o veredito real
+  const spin = useSpin('tier', t(lang, 'tier.' + tier), TIERS.map(x => t(lang, 'tier.' + x)), 1400, 95)
 
   const finalTeamId = state.career.seasons.at(-1)?.finalTeamId
   const finalTeam = finalTeamId ? teamById(finalTeamId) : null
@@ -73,27 +78,27 @@ export function Verdict({ state, dispatch }: Props) {
         <div className="verdict-layer verdict-layer--1" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%' }}>
           <Icon name="verdict" size={32} tone="inherit" />
           <div className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.title')}</div>
-          <div className="headline" style={{ fontSize: 64 }}>{t(lang, 'tier.' + tier)}</div>
-          <div className="mono" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.score', { n: score })}</div>
+          <div className="headline" style={{ fontSize: 64, opacity: spin.settled ? 1 : 0.6 }} onClick={spin.skip}>{spin.text}</div>
+          <div className="mono" style={{ color: 'var(--on-red-dim)' }}>{spin.settled ? t(lang, 'verdict.score', { n: score }) : t(lang, 'verdict.rolling')}</div>
           <hr className="rule--double" style={{ width: '100%' }} />
         </div>
 
         <div className="verdict-layer verdict-layer--2 verdict-totals">
           <div className="verdict-total">
             <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.points')}</span>
-            <span className="headline" style={{ fontSize: 26 }}>{totals.points}</span>
+            <span className="headline" style={{ fontSize: 26 }}><CountUp value={totals.points} ms={1200} /></span>
           </div>
           <div className="verdict-total">
             <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.seasons2')}</span>
-            <span className="headline" style={{ fontSize: 26 }}>{totals.seasons}</span>
+            <span className="headline" style={{ fontSize: 26 }}><CountUp value={totals.seasons} ms={900} /></span>
           </div>
           <div className="verdict-total">
             <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.rings')}</span>
-            <span className="headline" style={{ fontSize: 26 }}>{counts.ring}</span>
+            <span className="headline" style={{ fontSize: 26 }}><CountUp value={counts.ring} ms={900} /></span>
           </div>
           <div className="verdict-total">
             <span className="mono-label" style={{ color: 'var(--on-red-dim)' }}>{t(lang, 'verdict.mvps')}</span>
-            <span className="headline" style={{ fontSize: 26 }}>{counts.mvp}</span>
+            <span className="headline" style={{ fontSize: 26 }}><CountUp value={counts.mvp} ms={900} /></span>
           </div>
         </div>
 

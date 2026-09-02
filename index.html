@@ -25,7 +25,9 @@
     <meta name="twitter:description" content="Roube atributos das lendas, viva uma carreira inteira e persiga o veredito de GOAT. Grátis, sem cadastro, PT/EN." />
     <meta name="twitter:image" content="https://thegoatgame.app/og-image.png" />
     <style>
-      /* Seção estática abaixo do app — indexável, visível ao rolar. */
+      /* Seção estática abaixo do app — indexável, visível ao rolar NA HOME. Em jogo o App
+         marca body[data-phase] e a seção some (o crawler vê o HTML inicial, sem o atributo). */
+      body[data-phase]:not([data-phase="home"]) .home-static { display: none; }
       .home-static {
         max-width: 430px;
         margin: 0 auto;

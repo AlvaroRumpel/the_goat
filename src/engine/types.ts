@@ -146,6 +146,13 @@ export interface WatchedGameContext {
   elimination?: boolean      // derrota elimina (ou vitória fecha) — para icônicos/choke
 }
 
+// Execução de um minigame (modo arcade): desloca a probabilidade do momento sem mudar o
+// contrato de RNG. quality 0..1 (0.5 = neutro); turnover força erro (bola perdida).
+export interface MomentExec {
+  quality: number
+  turnover?: boolean
+}
+
 export interface MomentOutcome {
   momentId: SlotKey
   optionId: string
@@ -222,7 +229,7 @@ export interface SeasonResult extends Omit<RegularSeasonResult, 'tradeOffer'> {
   chokes: number
 }
 
-export type GameMode = 'normal' | 'goat' | 'rapido'
+export type GameMode = 'normal' | 'arcade' | 'goat' | 'rapido'
 
 export interface Career {
   seasons: SeasonResult[]

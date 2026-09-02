@@ -1,0 +1,23 @@
+/* --- minigames (modo arcade): moldura comum. Cada minigame tem o próprio mg-<x>.css --- */
+.mg-frame { display: flex; flex-direction: column; gap: 10px; }
+.mg-frame__head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mg-frame__hint { font-size: 12px; line-height: 1.4; color: var(--on-ink-dim); }
+.mg { position: relative; width: 100%; background: var(--paper); color: var(--ink); overflow: hidden;
+  user-select: none; -webkit-user-select: none; touch-action: none; }
+.mg svg { display: block; width: 100%; height: auto; }
+.mg-btn { background: var(--ink-2); color: var(--on-ink); padding: 12px 14px; font-weight: 700;
+  font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; border: 0; }
+.mg-btn--red { background: var(--red); color: var(--on-red); }
+.mg-btn--warm { border-left: 3px solid var(--accent-warm); }
+.mg-btn:disabled { opacity: 0.4; cursor: default; }
+.mg-btn:active { transform: translate(1px, 1px); }
+.mg-row { display: flex; gap: 1px; background: var(--ink-3); }
+.mg-row > .mg-btn { flex: 1; }
+/* faixa de desfecho por cima do minigame (1.3s) */
+.mg-result { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 4px; background: rgba(28, 26, 22, 0.78); color: var(--on-ink);
+  font-family: var(--black); font-size: 28px; letter-spacing: 0.04em; animation: mg-result-in 220ms ease-out; }
+.mg-result--bad { background: rgba(168, 35, 28, 0.86); color: var(--on-red); }
+.mg-result__sub { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; opacity: 0.85; }
+@keyframes mg-result-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mg-result { animation: none; } }

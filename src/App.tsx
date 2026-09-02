@@ -1,4 +1,4 @@
-import { useReducer } from 'react'
+import { useEffect, useReducer } from 'react'
 import { gameReducer, initialState, loadState } from './state'
 import { Home } from './ui/screens/Home'
 import { Setup } from './ui/screens/Setup'
@@ -24,6 +24,8 @@ export default function App() {
     return { ...saved, phase: 'home' as const, resumePhase: midSetup ? (saved.resumePhase ?? null) : saved.phase, hubOpen: false }
   })
   const p = state.phase
+  // A1: a seção SEO estática do index.html só aparece na Home
+  useEffect(() => { document.body.dataset.phase = p }, [p])
   const screen =
     p === 'home' ? <Home state={state} dispatch={dispatch} /> :
     p === 'setupMode' || p === 'setupIdentity' ? <Setup state={state} dispatch={dispatch} /> :

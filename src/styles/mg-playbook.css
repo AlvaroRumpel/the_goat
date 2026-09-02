@@ -1,0 +1,35 @@
+/* --- minigame JOGADA (quadro tático) — prefixo mg-pb- --- */
+.mg-pb__top { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 10px; background: var(--ink); color: var(--on-ink); }
+.mg-pb__clock { font-family: var(--mono); font-size: 16px; font-weight: 500; letter-spacing: 0.08em;
+  color: var(--accent-warm); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mg-pb__clock--low { color: var(--red-soft); }
+.mg-pb__clock-label, .mg-pb__open-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--on-ink-dim); }
+.mg-pb__open { flex: 1; max-width: 160px; display: flex; flex-direction: column; gap: 3px; }
+.mg-pb__open .bar { background: var(--ink-3); }
+.mg-pb__open .bar__fill { display: block; background: var(--on-ink); transition: width 100ms linear; }
+.mg-pb__open .bar__fill--bad { background: var(--red); }
+
+.mg-pb__board { cursor: crosshair; }
+.mg-pb__floor { fill: var(--paper-3); }
+.mg-pb__lines { fill: none; stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 6; }
+.mg-pb__lines .mg-pb__rim { stroke: var(--red); stroke-opacity: 1; stroke-width: 8; }
+.mg-pb__path { stroke: var(--ink); stroke-width: 5; stroke-dasharray: 24 18; fill: var(--ink); }
+.mg-pb__def { fill: var(--ink); }
+.mg-pb__mag { fill: var(--red); }
+.mg-pb__mag--holder { stroke: var(--ink); stroke-width: 8; }
+.mg-pb__hit { fill: transparent; }
+.mg-pb__att--mate { cursor: pointer; }
+.mg-pb__num { font-family: var(--mono); font-size: 40px; font-weight: 500; fill: var(--on-red);
+  text-anchor: middle; pointer-events: none; }
+.mg-pb__tag { font-family: var(--mono); font-size: 30px; letter-spacing: 0.2em; fill: var(--ink);
+  text-anchor: middle; pointer-events: none; }
+.mg-pb__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 4; pointer-events: none; }
+.mg-pb__ball--shot { transition: transform 500ms ease-in; }
+.mg-pb__ball--bounce { transition: transform 300ms ease-out; }
+
+.mg-pb .mg-row { margin-top: 1px; }
+.mg-pb .mg-btn { min-height: 44px; }
+.mg-pb__btn-sub { font-family: var(--mono); font-weight: 500; font-size: 10px; letter-spacing: 0.16em;
+  opacity: 0.7; margin-left: 6px; }

@@ -188,6 +188,13 @@ button {
   opacity: 0.45;
   cursor: default;
 }
+/* A6: feedback tátil — botões afundam, opções e linhas respondem ao toque */
+.btn { transition: transform 90ms ease-out, opacity 120ms; }
+.btn:not(:disabled):active { transform: translate(1px, 1px); }
+.btn--outline:not(:disabled):hover { background: var(--paper-3); }
+[data-testid="attr-row"] { transition: background 120ms; }
+[data-testid="attr-row"]:not(.strip):hover { background: var(--paper-3); }
+[data-testid="attr-row"]:active { transform: translate(1px, 1px); }
 
 /* barras de valor */
 .bar {
@@ -580,8 +587,20 @@ button {
 
 /* --- tela de jogo (8a/9c) --- */
 .game-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.game-score { background: var(--ink); color: var(--on-ink); padding: 13px 22px; margin: 0 -22px;
-  display: flex; align-items: center; justify-content: space-between; }
+.game-score { background: var(--ink); color: var(--on-ink); padding: 13px 22px 17px; margin: 0 -22px;
+  display: flex; align-items: center; justify-content: space-between; position: relative; }
+/* A5: o número do placar "salta" quando muda (remonta por key) */
+.game-score__num { display: inline-block; animation: score-pop 260ms ease-out; }
+@keyframes score-pop { 0% { transform: translateY(-6px); color: var(--accent-warm); } 100% { transform: none; } }
+.game-momentum { position: absolute; left: 22px; right: 22px; bottom: 6px; height: 3px; background: var(--ink-3); }
+.game-momentum::before { content: ''; position: absolute; left: 50%; top: -2px; width: 1px; height: 7px; background: var(--on-ink-dim); }
+.game-momentum__marker { position: absolute; top: -3px; width: 9px; height: 9px; margin-left: -4px; background: var(--accent-warm);
+  transition: left 400ms ease-out; }
+.game-banner { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; padding: 10px 22px;
+  background: var(--ink); color: var(--accent-warm); font-family: var(--black); font-size: 16px; letter-spacing: 0.08em;
+  border-top: 1px solid var(--ink-3); animation: banner-in 180ms ease-out; }
+.game-banner--bad { background: var(--red); color: var(--on-red); }
+@keyframes banner-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .game-plays { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column;
   gap: 10px; padding: 14px 0; }
 .game-play { display: flex; gap: 12px; align-items: baseline;
@@ -596,6 +615,8 @@ button {
 @keyframes pending-pulse { 50% { opacity: 0.25; } }
 /* reduce desliga só o cosmético (fade/cursor) — o ritmo do relógio é conteúdo e fica */
 @media (prefers-reduced-motion: reduce) {
+  .game-score__num, .game-banner { animation: none; }
+  .game-momentum__marker { transition: none; }
   .game-play { animation: none; }
   .game-play--typing span:last-child::after { content: ''; }
   .game-play--pending { animation: none; }
@@ -608,6 +629,9 @@ button {
 .clutch-timer__num { position: absolute; right: 0; top: 8px; font-size: 10px; color: var(--red); }
 .game-option { background: var(--ink-2); color: var(--on-ink); padding: 12px 14px; text-align: left;
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border: 0; }
+.game-option { transition: background 120ms, transform 90ms; }
+.game-option:hover { background: var(--ink-3); }
+.game-option:active { transform: translate(1px, 1px); }
 .game-option--bold { border-left: 3px solid var(--accent-warm); }
 .game-option--reckless { border-left: 3px solid var(--red); background: var(--red); color: var(--on-red); }
 .moment-strip { display: flex; gap: 8px; }

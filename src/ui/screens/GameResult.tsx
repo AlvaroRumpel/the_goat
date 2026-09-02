@@ -5,6 +5,7 @@ import { scoreOf } from '../../engine/moments'
 import { CareerBar } from '../components/CareerBar'
 import { formatSignedDelta } from '../format'
 import { Icon } from '../components/Icon'
+import { CountUp } from '../components/CountUp'
 
 interface Props { state: GameState; dispatch: Dispatch<Action> }
 
@@ -30,7 +31,7 @@ export function GameResult({ state, dispatch }: Props) {
         <div className="headline headline--red" style={{ fontSize: 68, lineHeight: 0.88 }}>{t(lang, headlineKey)}</div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span className="headline" style={{ fontSize: 30 }}>{us}–{them}</span>
+          <span className="headline" style={{ fontSize: 30 }}><CountUp value={us} ms={700} />–<CountUp value={them} ms={700} /></span>
           <span className="mono" style={{ fontSize: 10, color: 'var(--dim)' }}>
             {t(lang, 'result.final')} · {context.opponentTeamId.toUpperCase()}
           </span>
@@ -40,7 +41,7 @@ export function GameResult({ state, dispatch }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-around', padding: '18px 0' }}>
           {([['result.stats.pts', result.playerPts], ['result.stats.reb', result.reb], ['result.stats.ast', result.ast]] as const).map(([k, v]) => (
             <div key={k} style={{ textAlign: 'center' }}>
-              <div className="headline" style={{ fontSize: 28 }}>{v}</div>
+              <div className="headline" style={{ fontSize: 28 }}><CountUp value={v} ms={800} /></div>
               <div className="mono-label">{t(lang, k)}</div>
             </div>
           ))}

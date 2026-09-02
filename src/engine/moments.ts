@@ -2,7 +2,7 @@ import { ageMultiplier } from './season'
 import { rosterStrength } from './league'
 import { TEAMS, teamById } from '../data/teams'
 import type {
-  Build, IconicMomentId, KeyGame, LeagueState, Moment, MomentOption, MomentOutcome, MomentRisk,
+  Build, IconicMomentId, KeyGame, LeagueState, Moment, MomentExec, MomentOption, MomentOutcome, MomentRisk,
   PendingGame, PlayEntry, Rng, SlotKey, TeamStanding, WatchedGameContext, WatchedGameKind, WatchedGameResult,
 } from './types'
 
@@ -94,8 +94,31 @@ export const SITUATIONS: Record<SlotKey, MomentOption[][]> = {
 
 export const ALL_OPTION_IDS: string[] = Object.values(O).map(o => o.id)
 
+// Catálogo dos minigames (modo arcade). Fora das SITUATIONS: o minigame decide a jogada
+// (e portanto o risco) pelo que o jogador faz, não por uma lista de 2-3 opções. Mesma
+// tabela RISK — RISK_OF/dagger/playerPts/i18n play.<id> funcionam sem caso especial.
+const MG = {
+  mgAssist:  { id: 'mgAssist',  attr: 'passing',   risk: 'safe' },
+  mgMid:     { id: 'mgMid',     attr: 'handles',   attr2: 'clutch',   risk: 'safe' },
+  mgThree:   { id: 'mgThree',   attr: 'three',     attr2: 'clutch',   risk: 'bold' },
+  mgLayup:   { id: 'mgLayup',   attr: 'finishing', risk: 'bold' },
+  mgDunk:    { id: 'mgDunk',    attr: 'finishing', attr2: 'physical', risk: 'reckless', injuryRisk: 0.06 },
+  mgLock:    { id: 'mgLock',    attr: 'defense',   risk: 'safe' },
+  mgContest: { id: 'mgContest', attr: 'defense',   attr2: 'physical', risk: 'bold' },
+  mgSteal:   { id: 'mgSteal',   attr: 'defense',   attr2: 'handles',  risk: 'reckless' },
+} as const satisfies Record<string, MomentOption>
+
+export const MINIGAME_OPTION_IDS: string[] = Object.values(MG).map(o => o.id)
+export function minigameOption(id: string): MomentOption | undefined {
+  return (MG as Record<string, MomentOption>)[id]
+}
+
 // ids de opção são únicos no catálogo inteiro — o outcome guarda só o optionId
-const RISK_OF = new Map<string, MomentRisk>(Object.values(O).map(o => [o.id, o.risk]))
+const RISK_OF = new Map<string, MomentRisk>([...Object.values(O), ...Object.values(MG)].map(o => [o.id, o.risk]))
+
+// Peso da execução do minigame na probabilidade: quality 1 = +25 p.p., 0 = −25 p.p.
+// Atributos continuam mandando (momentProb); a política auto nunca passa exec.
+export const SKILL_W = 0.5
 
 // prob base por risco + impacto por risco (constantes calibráveis).
 // bold tem attrW MAIOR que safe: é aposta ruim para build fraca e boa para build de
@@ -179,11 +202,12 @@ export function momentWeight(n: number): number {
 }
 
 export function resolveMoment(
-  build: Build, age: number, option: MomentOption, weight: number, rng: Rng,
+  build: Build, age: number, option: MomentOption, weight: number, rng: Rng, exec?: MomentExec,
 ): { success: boolean; injury: boolean; delta: number } {
   const cfg = RISK[option.risk]
-  const p = momentProb(build, age, option)
-  const success = rng.chance(p)                          // call 1
+  const base = momentProb(build, age, option)
+  const p = exec ? clamp(base + (exec.quality - 0.5) * SKILL_W, 0.05, 0.95) : base
+  const success = rng.chance(p) && !exec?.turnover       // call 1 (sempre consumida, mesmo no turnover)
   const injuryRoll = rng.next()                          // call 2 — SEMPRE consumido (contrato)
   const injury = option.injuryRisk !== undefined && injuryRoll < option.injuryRisk
   return { success, injury, delta: (success ? cfg.hit : cfg.miss) * weight }
@@ -313,11 +337,11 @@ export function startWatchedGame(input: {
 }
 
 export function applyMoment(
-  pending: PendingGame, option: MomentOption, build: Build, age: number, rng: Rng,
+  pending: PendingGame, option: MomentOption, build: Build, age: number, rng: Rng, exec?: MomentExec,
 ): PendingGame {
   const moment = pending.moments[pending.momentIndex]
   const w = momentWeight(pending.moments.length)
-  const r = resolveMoment(build, age, option, w, rng)     // calls 1-2
+  const r = resolveMoment(build, age, option, w, rng, exec)   // calls 1-2
   const outcome: MomentOutcome = {
     momentId: moment.id, optionId: option.id, success: r.success, injury: r.injury,
     delta: r.delta, clock: moment.clock,

@@ -12,7 +12,7 @@ import {
 } from './engine/playoffs'
 import type { BracketState } from './engine/playoffs'
 import {
-  applyMoment, autoResolveGame, finishWatchedGame, scoreOf, selectKeyGames, startWatchedGame,
+  applyMoment, autoResolveGame, finishWatchedGame, minigameOption, scoreOf, selectKeyGames, startWatchedGame,
 } from './engine/moments'
 import { buildCalendar, DEADLINE_GAME, simStretch } from './engine/schedule'
 import { initLeague } from './data/league'
@@ -21,7 +21,7 @@ import { computeVerdict } from './engine/verdict'
 import type { Lang } from './i18n'
 import type {
   Award, AwardRace, Build, CalendarSlot, Career, DraftPick, EventChoice, Focus, GameEventId, GameMode, Headline,
-  IconicMomentId, KeyGame, LeagueSeasonOutcome, LeagueState, NpcLine, Offer, PendingGame, PlayoffRun, RaceAward,
+  IconicMomentId, KeyGame, LeagueSeasonOutcome, LeagueState, MomentExec, NpcLine, Offer, PendingGame, PlayoffRun, RaceAward,
   RegularSeasonResult, Rng, SeasonResult, SlotId, TeamProfile, TeamStanding, TickerGame, Verdict, WatchedGameContext,
   WatchedGameResult,
 } from './engine/types'
@@ -132,8 +132,9 @@ export type Action =
   | { type: 'TAKE_NEXT_GAME' }       // seasonAdvance → keyGame (abre o próximo jogo-chave)
   | { type: 'RUN_TO_PLAYOFFS' }      // seasonAdvance → resolve o resto da regular em auto
   | { type: 'CONTINUE' }             // gameResult → segue o walk (advanceCalendar)
-  | { type: 'DECIDE_MOMENT'; optionId: string }
+  | { type: 'DECIDE_MOMENT'; optionId: string; exec?: MomentExec }   // exec: só modo arcade (minigame)
   | { type: 'SKIP_GAME' }
+  | { type: 'FINISH_GAME' }          // arcade: fecha o jogo depois da animação do último minigame (zero rng)
   | { type: 'ADVANCE_GAME' }         // finais: da tela de série para o próximo jogo
   | { type: 'SKIP_SERIES' }          // finais: auto-resolve os jogos restantes da série
   | { type: 'ADVANCE' }              // from seasonResult → next phase (FA / retire / preseason)
@@ -733,11 +734,26 @@ function reduce(state: GameState, action: Action): GameState {
       if (state.phase !== 'keyGame' && state.phase !== 'playoffGame') return state
       const pending = state.pendingGame
       if (!pending) return state   // tela de série das finais: sem jogo aberto
-      const option = pending.moments[pending.momentIndex].options.find(o => o.id === action.optionId)
+      // arcade: a jogada vem do catálogo dos minigames (mg*), não da situação; exec desloca a
+      // probabilidade. Fora do arcade, exec é ignorado (mesmo caminho de sempre).
+      const arcade = state.career.mode === 'arcade' && action.exec !== undefined
+      const option = arcade
+        ? minigameOption(action.optionId)
+        : pending.moments[pending.momentIndex].options.find(o => o.id === action.optionId)
       if (!option) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
-      const next = applyMoment(pending, option, state.build!, state.age, rng)
+      const next = applyMoment(pending, option, state.build!, state.age, rng, arcade ? action.exec : undefined)
+      // arcade: o último momento NÃO fecha o jogo aqui — a UI anima o desfecho e despacha
+      // FINISH_GAME. As calls já foram consumidas; fechar depois é zero rng.
+      if (arcade && next.momentIndex >= next.moments.length) return { ...state, pendingGame: next, rngCalls: calls() }
       return advanceGame(state, next, false, calls)
+    }
+
+    case 'FINISH_GAME': {
+      if (state.phase !== 'keyGame' && state.phase !== 'playoffGame') return state
+      const pending = state.pendingGame
+      if (!pending || pending.momentIndex < pending.moments.length) return state
+      return advanceGame(state, pending, false, () => state.rngCalls)
     }
 
     case 'SKIP_GAME': {
