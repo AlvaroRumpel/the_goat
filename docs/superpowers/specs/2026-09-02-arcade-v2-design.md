@@ -11,7 +11,7 @@
 
 ## 1. Camada comum (`src/engine/minigames/common.ts`)
 
-- **Adversário real**: `opponentFive(league, teamId)` = 5 NPCs de maior `ovr` do time (posição, tags). Cada um vira `{ name, pos, ovr, tags, speed, reach }`: `speed = 3.2 + (ovr − 55)/45 × 1.2` m/s (clamp 3.0–4.4), tag `defender` +8% e closeout mais curto, `shooter`/`playmaker`/`rebounder` alteram tendências. **Muralha usa a estrela (maior ovr) com tendências escondidas**.
+- **Adversário real**: `opponentFive(league, teamId)` = 5 NPCs de maior `ovr` do time (posição, tags). Cada um vira `{ name, pos, ovr, tags, speed, reach }`: `speed = 3.2 + (ovr − 55)/45 × 1.2` m/s (clamp 3.0–4.4), tag `defender` +8% e closeout mais curto, `shooter`/`playmaker`/`rebounder` alteram tendências. **Muralha usa a estrela (maior ovr) com tendências CONHECIDAS (cartão antes da posse; revisado em §4)**.
 - **Dificuldade escala com o adversário** (dono): `difficulty(ctx, star) = base(kind) × (0.85 + (star.ovr − 60)/100)`, `base` regular 1.0 / playoff 1.12 / finals 1.22. Multiplica velocidades da IA e divide janelas de reação/closeout.
 - **Seus atributos mudam o minigame** (dono), não só a probabilidade — tabela única `attrMods(build, age)` (todos via `ageMultiplier`):
   - `handles`: eficácia da finta de drible (abre 0.8–1.6m), resistência ao desarme, step-back disponível ≥ 70.
@@ -72,7 +72,9 @@ Loop (uma posse, relógio de posse 8s + o tempo que ele gastar no arremesso):
 - Sem nota S/A/B/C, sem tutorial guiado (dono recusou). A linha de dica fica por fase (`mg.hint.<kind>.<phase>`).
 - i18n: ~120 chaves novas (fases, ações, esquemas, tipos de arremesso, cadeia, narração curta).
 
-## 8. Estilo visual (fechado com o dono em 2026-09-02, canvas `Minigames do The GOAT`)
+## 8. Estilo visual (fechado com o dono em 2026-09-02, canvas `Minigames do The GOAT`, página 6 = versão aprovada)
+
+**Referências no repo**: `docs/superpowers/assets/arcade-v2/ref-arremesso.jpg` e `ref-muralha.jpg` (renders aprovados) e `arena-scene-prototype.html` (cena three.js r160 que gerou os renders: piso, quadra, tabela, arquibancada instanciada, rig `human()` com poses `shoot/closeout/defend/crossover`, luz meio-termo, câmeras). A implementação porta essa cena pra `src/ui/minigames/three/` com `three` do npm (ES modules), sem CDN.
 
 - **JOGADA (prancheta)** — **plano refinado, 2D/SVG**: vista de cima, piso em madeira sépia (tabuado `#DDD0B3`/`#D3C4A3`, juntas `#BFAE86`), linhas em tinta a 80%, ímãs redondos com sombra projetada e número (vermelho = nós, tinta = eles) com nome curto do NPC real abaixo, rota tracejada vermelha à mão com marca de bloqueio, manchete de jornal (Archivo Black, vermelho com sombra de papel) por cima nos lances grandes. Sem 3D.
 - **ARREMESSO** — **3D com three.js**, arena "meio-termo" (visível, não preta; luz de ginásio real, sombras suaves; holofotes quentes), câmera baixa atrás-direita do arremessador (V1). **Bonecos realistas low-poly**: proporção 7.5 cabeças, músculo sugerido, rosto com nariz/boca, cabelo com volume, pele com variação; uniforme com número grande e nome nas costas; você com faixa vermelha. **Arquibancada com cadeiras individuais e torcedores com cabeça e braços** (alguns de pé, braços pra cima), não cápsulas. Tabela de vidro, aro vermelho, relógio de posse aceso, faixa vermelha no primeiro degrau. Mira por arrasto/medidor + timing do salto (spec §3, mantido).
