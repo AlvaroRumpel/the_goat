@@ -134,14 +134,16 @@ describe('desfecho físico', () => {
     }
     expect(back).toBe(true)
   })
-  test('ballPath: com backspin a bola morre no aro (para mais perto da cesta) e o path carrega a rotação', () => {
+  test('ballPath: com backspin a bola morre na tabela (sai dela mais devagar) e o path carrega a rotação', () => {
     const sc = scene()
-    const l = { angle: rad(60), speed: idealSpeed(rad(60), sc.d, sc.releaseH) }
+    const l = { angle: rad(60), speed: idealSpeed(rad(60), sc.d + 0.7, sc.releaseH) }   // bate na tabela acima do aro
     const dry = stageFlight(sc, simulateShot(sc, { ...l, spin: 0 }), false), wet = stageFlight(sc, simulateShot(sc, { ...l, spin: SPIN_MAX }), false)
-    expect(dry.fate).toBe('in'); expect(wet.fate).toBe('in')
+    expect(dry.fate).toBe('long'); expect(wet.fate).toBe('long')
     const pd = ballPath(sc, dry, false), pw = ballPath(sc, wet, false)
     expect(throughHoop(sc, pw)).toBe(false)
-    expect(Math.abs(pw.at(-1)!.x - sc.d)).toBeLessThan(Math.abs(pd.at(-1)!.x - sc.d))
+    // velocidade horizontal logo depois do x máximo (contato com a tabela)
+    const rebound = (p: typeof pd) => { const i = p.indexOf(p.reduce((m, q) => q.x > m.x ? q : m)); return p[i].x - p[i + 1].x }
+    expect(rebound(pd)).toBeGreaterThan(0); expect(rebound(pw)).toBeLessThan(rebound(pd) * 0.75)
     expect(pd.every(p => p.r === 0)).toBe(true)
     expect(pw[10].r).toBeGreaterThan(pw[5].r); expect(pw[5].r).toBeGreaterThan(0)
   })
@@ -151,6 +153,9 @@ describe('desfecho físico', () => {
       const f = simulateShot(sc, { angle: rad(deg), speed: idealSpeed(rad(deg), sc.d + off, sc.releaseH), spin })
       const path = ballPath(sc, stageFlight(sc, f, false), false)
       expect(throughHoop(sc, path)).toBe(false)
+      // nunca "sai de dentro da cesta": dentro do cilindro a base da bola fica acima do plano do aro
+      const dip = path.find(q => Math.abs(q.x - sc.d) < RIM_R - BALL_R && q.y < RIM_H + BALL_R - 0.03)
+      expect(dip, `${deg}° off ${off} spin ${spin} afundou em ${dip?.x.toFixed(2)},${dip?.y.toFixed(2)}`).toBeUndefined()
       const e = path.at(-1)!
       expect(Math.abs(e.y - RIM_H) < 0.4 && Math.abs(e.x - sc.d) < 0.5, `${deg}° off ${off} spin ${spin} → ${e.x.toFixed(2)},${e.y.toFixed(2)}`).toBe(false)
     }

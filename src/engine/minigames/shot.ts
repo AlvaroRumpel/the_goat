@@ -95,7 +95,7 @@ const SIM_DT = 1 / 240, SIM_MAX = 3.5
 export function stageFlight(scene: ShotScene, f: Flight, success: boolean): Flight {
   if (!success) {
     if (f.fate !== 'in' && f.fate !== 'flat') return f
-    const err = f.err >= 0 ? 0.16 : -0.16
+    const err = 0.16                                 // sempre o aro de trás: rebate pra frente e sai (in-and-out)
     return { ...f, vx: (scene.d + err) / f.tEnd, err }
   }
   if (f.fate === 'blocked' || !Number.isFinite(f.err)) {
@@ -131,15 +131,17 @@ export function ballPath(scene: ShotScene, f: Flight, success: boolean, hz = 60)
         const dx = x - rx, dy = y - RIM_H, dist = Math.hypot(dx, dy)
         if (dist < BALL_R && dist > 1e-9) {
           const nx = dx / dist, ny = dy / dist, vn = vx * nx + vy * ny
-          if (vn < 0) { vx -= 1.5 * vn * nx; vy -= 1.5 * vn * ny; const k = s(); vx *= 1 - 0.45 * k; vy *= 1 - 0.25 * k; w *= 0.6 }
+          if (vn < 0) { vx -= 1.5 * vn * nx; vy -= 1.5 * vn * ny; w *= 0.6 }   // aro duro: a bola não morre no ferro (senão afunda no cilindro)
           if (Math.hypot(vx, vy) < 0.6) vx += (nx >= 0 ? 1 : -1) * 0.8   // morreu em cima do ferro: rola pro lado
           x = rx + nx * BALL_R; y = RIM_H + ny * BALL_R
         }
       }
     }
-    if (!through && py >= RIM_H && y < RIM_H && Math.abs(x - scene.d) < RIM_R - BALL_R) {
-      if (success) { through = true; vx *= 0.3; vy *= 0.6 }
-      else { y = RIM_H; vy = Math.max(-vy * 0.4, 1.6); vx = -Math.max(Math.abs(vx), 1.5); w *= 0.5; noRimUntil = t + 0.35 }   // sempre pela frente (pra trás = tabela devolve pra dentro)
+    if (success && !through && py >= RIM_H && y < RIM_H && Math.abs(x - scene.d) < RIM_R - BALL_R) { through = true; vx *= 0.3; vy *= 0.6 }
+    // erro: a base da bola nunca passa do plano do aro dentro do cilindro — o ferro cospe pela frente
+    // (pra trás a tabela devolvia pra dentro); aro ignorado por 0.35 s pra ela sair
+    if (!success && vy < 0 && y - BALL_R < RIM_H && Math.abs(x - scene.d) < RIM_R - BALL_R) {
+      y = RIM_H + BALL_R; vy = Math.max(-vy * 0.4, 1.6); vx = -Math.max(Math.abs(vx), 1.5); w *= 0.5; noRimUntil = t + 0.35
     }
     if (y < BALL_R) {
       y = BALL_R
