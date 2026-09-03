@@ -1,150 +1,139 @@
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { useEffect, useMemo, useRef, useState, type JSX, type PointerEvent as RPointerEvent } from 'react'
 import type { MinigameProps } from './types'
 import type { Rng } from '../../engine/types'
 import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
 import { attrMods, opponentFive } from '../../engine/minigames/common'
 import {
-  availableTypes, createStaticDefender, rad, refSpeed, REF_ANGLE, resultFor, RIM_H, SHOTS, shotOpenness,
-  shotQuality, skillOf, trajectory, type ShotType, type StaticDefender,
+  aimNoise, createScene, flightPoint, launchFromPull, RIM_H, shotQuality, simulateShot, skillOf,
+  type Flight, type ShotScene,
 } from '../../engine/minigames/shot'
 
-// ARREMESSO 2D (spec 2026-09-03 §B): vista lateral em SVG, papel sépia. Você à esquerda,
-// aro na distância do tipo, defensor ESTÁTICO entre vocês. Escolher o tipo É o arremesso
-// (quality = skill × abertura, engine). A bola voa na parábola ideal e o desfecho OBEDECE
-// `outcome.success`.
+// ARREMESSO estilingue (spec 2026-09-03 arcade-ajustes §2): vista lateral em SVG, papel sépia.
+// Você à esquerda, aro à distância sorteada, defensor PARADO com a mão erguida entre vocês
+// (só obstáculo). Arraste em qualquer ponto do palco e solte: a puxada vira o lançamento; o
+// pontilhado mostra o começo do arco (mais longo com skill). O engine simula o voo e devolve a
+// quality; o desfecho animado OBEDECE `outcome.success`.
 
-export const FLIGHT_MS = 900
 const M = 30                      // metros → px do viewBox
-const X0 = 34                     // você
-const GY = 186                    // chão
-const W = 300, H = 200
+const X0 = 40                     // sua mão (x = 0 m)
+const GY = 4.4 * M                // chão
+const H = 150
 const px = (xm: number) => X0 + xm * M
 const py = (h: number) => Math.min(GY, Math.max(2, GY - h * M))
+const GUIDE_STEPS = 16
 
-export type Fate = 'swish' | 'bank' | 'short' | 'long' | 'rimOut' | 'blocked'
-type Phase = 'pick' | 'flight' | 'done'
-export const TYPE_KEY: Record<ShotType, string> = {
-  layup: 'mg.type.layup', mid: 'mg.type.mid', three: 'mg.type.three', dunk: 'mg.type.dunk',
-  floater: 'mg.shot.type.floater', stepback: 'mg.shot.type.stepback', fadeaway: 'mg.shot.type.fadeaway', bank: 'mg.shot.type.bank',
-}
+type Phase = 'aim' | 'flight' | 'done'
+type UiFate = 'swish' | 'short' | 'long' | 'rimOut' | 'blocked'
 // ponto final da animação em metros relativo ao aro (x) e altura (y)
-const END: Record<Fate, [number, number]> = {
-  swish: [0, RIM_H - 0.2], bank: [0, RIM_H - 0.2], short: [-1.2, RIM_H - 1.0],
-  long: [0.8, RIM_H - 0.35], rimOut: [0.4, RIM_H + 0.15], blocked: [0, 0],
+const END: Record<UiFate, [number, number]> = {
+  swish: [0, RIM_H - 0.2], short: [-1.2, RIM_H - 1.0], long: [0.8, RIM_H - 0.35], rimOut: [0.4, RIM_H + 0.15], blocked: [0, 0],
 }
+const ZONE: Record<ShotScene['kind'], string> = { layup: 'finish', dunk: 'finish', mid: 'mid', three: 'three' }
+interface Drag { sx: number; sy: number; cx: number; cy: number }
 
 export function ShotGame({ seed, context, build, age, quarter, league, number, lastName, lang, onResolve, outcome }: MinigameProps): JSX.Element {
   const five = useMemo(() => opponentFive(league, context.opponentTeamId), [league, context.opponentTeamId])
   const mods = useMemo(() => attrMods(build, age, quarter), [build, age, quarter])
-  const types = useMemo(() => availableTypes(build, age), [build, age])
-  // seed local: 1 call (gap do defensor) — criado UMA vez
-  const boot = useRef<{ rng: Rng; def: StaticDefender } | null>(null)
-  if (!boot.current) { const rng = createRng(seed); boot.current = { rng, def: createStaticDefender(rng, five) } }
-  const def = boot.current.def
+  // seed local: 3 calls na cena + 2 no ruído do soltar — criado UMA vez
+  const boot = useRef<{ rng: Rng; scene: ShotScene } | null>(null)
+  if (!boot.current) { const rng = createRng(seed); boot.current = { rng, scene: createScene(rng, five, build, age) } }
+  const { rng, scene } = boot.current
+  const skill = skillOf(build, age, scene.kind, mods.fatigue)
+  const W = X0 + (scene.d + 1.6) * M
 
-  const [phase, setPhase] = useState<Phase>('pick')
-  const [type, setType] = useState<ShotType | null>(null)
-  const [quality, setQuality] = useState(0)
+  const [phase, setPhase] = useState<Phase>('aim')
+  const [drag, setDrag] = useState<Drag | null>(null)
+  const [flight, setFlight] = useState<Flight | null>(null)
   const [, setFrame] = useState(0)
-  const t0 = useRef(0)
-  const now = useRef(0)
-  const resolved = useRef(false)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const t0 = useRef(0), now = useRef(0), resolved = useRef(false)
   const onResolveRef = useRef(onResolve)
   onResolveRef.current = onResolve
 
-  const pick = (tp: ShotType) => {
-    if (resolved.current) return
+  // pointer → metros (x pra direita, y pra cima), via CTM: o SVG fica letterboxado no palco
+  const toM = (e: RPointerEvent) => {
+    const m = svgRef.current?.getScreenCTM()
+    if (!m) return null
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
+    return { x: (p.x - X0) / M, y: (GY - p.y) / M }
+  }
+  const onDown = (e: RPointerEvent<SVGSVGElement>) => {
+    if (phase !== 'aim') return
+    const p = toM(e); if (!p) return
+    svgRef.current?.setPointerCapture(e.pointerId)
+    setDrag({ sx: p.x, sy: p.y, cx: p.x, cy: p.y })
+  }
+  const onMove = (e: RPointerEvent<SVGSVGElement>) => {
+    if (!drag) return
+    const p = toM(e); if (p) setDrag(d => d && { ...d, cx: p.x, cy: p.y })
+  }
+  const onUp = (e: RPointerEvent<SVGSVGElement>) => {
+    if (!drag) return
+    if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
+    const l = launchFromPull(drag.cx - drag.sx, drag.cy - drag.sy)
+    setDrag(null)
+    if (!l || resolved.current) return
     resolved.current = true
-    const q = shotQuality(tp, def.gap, build, age, mods)
-    setType(tp); setQuality(q)
-    t0.current = performance.now(); now.current = t0.current
-    setPhase('flight')
-    onResolveRef.current(resultFor(tp, q))
+    const f = simulateShot(scene, aimNoise(rng, skill, l))
+    setFlight(f); t0.current = performance.now(); now.current = t0.current; setPhase('flight')
+    onResolveRef.current({ optionId: scene.optionId, quality: shotQuality(f, skill) })
   }
 
-  // voo: rAF até FLIGHT_MS, depois 'done' (o overlay entra quando `outcome` chega)
+  // voo: rAF pelo tempo real da parábola (mín. 600 ms) + 250 ms de assentamento, depois 'done'
+  const flightMs = flight ? Math.max(600, flight.tEnd * 1000) : 0
   useEffect(() => {
     if (phase !== 'flight') return
     let raf = 0
     const loop = (ts: number) => {
       now.current = ts
-      if (ts - t0.current >= FLIGHT_MS) { setPhase('done'); return }
+      if (ts - t0.current >= flightMs + 250) { setPhase('done'); return }
       setFrame(f => f + 1)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [phase])
+  }, [phase, flightMs])
 
-  // teclado: 1..8 escolhe (guarda: e.key de 1 char — ''.indexOf('') é 0)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
-      const i = e.key.length === 1 ? '12345678'.indexOf(e.key) : -1; if (i >= 0 && types[i]) pick(types[i])
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [types])
-
-  // desfecho obedece o engine; a narração fecha a conta
-  const open = type ? shotOpenness(type, def.gap) : 1
-  const fate: Fate | null = !type ? null : !outcome ? null
-    : outcome.success ? (type === 'bank' ? 'bank' : 'swish')
-    : open < 0.25 ? 'blocked' : quality >= 0.6 ? 'rimOut' : seed % 2 === 0 ? 'short' : 'long'
-
-  const d = type ? SHOTS[type].d : SHOTS.three.d
-  const hoop = px(d), rimY = py(RIM_H)
-  const defX = px(def.gap + (type ? SHOTS[type].sep : 0))
-  const handUp = def.gap + (type ? SHOTS[type].sep : 0) < 1.0
-  const ball = ballAt(phase, type, fate, now.current - t0.current, d, def)
+  // desfecho obedece o engine; a geometria só escolhe a narração do erro
+  const fate: UiFate | null = !flight || !outcome ? null
+    : outcome.success ? 'swish' : flight.fate === 'blocked' ? 'blocked' : flight.fate === 'in' ? 'rimOut' : flight.fate
+  const hoop = px(scene.d), rimY = py(RIM_H)
+  const guide = drag ? guideDots(scene, drag, skill) : []
+  const ball = ballAt(phase, drag, flight, fate, now.current - t0.current, flightMs, scene)
 
   return (
     <div className="mg mg-shot">
       <div className="mg-sh-stage">
-        <svg className="mg-sh-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <svg ref={svgRef} className="mg-sh-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true"
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           <rect className="mg-sh__paper" x={0} y={0} width={W} height={H} />
-          {Array.from({ length: 12 }, (_, i) => <rect key={i} className={'mg-sh__plank' + (i % 2 ? ' mg-sh__plank--b' : '')} x={i * 25} y={GY} width={25} height={H - GY} />)}
+          {Array.from({ length: Math.ceil(W / 25) }, (_, i) => <rect key={i} className={'mg-sh__plank' + (i % 2 ? ' mg-sh__plank--b' : '')} x={i * 25} y={GY} width={25} height={H - GY} />)}
           <line className="mg-sh__floor" x1={0} y1={GY} x2={W} y2={GY} />
           <line className="mg-sh__rig" x1={hoop + 0.55 * M} y1={GY} x2={hoop + 0.55 * M} y2={rimY - 1.0 * M} />
           <line className="mg-sh__board" x1={hoop + 0.15 * M} y1={rimY - 1.05 * M} x2={hoop + 0.15 * M} y2={rimY + 0.3 * M} />
           <line className="mg-sh__rim" x1={hoop - 0.32 * M} y1={rimY} x2={hoop + 0.15 * M} y2={rimY} />
           <path className="mg-sh__net" d={`M ${hoop - 0.28 * M} ${rimY} L ${hoop - 0.08 * M} ${rimY + 0.5 * M} L ${hoop + 0.11 * M} ${rimY}`} />
-          <Figure x={defX} them handUp={handUp} label={def.who.short} />
-          <Figure x={X0} them={false} handUp={phase !== 'pick'} label={`${number ?? ''} ${lastName}`.trim()} />
+          <Figure x={px(scene.gap)} them reach={scene.who.reach} label={scene.who.short} />
+          <Figure x={X0} them={false} reach={phase === 'aim' ? scene.releaseH : scene.releaseH + 0.5} label={`${number ?? ''} ${lastName}`.trim()} />
+          {guide.map((p, i) => <circle key={i} className="mg-sh__guide" cx={px(p.x)} cy={py(p.y)} r={1.6} />)}
           <circle className="mg-sh__ball" cx={px(ball.x)} cy={py(ball.y)} r={5} />
         </svg>
         <div className="mg-sh-hud">
           <div className="mg-sh-hud__row">
-            <span className="mono-label mono-label--red">{t(lang, 'mg.shot.phase.' + (phase === 'done' ? 'flight' : phase))}</span>
-            <span className="mg-sh-tagline">{t(lang, 'mg.shot.defender')} · {def.who.short} · {def.gap.toFixed(1)} m</span>
+            <span className="mono-label mono-label--red">{t(lang, 'mg.shot.phase.' + (phase === 'aim' ? 'aim' : 'flight'))}</span>
+            <span className="mg-sh-tagline">{t(lang, 'mg.shot.defender')} · {scene.who.short} · {scene.gap.toFixed(1)} m</span>
           </div>
-          {type && <span className="mg-sh-tagline">{t(lang, TYPE_KEY[type])} · {SHOTS[type].d.toFixed(1)} m</span>}
+          <span className="mg-sh-tagline">{t(lang, 'mg.shot.zone.' + ZONE[scene.kind])} · {scene.d.toFixed(1)} m</span>
         </div>
       </div>
 
       <div className="mg-sh-bar">
-        {phase === 'pick' ? <>
-          <span className="mg-sh-label">{t(lang, 'mg.shot.pickType')}</span>
-          <div className="mg-sh-pick">
-            {types.map((tp, i) => {
-              const sk = skillOf(build, age, tp, mods.fatigue), op = shotOpenness(tp, def.gap)
-              return (
-                <button key={tp} type="button" className="mg-btn mg-sh-pickbtn" onClick={() => pick(tp)}>
-                  <span className="mg-sh-pickbtn__top">
-                    <span><span className="mg-sh-key">{i + 1}</span>{t(lang, TYPE_KEY[tp])}</span>
-                    <span className="mg-sh-key">{SHOTS[tp].d.toFixed(1)} m</span>
-                  </span>
-                  <span className="mg-sh-bars">
-                    <Bar label={t(lang, 'mg.shot.skill')} v={sk} />
-                    <Bar label={t(lang, 'mg.shot.open')} v={op} bad={op < 0.35} />
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </> : <span className="mg-sh-label">{t(lang, TYPE_KEY[type!])}</span>}
+        <span className="mg-sh-label">{t(lang, phase === 'aim' ? 'mg.shot.dragHint' : 'mg.shot.zone.' + ZONE[scene.kind])}</span>
+        <span className="mg-sh-bar__line">
+          <span className="mg-sh-bar__label">{t(lang, 'mg.shot.skill')}</span>
+          <span className="bar"><span className="bar__fill" style={{ width: `${Math.round(skill * 100)}%` }} /></span>
+        </span>
       </div>
 
       {phase === 'done' && outcome && (
@@ -157,45 +146,48 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
   )
 }
 
-function Bar({ label, v, bad }: { label: string; v: number; bad?: boolean }): JSX.Element {
-  return (
-    <span className="mg-sh-bar__line">
-      <span className="mg-sh-bar__label">{label}</span>
-      <span className="bar"><span className={'bar__fill' + (bad ? ' bar__fill--bad' : '')} style={{ width: `${Math.round(v * 100)}%` }} /></span>
-    </span>
-  )
-}
-
-// boneco de traço: pernas, tronco, cabeça, braço (levantado = mão em cima / arremessando)
-function Figure({ x, them, handUp, label }: { x: number; them: boolean; handUp: boolean; label: string }): JSX.Element {
-  const hip = py(0.95), head = py(handUp ? 1.95 : 1.75)
+// boneco de traço: pernas, tronco, cabeça, braço até `reach` (mão em cima / bola na mão)
+function Figure({ x, them, reach, label }: { x: number; them: boolean; reach: number; label: string }): JSX.Element {
+  const hip = py(0.95), head = py(1.8)
   return (
     <g className={'mg-sh__fig' + (them ? ' mg-sh__fig--them' : '')}>
       <line x1={x} y1={GY} x2={x - 6} y2={hip} />
       <line x1={x} y1={GY} x2={x + 6} y2={hip} />
       <line x1={x} y1={hip} x2={x} y2={head + 5} />
-      <line x1={x} y1={py(1.5)} x2={x + (them ? -8 : 8)} y2={py(handUp ? 2.6 : 1.15)} />
+      <line x1={x} y1={py(1.5)} x2={x + (them ? -6 : 6)} y2={py(reach)} />
       <circle cx={x} cy={head} r={5} />
       <text x={x} y={GY + 11} textAnchor="middle" className="mg-sh__tag">{label}</text>
     </g>
   )
 }
 
-// bola: na mão até soltar; no voo segue a parábola ideal e nos últimos 20% converge
-// pro ponto do desfecho (que OBEDECE `outcome`)
-function ballAt(phase: Phase, type: ShotType | null, fate: Fate | null, elapsed: number, d: number, def: StaticDefender): { x: number; y: number } {
-  if (phase === 'pick' || !type) return { x: 0.35, y: 1.15 }
-  const s = SHOTS[type]
-  const tr = trajectory(rad(REF_ANGLE[type]), refSpeed(type), s.releaseH)
-  const p = Math.min(1, Math.max(0, elapsed / FLIGHT_MS))
-  const pt = tr.pointAt(p * tr.tEnd)
+// guia da mira: arco previsto SEM ruído, só a fração (0.3 + 0.5 × skill) do voo
+function guideDots(scene: ShotScene, drag: Drag, skill: number): Array<{ x: number; y: number }> {
+  const l = launchFromPull(drag.cx - drag.sx, drag.cy - drag.sy)
+  if (!l) return []
+  const f = simulateShot(scene, l)
+  const n = Math.round(GUIDE_STEPS * (0.3 + 0.5 * skill))
+  return Array.from({ length: n }, (_, i) => flightPoint(f, (i + 1) / GUIDE_STEPS * f.tEnd)).filter(p => p.y > 0)
+}
+
+// bola: na mão (segue a puxada até 1 m); no voo, trajetória real até 80 % e converge pro
+// ponto do desfecho (que OBEDECE `outcome`); bloqueada = para na mão dele e cai
+function ballAt(phase: Phase, drag: Drag | null, flight: Flight | null, fate: UiFate | null, elapsed: number, flightMs: number, scene: ShotScene): { x: number; y: number } {
+  const hand = { x: 0, y: scene.releaseH }
+  if (phase === 'aim' || !flight) {
+    if (!drag) return hand
+    const dx = drag.cx - drag.sx, dy = drag.cy - drag.sy, len = Math.hypot(dx, dy), k = len > 1 ? 1 / len : 1
+    return { x: hand.x + dx * k, y: Math.max(0.12, hand.y + dy * k) }
+  }
+  const p = Math.min(1, Math.max(0, elapsed / flightMs))
+  const pt = flightPoint(flight, p * flight.tEnd)
   const mix = (a: number, b: number, k: number) => a + (b - a) * k
   if (fate === 'blocked') {
-    const k = Math.min(1, p / 0.35)
-    return { x: mix(pt.x, def.gap + s.sep, k), y: mix(pt.y, 2.8, k) - Math.max(0, p - 0.35) * 4 }
+    const k = Math.min(1, p / 0.5)
+    return { x: mix(pt.x, scene.gap, k), y: Math.max(0.12, mix(pt.y, scene.who.reach, k) - Math.max(0, p - 0.5) * 4) }
   }
-  if (p <= 0.8 || !fate) return pt
+  if (p <= 0.8 || !fate) return { x: pt.x, y: Math.max(0.12, pt.y) }
   const [ex, ey] = END[fate]
   const k = (p - 0.8) / 0.2
-  return { x: mix(pt.x, d + ex, k), y: mix(pt.y, ey, k) }
+  return { x: mix(pt.x, scene.d + ex, k), y: mix(pt.y, ey, k) }
 }

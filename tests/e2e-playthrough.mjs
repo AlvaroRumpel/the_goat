@@ -698,8 +698,8 @@ async function main() {
     // Play the first moment's minigame to its outcome — one branch per kind (§2-4 of the
     // arcade v2 spec). Skill isn't the point here, wiring and rendering are: the wall
     // (mg-defense) gets alternating slide gestures, the playbook (mg-pb) rolls the default
-    // routes and takes whatever shot the ball-handler has, the 2D shot (mg-shot) picks a
-    // type — that is the whole shot.
+    // routes and takes whatever shot the ball-handler has, the slingshot (mg-shot) gets one
+    // drag-and-release — that is the whole shot.
     if (await arcadePage.locator('.mg-defense').count() > 0) {
       log('arcade minigame: muralha (duelo 1x1) — alternating ArrowLeft/ArrowRight for 9s')
       for (let k = 0; k < 30; k++) {
@@ -715,8 +715,12 @@ async function main() {
         .or(arcadePage.locator('button', { hasText: 'BANDEJA' }))
       await shootBtn.first().click()
     } else if (await arcadePage.locator('.mg-shot').count() > 0) {
-      log('arcade minigame: arremesso 2D — pick a type (that is the shot)')
-      await arcadePage.locator('.mg-sh-pickbtn').first().click()
+      log('arcade minigame: arremesso estilingue — drag back and release')
+      const box = await arcadePage.locator('.mg-sh-svg').boundingBox()
+      await arcadePage.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.55)
+      await arcadePage.mouse.down()
+      await arcadePage.mouse.move(box.x + box.width * 0.02, box.y + box.height * 0.85, { steps: 8 })
+      await arcadePage.mouse.up()
     }
 
     // The `.mg-result` overlay is short-lived (~600-800ms) — wait for it right after the
