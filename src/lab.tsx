@@ -16,13 +16,13 @@ import type { MinigameKind, MinigameResult } from './engine/minigames'
 import type { Lang } from './i18n'
 import type { MinigameProps } from './ui/minigames/types'
 import { PlaybookGame } from './ui/minigames/Playbook'
-import { ShotFallback } from './ui/minigames/ShotFallback'
+import { ShotGame } from './ui/minigames/Shot'
 import { DefenseFallback } from './ui/minigames/DefenseFallback'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 
 // Laboratório: monta um minigame por vez com props sintéticos. NÃO é o jogo — sem save,
 // sem reducer; o `outcome` é sorteado aqui com Math.random (fora do engine) só pra animar.
-const GAMES: Record<MinigameKind, ComponentType<MinigameProps>> = { playbook: PlaybookGame, shot: ShotFallback, defense: DefenseFallback }
+const GAMES: Record<MinigameKind, ComponentType<MinigameProps>> = { playbook: PlaybookGame, shot: ShotGame, defense: DefenseFallback }
 const KINDS: WatchedGameKind[] = ['rivalry', 'seedRace', 'special', 'playoff', 'finals']
 const league = initLeague()
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))

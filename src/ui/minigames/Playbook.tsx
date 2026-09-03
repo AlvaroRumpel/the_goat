@@ -4,7 +4,6 @@ import type { Rng } from '../../engine/types'
 import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
 import { attrMods, difficulty, opponentFive, reboundWindow } from '../../engine/minigames/common'
-import { freeThrowQuality } from '../../engine/minigames/shot'
 import {
   applyTemplate, callScreen, COURT, createPlaybook, feint, isSettled, moveTo, openness, pass, pumpFake,
   reboundTap, SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
@@ -258,16 +257,16 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const onReboundTap = useCallback((hit: 'perfect' | 'hit' | 'miss') => act(s => reboundTap(s, hit)), [])
 
-  const onFreeThrows = (q: [number, number]) => {
+  const onFreeThrows = (q: number) => {
     if (resolved.current) return
     resolved.current = true
     setFtDone(true)
-    onResolveRef.current({ optionId: 'mgFreeThrow', quality: freeThrowQuality(q) })
+    onResolveRef.current({ optionId: 'mgFreeThrow', quality: q })
     setTimeout(() => setShowResult(true), OVERLAY_MS)
   }
 
   // falta puxada: os lances livres decidem a quality antes do despacho
-  if (foulPending && ftReady && !ftDone) return <FreeThrows lang={lang} build={build} age={age} quarter={quarter} onDone={onFreeThrows} />
+  if (foulPending && ftReady && !ftDone) return <FreeThrows lang={lang} build={build} age={age} onDone={onFreeThrows} />
 
   // ---------- render ----------
   const phase = st.phase

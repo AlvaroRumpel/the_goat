@@ -1,196 +1,90 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
-import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../../src/engine/types'
-import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
 import { initLeague } from '../../../src/data/league'
+import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
 import {
-  angleValue, availableTypes, bankCrossX, createCloseout, crossX, evaluate, freeThrowQuality, idealSpeed,
-  jumpTiming, meterValue, rad, refSpeed, resultFor, scenarioFor, SHOTS, stepCloseout, trajectory,
-  type ShotEval, type ShotType,
+  availableTypes, createStaticDefender, freeThrowQuality, idealSpeed, rad, refSpeed, resultFor, RIM_H,
+  SHOTS, shotOpenness, shotQuality, skillOf, trajectory, type ShotType,
 } from '../../../src/engine/minigames/shot'
+import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
 const build = (ovr: number, over: Partial<Record<SlotId, number>> = {}): Build => ({
   attributes: { ...Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])), ...over } as Record<SlotId, number>,
   picks: [], archetype: 'SF', overall: ovr,
 })
-const H3 = SHOTS.three.releaseH
-const mods80 = attrMods(build(80), 27)
+const ALL: ShotType[] = ['layup', 'floater', 'mid', 'stepback', 'fadeaway', 'three', 'bank', 'dunk']
+const league = initLeague()
 
-describe('shot physics', () => {
-  test('idealSpeed at 50° for the three crosses the rim center', () => {
-    const v = idealSpeed(rad(50), 7.24, H3)
-    expect(Number.isFinite(v)).toBe(true)
-    expect(Math.abs(crossX(rad(50), v, H3)! - 7.24)).toBeLessThan(0.01)
-    expect(evaluate('three', rad(50), v, { closeout: null, jump: null, mods: mods80 }).quality).toBeCloseTo(1, 3)
+describe('fórmula skill × abertura (contrato spec B)', () => {
+  test('skillOf: 60 = 0.5 neutro, 90 = 1.0, 40 clampa em 0.25, fadiga reduz', () => {
+    expect(skillOf(build(60), 27, 'three')).toBeCloseTo(0.5, 5)
+    expect(skillOf(build(90), 27, 'three')).toBeCloseTo(1, 5)
+    expect(skillOf(build(40), 27, 'three')).toBe(0.25)
+    expect(skillOf(build(60), 27, 'three', 0.3)).toBeCloseTo(0.5 * 0.85, 5)
   })
-
-  test('angle too flat → no solution', () => {
-    expect(Number.isNaN(idealSpeed(rad(5), 7.24, H3))).toBe(true)
-    expect(crossX(rad(5), 3, H3)).toBeNull()
-    expect(evaluate('three', rad(5), 3, { closeout: null, jump: null, mods: mods80 }).quality).toBe(0)
+  test('skillOf usa o atributo do tipo', () => {
+    const b = build(60, { three: 90, finishing: 40, handles: 75 })
+    expect(skillOf(b, 27, 'three')).toBeCloseTo(1, 5); expect(skillOf(b, 27, 'stepback')).toBeCloseTo(1, 5)
+    expect(skillOf(b, 27, 'layup')).toBe(0.25); expect(skillOf(b, 27, 'dunk')).toBe(0.25); expect(skillOf(b, 27, 'floater')).toBe(0.25)
+    expect(skillOf(b, 27, 'mid')).toBeCloseTo(0.75, 5); expect(skillOf(b, 27, 'bank')).toBeCloseTo(0.75, 5); expect(skillOf(b, 27, 'fadeaway')).toBeCloseTo(0.75, 5)
   })
-
-  test('speed off the ideal → quality lower, monotonic', () => {
-    const v = idealSpeed(rad(50), 7.24, H3)
-    const q = (k: number) => evaluate('three', rad(50), v * k, { closeout: null, jump: null, mods: mods80 }).quality
-    expect(q(1)).toBeGreaterThan(q(1.03))
-    expect(q(1.03)).toBeGreaterThan(q(1.06))
-    expect(q(1.06)).toBeGreaterThanOrEqual(q(1.12))
-    expect(q(1.12)).toBeLessThan(q(1))
-    expect(q(1)).toBeGreaterThan(q(0.97))
-    expect(q(0.97)).toBeGreaterThan(q(0.94))
-    expect(q(0.94)).toBeGreaterThanOrEqual(q(0.88))
-    expect(evaluate('three', rad(50), v * 1.12, { closeout: null, jump: null, mods: mods80 }).verdict).toBe('long')
-    expect(evaluate('three', rad(50), v * 0.88, { closeout: null, jump: null, mods: mods80 }).verdict).toBe('short')
+  test('skillOf: idade 35 < 27', () => { expect(skillOf(build(85), 35, 'mid')).toBeLessThan(skillOf(build(85), 27, 'mid')) })
+  test('shotOpenness: colado (0.5m) = 0, 2.1m = 1, sep do tipo soma', () => {
+    expect(shotOpenness('three', 0.5)).toBe(0); expect(shotOpenness('three', 2.1)).toBe(1)
+    expect(shotOpenness('three', 1.3)).toBeCloseTo(0.5, 5)
+    expect(shotOpenness('stepback', 0.5)).toBeCloseTo(1.2 / 1.6, 5)
   })
-
-  test('flat entry (20°) halves the tolerance', () => {
-    // mesma sobra de 0.2m nos dois: velocidade ideal para d+0.2
-    const flat = evaluate('three', rad(20), idealSpeed(rad(20), 7.44, H3), { closeout: null, jump: null, mods: mods80 })
-    const arc = evaluate('three', rad(50), idealSpeed(rad(50), 7.44, H3), { closeout: null, jump: null, mods: mods80 })
-    expect(flat.entryAngle).toBeLessThan(32)
-    expect(arc.entryAngle).toBeGreaterThan(32)
-    expect(flat.err).toBeCloseTo(0.2, 2)
-    expect(arc.err).toBeCloseTo(0.2, 2)
-    expect(flat.quality).toBeLessThan(arc.quality)
+  test('shotQuality = skill × abertura, em [0,1], fadiga via mods', () => {
+    const mods = attrMods(build(60), 27)
+    expect(shotQuality('three', 2.1, build(60), 27, mods)).toBeCloseTo(0.5, 5)
+    expect(shotQuality('three', 0.5, build(99), 27, mods)).toBe(0)
+    const tired = attrMods(build(60, { physical: 50 }), 27, 4)
+    expect(tired.fatigue).toBeGreaterThan(0)
+    expect(shotQuality('three', 2.1, build(60, { physical: 50 }), 27, tired)).toBeLessThan(0.5)
+    for (const t of ALL) for (const gap of [0.3, 1, 2.5]) { const q = shotQuality(t, gap, build(80), 27, mods); expect(q).toBeGreaterThanOrEqual(0); expect(q).toBeLessThanOrEqual(1) }
   })
-
-  test('layup is more tolerant than the three for the same error', () => {
-    const lay = evaluate('layup', rad(60), idealSpeed(rad(60), SHOTS.layup.d + 0.3, SHOTS.layup.releaseH), { closeout: null, jump: null, mods: mods80 })
-    const three = evaluate('three', rad(60), idealSpeed(rad(60), SHOTS.three.d + 0.3, H3), { closeout: null, jump: null, mods: mods80 })
-    expect(lay.err).toBeCloseTo(0.3, 2)
-    expect(three.err).toBeCloseTo(0.3, 2)
-    expect(lay.quality).toBeGreaterThan(three.quality)
-  })
-
-  test('dunk: any speed within 30% of the ideal is perfect', () => {
-    const v = refSpeed('dunk')
-    expect(evaluate('dunk', rad(60), v * 1.29, { closeout: null, jump: null, mods: mods80 }).quality).toBe(1)
-    expect(evaluate('dunk', rad(60), v * 0.71, { closeout: null, jump: null, mods: mods80 }).quality).toBe(1)
-    expect(evaluate('dunk', rad(60), v * 1.6, { closeout: null, jump: null, mods: mods80 }).quality).toBeLessThan(1)
-  })
-
-  test('quality stays in [0,1] over a grid', () => {
-    for (const type of Object.keys(SHOTS) as ShotType[])
-      for (let a = 10; a <= 80; a += 5)
-        for (let v = 0; v <= 20; v += 0.5) {
-          const q = evaluate(type, rad(a), v, { closeout: null, jump: null, mods: mods80 }).quality
-          expect(q).toBeGreaterThanOrEqual(0)
-          expect(q).toBeLessThanOrEqual(1)
-        }
-  })
-
-  test('trajectory sampler starts at release height and ends at rim height', () => {
-    const v = idealSpeed(rad(50), 7.24, H3)
-    const tr = trajectory(rad(50), v, H3)
-    expect(tr.pointAt(0)).toEqual({ x: 0, y: H3 })
-    const end = tr.pointAt(tr.tEnd)
-    expect(end.y).toBeCloseTo(3.05, 6)
-    expect(end.x).toBeCloseTo(7.24, 6)
+  test('resultFor mapeia optionId dos 8 tipos; freeThrowQuality = skill de três', () => {
+    const want: Record<ShotType, string> = { layup: 'mgLayup', floater: 'mgLayup', mid: 'mgMid', stepback: 'mgThree', fadeaway: 'mgMid', three: 'mgThree', bank: 'mgMid', dunk: 'mgDunk' }
+    for (const t of ALL) expect(resultFor(t, 0.42)).toEqual({ optionId: want[t], quality: 0.42 })
+    expect(freeThrowQuality(build(60, { three: 90 }), 27)).toBeCloseTo(1, 5)
   })
 })
 
-describe('shot scenario + helpers', () => {
-  const ctx = (kind: WatchedGameContext['kind']): WatchedGameContext => ({ kind, opponentTeamId: 'bos' })
-
-  test('scenarioFor maps kinds and is deterministic per seed', () => {
-    expect(scenarioFor(ctx('rivalry'), createRng(1)).backdrop).toBe('rivalry')
-    expect(scenarioFor(ctx('playoff'), createRng(1)).backdrop).toBe('playoff')
-    expect(scenarioFor(ctx('finals'), createRng(1)).backdrop).toBe('finals')
-    expect(scenarioFor(ctx('seedRace'), createRng(1)).backdrop).toBe('regular')
-    expect(scenarioFor(ctx('special'), createRng(1)).backdrop).toBe('regular')
-    expect(scenarioFor(ctx('finals'), createRng(1)).meterSpeed).toBe(1.25)
-    expect(scenarioFor(ctx('playoff'), createRng(1)).meterSpeed).toBe(1)
-    for (const seed of [1, 42, 999]) {
-      const a = scenarioFor(ctx('rivalry'), createRng(seed)), b = scenarioFor(ctx('rivalry'), createRng(seed))
-      expect(a).toEqual(b)
-      expect(a.crowd).toBeGreaterThanOrEqual(0)
-      expect(a.crowd).toBeLessThan(1)
+describe('defensor estático', () => {
+  test('gap em 0.6..2.4, determinístico por seed, é o bestDefender', () => {
+    const five = opponentFive(league, 'bos')
+    for (let seed = 0; seed < 50; seed++) {
+      const d = createStaticDefender(createRng(seed), five)
+      expect(d.gap).toBeGreaterThanOrEqual(0.6); expect(d.gap).toBeLessThan(2.4)
+      expect(five.some(p => p.id === d.who.id)).toBe(true)
     }
-  })
-
-  test('meterValue / angleValue bounded and periodic', () => {
-    for (let t = 0; t < 5000; t += 37) {
-      const m = meterValue(t, 1400), a = angleValue(t, 1200)
-      expect(m).toBeGreaterThanOrEqual(0)
-      expect(m).toBeLessThanOrEqual(1)
-      expect(a).toBeGreaterThanOrEqual(25)
-      expect(a).toBeLessThanOrEqual(70)
-      expect(meterValue(t + 1400, 1400)).toBeCloseTo(m, 9)
-      expect(angleValue(t + 1200, 1200)).toBeCloseTo(a, 9)
-    }
-    expect(meterValue(0, 1400)).toBe(0)
-    expect(meterValue(700, 1400)).toBe(1)
-    expect(angleValue(600, 1200)).toBe(70)
+    expect(createStaticDefender(createRng(7), five)).toEqual(createStaticDefender(createRng(7), five))
   })
 })
-
-const mods = attrMods(build(85), 27)
-const five = opponentFive(initLeague(), 'bos')
 
 describe('repertório', () => {
   test('availableTypes por atributo', () => {
-    expect(availableTypes(build(55), 27)).toEqual(['layup', 'mid', 'three', 'bank'])
-    expect(availableTypes(build(95), 27)).toEqual(['layup', 'floater', 'mid', 'stepback', 'fadeaway', 'three', 'bank', 'dunk'])
+    expect(availableTypes(build(60), 27)).toEqual(['layup', 'floater', 'mid', 'three', 'bank'])
+    expect(availableTypes(build(80), 27)).toEqual(ALL)
   })
-  test('availableTypes: limites exatos das travas (idade 27, ageMultiplier = 1.0)', () => {
-    expect(availableTypes(build(80, { finishing: 59 }), 27)).not.toContain('floater')
-    expect(availableTypes(build(80, { finishing: 60 }), 27)).toContain('floater')
-    expect(availableTypes(build(80, { handles: 69 }), 27)).not.toContain('stepback')
-    expect(availableTypes(build(80, { handles: 70 }), 27)).toContain('stepback')
-    expect(availableTypes(build(80, { clutch: 69 }), 27)).not.toContain('fadeaway')
-    expect(availableTypes(build(80, { clutch: 70 }), 27)).toContain('fadeaway')
-    expect(availableTypes(build(80, { physical: 74 }), 27)).not.toContain('dunk')
-    expect(availableTypes(build(80, { physical: 75 }), 27)).toContain('dunk')
+  test('limites exatos das travas (idade 27, ageMultiplier = 1.0)', () => {
+    expect(availableTypes(build(60, { finishing: 59 }), 27)).not.toContain('floater')
+    expect(availableTypes(build(60, { handles: 70 }), 27)).toContain('stepback')
+    expect(availableTypes(build(60, { clutch: 69 }), 27)).not.toContain('fadeaway')
+    expect(availableTypes(build(60, { physical: 75 }), 27)).toContain('dunk')
   })
-  test('velocidade ideal acerta o aro para todo tipo (exceto dunk)', () => {
-    for (const t of Object.keys(SHOTS) as ShotType[]) {
-      if (t === 'dunk') continue
-      const s = SHOTS[t]; const v = idealSpeed(rad(50), s.d, s.releaseH)
-      const ev = evaluate(t, rad(50), v, { closeout: null, jump: null, mods })
-      expect(ev.err).toBeLessThan(0.02); expect(ev.quality).toBeGreaterThan(0.95)
-    }
-  })
-  test('salto perfeito > sem salto > salto errado; contestado reduz', () => {
-    const v = idealSpeed(rad(50), SHOTS.three.d, SHOTS.three.releaseH) * 1.03
-    const q = (jump: 'perfect' | 'hit' | 'miss' | null, closeout = null as ReturnType<typeof createCloseout> | null) => evaluate('three', rad(50), v, { closeout, jump, mods }).quality
-    expect(q('perfect')).toBeGreaterThan(q(null)); expect(q(null)).toBeGreaterThan(q('miss'))
-    let c = createCloseout(createRng(1), { difficulty: 1, defender: five[0], sep: 0 }); for (let i = 0; i < 200; i++) c = stepCloseout(c, 0.05)
-    expect(c.arrived).toBe(true); expect(q(null, c)).toBeLessThan(q(null))
-  })
-  test('arco baixo com a mão levantada = bloqueado', () => {
-    let c = createCloseout(createRng(2), { difficulty: 1, defender: five[0], sep: 0 }); while (!c.handUp) c = stepCloseout(c, 0.05)
-    const flat = evaluate('three', rad(18), idealSpeed(rad(18), 7.24, 2.05) || 12, { closeout: c, jump: null, mods })
-    expect(flat.blocked).toBe(true); expect(flat.quality).toBe(0); expect(flat.verdict).toBe('blocked')
-  })
-  test('step-back/fadeaway afastam o closeout (sep)', () => {
-    const a = createCloseout(createRng(3), { difficulty: 1, defender: five[0], sep: SHOTS.stepback.sep }), b = createCloseout(createRng(3), { difficulty: 1, defender: five[0], sep: 0 })
-    expect(a.x).toBeGreaterThan(b.x)
-  })
-  test('tabela: bankCrossX devolve x perto do aro para o tiro certo e evaluate usa bankAim', () => {
-    const d = SHOTS.bank.d, v = idealSpeed(rad(52), d + 0.6, 2.05)   // mira 0.6m "além" do aro → reflete de volta
-    const x = bankCrossX(rad(52), v, 2.05, d)
-    expect(x).not.toBeNull(); expect(Math.abs(x! - d)).toBeLessThan(0.5)
-    const ev = evaluate('bank', rad(52), v, { closeout: null, jump: null, mods, bankAim: true })
-    expect(ev.quality).toBeGreaterThan(0.5)
-  })
-  test('fadiga reduz a força efetiva (mesmo input, mais curto)', () => {
-    const tired = attrMods(build(80, { physical: 50 }), 27, 4)
-    const v = idealSpeed(rad(50), 7.24, 2.05)
-    expect(evaluate('three', rad(50), v, { closeout: null, jump: null, mods: tired }).verdict).toBe('short')
-  })
-  test('resultFor mapeia optionId; freeThrowQuality é média; jumpTiming usa a janela', () => {
-    const ev = evaluate('layup', rad(55), idealSpeed(rad(55), 1.5, 2.3), { closeout: null, jump: null, mods })
-    expect(resultFor('layup', ev).optionId).toBe('mgLayup'); expect(resultFor('stepback', ev).optionId).toBe('mgThree'); expect(resultFor('bank', ev).optionId).toBe('mgMid')
-    expect(freeThrowQuality([1, 0.5])).toBeCloseTo(0.75, 5)
-    expect(jumpTiming(0.5, 0.5, mods)).toBe('perfect'); expect(jumpTiming(0.9, 0.5, mods)).toBe('miss')
-  })
-  test('resultFor mapeia optionId para os 8 tipos', () => {
-    const ev: ShotEval = { quality: 0.42, err: 0.1, entryAngle: 45, verdict: 'swish', blocked: false, contested: false }
-    for (const t of Object.keys(SHOTS) as ShotType[]) {
-      const r = resultFor(t, ev)
-      expect(r.optionId).toBe(SHOTS[t].optionId)
-      expect(r.quality).toBe(ev.quality)
+})
+
+describe('parábola da animação', () => {
+  test('refSpeed é finita e a trajetória sai da altura de saída e chega à do aro', () => {
+    for (const t of ALL) {
+      const v = refSpeed(t); expect(Number.isFinite(v)).toBe(true)
+      const s = SHOTS[t]
+      const angle = t === 'dunk' ? 60 : 45
+      const tr = trajectory(rad(angle), idealSpeed(rad(angle), s.d, s.releaseH), s.releaseH)
+      expect(tr.pointAt(0).y).toBeCloseTo(s.releaseH, 6)
+      const end = tr.pointAt(tr.tEnd)
+      expect(end.x).toBeCloseTo(s.d, 3); expect(end.y).toBeCloseTo(RIM_H, 3)
     }
   })
 })

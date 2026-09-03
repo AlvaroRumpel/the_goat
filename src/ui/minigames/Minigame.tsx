@@ -4,17 +4,16 @@ import { t } from '../../i18n'
 import { minigameFor, minigameSeed, type MinigameResult } from '../../engine/minigames'
 import { opponentStar } from '../../engine/minigames/common'
 import { PlaybookGame } from './Playbook'
-import { ShotFallback } from './ShotFallback'
+import { ShotGame } from './Shot'
 import { DefenseFallback } from './DefenseFallback'
 import { hasWebGL } from './three/webgl'
 
-// three.js só entra no bundle de quem abre arremesso/muralha com WebGL (chunk próprio)
-const ShotGame = lazy(() => import('./Shot').then(m => ({ default: m.ShotGame })))
+// three.js só entra no bundle de quem abre a muralha com WebGL (chunk próprio) — arremesso é 2D puro
 const DefenseGame = lazy(() => import('./Defense').then(m => ({ default: m.DefenseGame })))
 
 const HOLD_MS = 1400
 // pré-carrega o chunk do three enquanto o jogador lê as regras (evita o fallback do Suspense no JOGAR)
-const preload: Record<string, () => Promise<unknown>> = { shot: () => import('./Shot'), defense: () => import('./Defense') }
+const preload: Record<string, () => Promise<unknown>> = { defense: () => import('./Defense') }
 
 // Painel de decisão do modo arcade: no lugar das 2-3 opções, o minigame do momento.
 // Fluxo: minigame chama onResolve → DECIDE_MOMENT (engine resolve com exec) → o painel
@@ -59,8 +58,8 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
   if (!moment) return null
   if (holding === null && !active) return null
   const kind = minigameFor(moment)
-  // sem WebGL, arremesso e muralha caem no painel 2D (mesmo fluxo, outro desenho)
-  const Comp = kind === 'shot' ? (hasWebGL() ? ShotGame : ShotFallback)
+  // sem WebGL, a muralha cai no painel 2D (mesmo fluxo, outro desenho); arremesso é sempre 2D
+  const Comp = kind === 'shot' ? ShotGame
     : kind === 'defense' ? (hasWebGL() ? DefenseGame : DefenseFallback)
     : PlaybookGame
   const star = opponentStar(state.league!, pending.context.opponentTeamId)

@@ -1,73 +1,38 @@
-/* --- ARREMESSO (mg-shot): cena 3D + HUD por cima + barra de controles. Prefixo mg-sh- --- */
+/* --- minigame ARREMESSO 2D — prefixo mg-sh-. Vista lateral em papel sépia (spec 2026-09-03 §B). --- */
 .mg-shot { display: flex; flex-direction: column; }
-.mg-sh-stage { position: relative; width: 100%; flex: 1; min-height: 180px; background: #2E2A24; cursor: crosshair;
-  touch-action: none; user-select: none; -webkit-user-select: none; }
-.mg-sh-canvas { display: block; width: 100%; height: 100%; }
-/* fallback sem WebGL: vista lateral em SVG no lugar do canvas (mesmo palco, mesmo HUD) */
+.mg-sh-stage { position: relative; width: 100%; flex: 1; min-height: 180px; background: var(--paper); }
 .mg-sh-svg { display: block; width: 100%; height: 100%; }
-.mg-sh-fb__bg { fill: #2E2A24; }
-.mg-sh-fb__floor { stroke: var(--on-ink-dim); stroke-width: 1; }
-.mg-sh-fb__rig, .mg-sh-fb__board { stroke: var(--on-ink-dim); stroke-width: 2; }
-.mg-sh-fb__rim { stroke: var(--red); stroke-width: 4; }
-.mg-sh-fb__net { fill: none; stroke: var(--on-ink-dim); stroke-width: 1; }
-.mg-sh-fb__arc { fill: none; stroke: var(--accent-warm); stroke-width: 1.5; stroke-dasharray: 4 4; }
-.mg-sh-fb__you { stroke: var(--red); stroke-width: 2.5; fill: none; stroke-linecap: round; }
-.mg-sh-fb__def { stroke: var(--on-ink-dim); stroke-width: 2.5; fill: none; stroke-linecap: round; }
-.mg-sh-fb__def--up { stroke: var(--on-ink); }
-.mg-sh-fb__def .mg-sh-fb__hand { stroke: var(--red-soft); }
-.mg-sh-fb__ball { fill: var(--accent-warm); }
+.mg-sh__paper { fill: var(--paper); }
+.mg-sh__plank { fill: #DDD0B3; }
+.mg-sh__plank--b { fill: #D3C4A3; }
+.mg-sh__floor { stroke: var(--ink); stroke-width: 1.5; }
+.mg-sh__rig, .mg-sh__board { stroke: var(--ink); stroke-width: 2; }
+.mg-sh__rim { stroke: var(--red); stroke-width: 3; }
+.mg-sh__net { fill: none; stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 1; }
+.mg-sh__fig { stroke: var(--red); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+.mg-sh__fig circle { fill: var(--red); }
+.mg-sh__fig--them { stroke: var(--ink); }
+.mg-sh__fig--them circle { fill: var(--ink); }
+.mg-sh__tag { stroke: none; fill: var(--ink); font-family: var(--mono); font-size: 7px; letter-spacing: 0.1em; }
+.mg-sh__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 1; }
 
-.mg-sh-hud { position: absolute; inset: 8px 10px auto 10px; display: flex; flex-direction: column; gap: 5px;
-  pointer-events: none; color: var(--on-ink); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.mg-sh-hud { position: absolute; inset: 8px 10px auto 10px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
 .mg-sh-hud__row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.mg-sh-clock { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--on-ink-dim); }
-.mg-sh-clock b { color: var(--accent-warm); font-size: 15px; }
-.mg-sh-tagline { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--on-ink-dim); }
-.mg-sh-co { display: flex; flex-direction: column; gap: 3px; max-width: 190px; }
-.mg-sh-co__track { height: 4px; background: rgba(237, 230, 214, 0.25); }
-.mg-sh-co__fill { height: 100%; background: var(--red); }
-.mg-sh-warn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--red-soft); }
-.mg-sh-warn--dim { color: var(--on-ink-dim); }
-/* salto: o palco inteiro recebe o toque; trilho/janela/cursor ficam desenhados à direita */
-.mg-sh-jump { position: absolute; inset: 20% 0 6%; }   /* abaixo do HUD; ::after estende o toque ao palco todo */
-.mg-sh-jump .mg-timing--vertical { width: 100%; }
-.mg-sh-jump .mg-timing--vertical::after { content: ''; position: absolute; left: 0; right: 0; top: -27%; bottom: -8.2%; }
-.mg-sh-jump .mg-timing--vertical::before,
-.mg-sh-jump .mg-timing--vertical .mg-timing__win,
-.mg-sh-jump .mg-timing--vertical .mg-timing__cur { left: auto; right: 12px; width: 36px; }
-.mg-sh-jump .mg-timing--vertical::before { top: 0; bottom: 0; }
-/* guia da mira (canto inferior esquerdo) e a dica grande do passo atual */
-.mg-shot .mg-sh-aim { position: absolute; left: 3%; bottom: 4%; width: 30%; max-width: 220px; height: auto;
-  aspect-ratio: 1; pointer-events: none; }
-.mg-sh-aim__fan { fill: rgba(237, 230, 214, 0.08); stroke: var(--on-ink-dim); stroke-width: 1; stroke-dasharray: 3 3; }
-.mg-sh-aim__arrow { stroke: var(--accent-warm); stroke-width: 3; stroke-linecap: round; }
-.mg-sh-aim__tip { fill: var(--accent-warm); }
-.mg-sh-aim--dim .mg-sh-aim__arrow, .mg-sh-aim--dim .mg-sh-aim__tip { opacity: 0.45; }
-.mg-sh-cue { position: absolute; left: 0; right: 0; top: 42%; padding: 0 12%; text-align: center; pointer-events: none;
-  font-family: var(--black); font-size: clamp(18px, 4vw, 30px); line-height: 1.1; letter-spacing: 0.03em;
-  color: var(--on-ink); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85); }
-.mg-sh-track { width: 100%; }
+.mg-sh-tagline { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--body-dim); }
 
 .mg-sh-bar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--ink); color: var(--on-ink); }
 .mg-sh-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.mg-sh-row b { color: var(--accent-warm); }
 .mg-shot .mg-btn { min-height: 44px; }
 .mg-sh-key { font-family: var(--mono); font-size: 10px; font-weight: 400; opacity: 0.55; margin-right: 8px; }
 .mg-sh-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--on-ink-dim); }
-.mg-sh-modes { display: flex; gap: 1px; background: var(--ink-3); }
-.mg-sh-mode { background: var(--ink-2); color: var(--on-ink-dim); border: 0; font-family: var(--mono); font-size: 11px;
-  letter-spacing: 0.14em; padding: 8px 12px; min-height: 36px; cursor: pointer; }
-.mg-sh-mode--on { color: var(--on-ink); box-shadow: inset 0 -2px 0 var(--red); }
-.mg-sh-mode:disabled { cursor: default; opacity: 0.5; }
-.mg-sh-readouts { display: flex; gap: 18px; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
-.mg-sh-readouts b { color: var(--accent-warm); font-weight: 600; }
-
-/* repertório: uma linha por arremesso (rótulo + distância, custo/benefício embaixo) */
-.mg-sh-pick { display: flex; flex-direction: column; gap: 1px; background: var(--ink-3); }
-.mg-sh-pickbtn { display: flex; flex-direction: column; align-items: stretch; gap: 3px; text-align: left; padding: 9px 12px; }
+.mg-sh-pick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--ink-3); }
+.mg-sh-pickbtn { display: flex; flex-direction: column; align-items: stretch; gap: 5px; text-align: left; padding: 9px 12px; }
 .mg-sh-pickbtn__top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.mg-sh-cost { font-family: var(--mono); font-size: 10px; font-weight: 400; letter-spacing: 0.04em;
-  text-transform: none; color: var(--on-ink-dim); }
-
-/* lances livres: medidor simples, sem cena */
-.mg-ft-track { height: 10px; background: var(--ink-2); }
-.mg-ft-fill { height: 100%; background: var(--accent-warm); }
+.mg-sh-bars { display: flex; flex-direction: column; gap: 3px; }
+.mg-sh-bar__line { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 6px; }
+.mg-sh-bar__label { font-family: var(--mono); font-size: 9px; font-weight: 400; letter-spacing: 0.14em; color: var(--on-ink-dim); }
+.mg-sh-bars .bar { background: var(--ink-3); }
+.mg-sh-bars .bar__fill { display: block; background: var(--on-ink); }
+.mg-sh-bars .bar__fill--bad { background: var(--red); }
+@media (max-width: 420px) { .mg-sh-pick { grid-template-columns: 1fr; } }
