@@ -11,5 +11,8 @@
 .lab__row .mg-btn { flex: 1; min-height: 44px; }
 .lab__log { margin: 8px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; color: var(--on-ink-dim); font-size: 11px; }
 .lab__stage { display: flex; align-items: stretch; justify-content: center; padding: 12px; }
-.lab .game-decision.mg-frame.lab__frame { position: static; height: auto; min-height: calc(100vh - 24px); width: 100%; max-width: 920px; }
+/* a moldura do jogo centra o conteúdo com padding = (100vw − 920px)/2 porque em tela cheia ela É a
+   viewport; aqui ela é estática e já limitada a 920px — sem isso, em janela larga o padding engole a
+   largura toda e o minigame fica com 0px (moldura preta vazia) */
+.lab .game-decision.mg-frame.lab__frame { position: static; height: auto; min-height: calc(100vh - 24px); width: 100%; max-width: 920px; padding: 10px 12px; }
 @media (max-width: 760px) { .lab { grid-template-columns: 1fr; } .lab__side { max-height: 40vh; } }
