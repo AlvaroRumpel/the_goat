@@ -1,0 +1,15 @@
+/* laboratório de minigames — só /lab.html */
+.lab { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; background: var(--paper); color: var(--ink); }
+.lab__side { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: var(--ink); color: var(--on-ink);
+  font-family: var(--mono); font-size: 12px; overflow-y: auto; }
+.lab__title { margin: 0 0 6px; font-family: var(--black); font-size: 18px; letter-spacing: 0.04em; }
+.lab__side label { display: flex; flex-direction: column; gap: 3px; }
+.lab__side select, .lab__side input[type=number] { font: inherit; padding: 5px 6px; background: var(--ink-2); color: var(--on-ink); border: 1px solid var(--ink-3); }
+.lab__attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 4px; }
+.lab__attrs b { color: var(--accent-warm); margin-left: 4px; }
+.lab__row { display: flex; gap: 1px; background: var(--ink-3); margin-top: 6px; }
+.lab__row .mg-btn { flex: 1; min-height: 44px; }
+.lab__log { margin: 8px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 3px; color: var(--on-ink-dim); font-size: 11px; }
+.lab__stage { display: flex; align-items: stretch; justify-content: center; padding: 12px; }
+.lab .game-decision.mg-frame.lab__frame { position: static; height: auto; min-height: calc(100vh - 24px); width: 100%; max-width: 920px; }
+@media (max-width: 760px) { .lab { grid-template-columns: 1fr; } .lab__side { max-height: 40vh; } }

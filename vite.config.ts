@@ -8,6 +8,7 @@ export default defineConfig({
     rollupOptions: {
       input: [
         'index.html',
+        'lab.html',
         'como-jogar.html',
         'sobre.html',
         'privacidade.html',
