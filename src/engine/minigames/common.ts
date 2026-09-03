@@ -37,6 +37,7 @@ export function difficulty(kind: WatchedGameKind, starOvr: number): number {
 export interface AttrMods {
   speed: number; feint: number; stripResist: number; laneSafety: number; jumpWindow: number
   reactMs: number; stealWindow: number; boxWindow: number; tremor: number; fatigue: number
+  blockP: number; stealP: number; reboundP: number
   tol: Record<'layup' | 'floater' | 'mid' | 'three' | 'dunk', number>
 }
 // x = atributo efetivo − 60 (−20..39); cada mod é linear em x, clampado
@@ -57,6 +58,9 @@ export function attrMods(build: Build, age: number, quarter = 1): AttrMods {
     boxWindow: lin(a('rebounding'), 0.15, 0.003, 0.08, 0.26),
     tremor: lin(a('clutch'), 1.0, -0.015, 0.3, 1.3),
     fatigue,
+    blockP: lin(a('defense'), 0.35, 0.006, 0.2, 0.6),
+    stealP: lin(a('defense'), 0.45, 0.006, 0.25, 0.8),
+    reboundP: lin(a('rebounding'), 0.4, 0.006, 0.2, 0.7),
     tol: {
       layup: lin(a('finishing'), 1.0, 0.008, 0.8, 1.3), floater: lin(a('finishing'), 0.95, 0.008, 0.75, 1.25),
       mid: lin(a('handles'), 1.0, 0.008, 0.8, 1.3), three: lin(a('three'), 1.0, 0.008, 0.8, 1.3), dunk: lin(a('finishing'), 1.0, 0.008, 0.8, 1.3),
@@ -77,4 +81,13 @@ export function reboundWindow(mods: AttrMods, five: OppPlayer[]): number {
     ?? five.filter(p => p.pos === 'C' || p.pos === 'PF').sort((a, b) => b.ovr - a.ovr)[0]
     ?? five[0]
   return clamp(mods.boxWindow * (1 - (r.ovr - 75) / 100), 0.05, 0.3)
+}
+
+// chance do rebote ofensivo (spec D): seu reboundP contra o reboteiro deles —
+// tag `rebounder`, senão o maior ovr entre C/PF, senão o primeiro do five.
+export function reboundChance(mods: AttrMods, five: OppPlayer[]): number {
+  const r = five.find(p => p.tags.includes('rebounder'))
+    ?? five.filter(p => p.pos === 'C' || p.pos === 'PF').sort((a, b) => b.ovr - a.ovr)[0]
+    ?? five[0]
+  return clamp(mods.reboundP * (1 - (r.ovr - 75) / 100), 0.05, 0.85)
 }
