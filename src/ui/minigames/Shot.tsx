@@ -5,7 +5,7 @@ import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
 import { attrMods, opponentFive } from '../../engine/minigames/common'
 import {
-  aimNoise, ballPath, createScene, flightPoint, launchFromPull, RIM_H, shotQuality, simulateShot, skillOf, spinOf, stageFlight,
+  ballPath, createScene, flightPoint, launchFromPull, RIM_H, shotQuality, simulateShot, skillOf, SPIN, stageFlight,
   type Flight, type PathPoint, type ShotScene,
 } from '../../engine/minigames/shot'
 import { Ball, Figure, Floor, GY, H, Hoop, M, py, STAND_REACH } from './shotScene'
@@ -13,9 +13,9 @@ import { Ball, Figure, Floor, GY, H, Hoop, M, py, STAND_REACH } from './shotScen
 // ARREMESSO estilingue (spec 2026-09-03 arcade-ajustes §2): vista lateral em SVG, papel sépia.
 // Você à esquerda, aro à distância sorteada, defensor PARADO com a mão erguida entre vocês
 // (só obstáculo). Arraste em qualquer ponto do palco e solte: a puxada vira o lançamento; o
-// pontilhado mostra a fração `skill` do arco. Backspin = spinOf(skill). O engine simula o voo e
-// devolve a quality; a animação toca `ballPath` (aro, tabela, chão, mão, giro) de um voo que
-// OBEDECE `outcome`.
+// pontilhado mostra a fração `skill` do arco — a ÚNICA coisa em que skill entra. Sem ruído de
+// mira; backspin fixo. O engine simula o voo e devolve a quality (geometria pura); a animação
+// toca `ballPath` (aro, tabela, chão, mão, giro) de um voo que OBEDECE `outcome`.
 
 const X0 = 1.4 * M                // sua mão (x = 0 m)
 const W_MIN = 7.4 * M             // bandeja não vira zoom gigante
@@ -31,10 +31,10 @@ interface Drag { sx: number; sy: number; cx: number; cy: number }
 export function ShotGame({ seed, context, build, age, quarter, league, number, lastName, lang, onResolve, outcome }: MinigameProps): JSX.Element {
   const five = useMemo(() => opponentFive(league, context.opponentTeamId), [league, context.opponentTeamId])
   const mods = useMemo(() => attrMods(build, age, quarter), [build, age, quarter])
-  // seed local: 3 calls na cena + 2 no ruído do soltar — criado UMA vez
+  // seed local: 3 calls na cena — criada UMA vez
   const boot = useRef<{ rng: Rng; scene: ShotScene } | null>(null)
   if (!boot.current) { const rng = createRng(seed); boot.current = { rng, scene: createScene(rng, five, build, age) } }
-  const { rng, scene } = boot.current
+  const { scene } = boot.current
   const skill = skillOf(build, age, scene.kind, mods.fatigue)
   const W = Math.max(W_MIN, X0 + (scene.d + 1.9) * M)
 
@@ -71,9 +71,9 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
     setDrag(null)
     if (!l || resolved.current) return
     resolved.current = true
-    const f = simulateShot(scene, aimNoise(rng, skill, { ...l, spin: spinOf(skill) }))
+    const f = simulateShot(scene, { ...l, spin: SPIN })
     setFlight(f); t0.current = performance.now(); now.current = t0.current; setPhase('flight')
-    onResolveRef.current({ optionId: scene.optionId, quality: shotQuality(f, skill) })
+    onResolveRef.current({ optionId: scene.optionId, quality: shotQuality(f) })
   }
 
   // `outcome` chega um render depois do soltar: até lá toca o voo cru (o começo é igual)
@@ -148,11 +148,11 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
   )
 }
 
-// guia da mira: arco previsto SEM ruído, só a fração `skill` do voo (0.25 → um quarto; 1 → até o aro)
+// guia da mira: arco previsto exato, só a fração `skill` do voo (0.25 → um quarto; 1 → até o aro)
 function guideDots(scene: ShotScene, drag: Drag, skill: number): Array<{ x: number; y: number }> {
   const l = launchFromPull(drag.cx - drag.sx, drag.cy - drag.sy)
   if (!l) return []
-  const f = simulateShot(scene, { ...l, spin: spinOf(skill) })
+  const f = simulateShot(scene, { ...l, spin: SPIN })
   const n = Math.round(GUIDE_STEPS * skill)
   return Array.from({ length: n }, (_, i) => flightPoint(f, (i + 1) / GUIDE_STEPS * f.tEnd)).filter(p => p.y > 0)
 }

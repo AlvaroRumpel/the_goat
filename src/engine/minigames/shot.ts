@@ -5,8 +5,8 @@ import { bestDefender, type OppPlayer } from './common'
 
 // ARREMESSO estilingue (spec 2026-09-03 arcade-ajustes §2). A cena é sorteada pela seed local
 // (distância, altura de saída, defensor-obstáculo parado); o jogador puxa e solta (vetor →
-// velocidade); o ruído de mira cresce com (1 − skill); a física decide onde a bola cruza o
-// aro. Sem React, sem Math.random — só o Rng injetado.
+// velocidade); a física decide onde e como a bola cruza o aro. Skill do jogador só entra no
+// COMPRIMENTO DO GUIA (UI) — quality é geometria pura, sem ruído. Sem React, sem Math.random.
 
 export const G = 9.81
 export const RIM_H = 3.05
@@ -14,8 +14,8 @@ export const ARC = 7.24
 export const FINISH_D = 1.8
 export const PULL_GAIN = 4.0                 // m/s por metro de puxada
 export const SPEED_MIN = 2, SPEED_MAX = 14
-export const SPIN_MAX = 3.5                  // rev/s de backspin (arremessador de elite)
-export const spinOf = (skill: number) => clamp(1 + (SPIN_MAX - 1) * (skill - 0.25) / 0.75, 1, SPIN_MAX)
+export const SPIN_MAX = 3.5                  // rev/s: escala do efeito do backspin
+export const SPIN = 2.5                      // rev/s: backspin de todo arremesso (skill não entra)
 export const rad = (deg: number) => deg * Math.PI / 180
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -50,14 +50,6 @@ export function launchFromPull(dx: number, dy: number): Launch | null {
   if (len < 0.15) return null
   return { angle: Math.atan2(-dy, -dx), speed: clamp(len * PULL_GAIN, SPEED_MIN, SPEED_MAX) }
 }
-// ruído de mira (2 calls, Box-Muller): σ ângulo = (1 − skill) × 5°, σ velocidade = (1 − skill) × 6 %
-export function aimNoise(rng: Rng, skill: number, l: Launch): Launch {
-  const u1 = Math.max(1e-9, rng.next()), u2 = rng.next()
-  const r = Math.sqrt(-2 * Math.log(u1))
-  const g1 = r * Math.cos(2 * Math.PI * u2), g2 = r * Math.sin(2 * Math.PI * u2)
-  const k = 1 - skill
-  return { ...l, angle: l.angle + g1 * k * rad(5), speed: l.speed * (1 + g2 * k * 0.06) }
-}
 
 // ---- física ----
 export type Fate = 'in' | 'flat' | 'short' | 'long' | 'blocked'
@@ -89,8 +81,8 @@ export function simulateShot(scene: ShotScene, l: Launch): Flight {
   const fate: Fate = err < -0.1 ? 'short' : err > 0.1 ? 'long' : k < 0.4 ? 'flat' : 'in'
   return { vx, vy, h0, tEnd: tc, err, fate, accuracy, entry, spin }
 }
-// quality = precisão geométrica × (0.6 + 0.4 skill): skill já entrou no ruído; aqui só encosta
-export function shotQuality(f: Flight, skill: number): number { return f.accuracy * (0.6 + 0.4 * skill) }
+// quality = precisão geométrica (erro no aro × ângulo de entrada × aro amigo do giro). Skill não entra.
+export function shotQuality(f: Flight): number { return f.accuracy }
 
 // ---- desfecho físico (animação): a bola de verdade — aro, tabela, chão, mão ----
 export const BALL_R = 0.12, RIM_R = 0.225, BOARD_X = 0.375   // tabela 0.15 m atrás do aro

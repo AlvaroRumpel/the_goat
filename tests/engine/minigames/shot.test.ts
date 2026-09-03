@@ -3,8 +3,8 @@ import { createRng } from '../../../src/engine/rng'
 import { initLeague } from '../../../src/data/league'
 import { opponentFive } from '../../../src/engine/minigames/common'
 import {
-  aimNoise, BALL_R, ballPath, BOARD_X, createScene, flightPoint, freeThrowQuality, idealSpeed, launchFromPull, rad, RIM_H, RIM_R,
-  shotQuality, simulateShot, skillOf, SPIN_MAX, spinOf, stageFlight, trajectory, type ShotScene,
+  BALL_R, ballPath, BOARD_X, createScene, flightPoint, freeThrowQuality, idealSpeed, launchFromPull, rad, RIM_H, RIM_R,
+  shotQuality, simulateShot, skillOf, SPIN, SPIN_MAX, stageFlight, trajectory, type ShotScene,
 } from '../../../src/engine/minigames/shot'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
@@ -81,26 +81,19 @@ describe('estilingue', () => {
     expect(high.accuracy).toBeCloseTo(1, 3); expect(high.entry).toBeGreaterThan(rad(50))
     expect(high.accuracy).toBeGreaterThan(mid.accuracy); expect(mid.accuracy).toBeGreaterThan(flat.accuracy)
   })
-  test('backspin: mesmo erro de 0.2 m no aro pontua mais com giro (aro amigo); spinOf cresce com skill até SPIN_MAX', () => {
+  test('backspin: mesmo erro de 0.2 m no aro pontua mais com giro (aro amigo); SPIN é fixo pra todo mundo (skill não entra)', () => {
     const sc = scene()
     const l = { angle: rad(60), speed: idealSpeed(rad(60), sc.d + 0.2, sc.releaseH) }
     const dry = simulateShot(sc, { ...l, spin: 0 }), wet = simulateShot(sc, { ...l, spin: SPIN_MAX })
     expect(Math.abs(dry.err - 0.2)).toBeLessThan(0.02); expect(wet.err).toBeCloseTo(dry.err, 6)
     expect(wet.accuracy).toBeGreaterThan(dry.accuracy + 0.1)
-    expect(spinOf(0.25)).toBeLessThan(spinOf(1)); expect(spinOf(1)).toBeCloseTo(SPIN_MAX, 6)
+    expect(SPIN).toBeGreaterThan(0); expect(SPIN).toBeLessThanOrEqual(SPIN_MAX)
   })
-  test('aimNoise: skill 1 = sem ruído; skill 0.25 espalha; determinístico', () => {
-    const l = { angle: rad(50), speed: 8 }
-    expect(aimNoise(createRng(1), 1, l)).toEqual(l)
-    const n = aimNoise(createRng(1), 0.25, l)
-    expect(n).not.toEqual(l); expect(Math.abs(n.angle - l.angle)).toBeLessThan(rad(20))
-    expect(aimNoise(createRng(1), 0.25, l)).toEqual(aimNoise(createRng(1), 0.25, l))
-  })
-  test('shotQuality ∈ [0,1], cresce com skill, 0 quando bloqueado', () => {
+  test('shotQuality = geometria pura (skill NÃO entra): ideal = 1, bloqueado = 0', () => {
     const sc = scene()
-    const f = simulateShot(sc, { angle: rad(60), speed: idealSpeed(rad(60), sc.d, sc.releaseH) })
-    expect(shotQuality(f, 1)).toBeCloseTo(1, 3); expect(shotQuality(f, 0.5)).toBeCloseTo(0.8, 3); expect(shotQuality(f, 0.25)).toBeCloseTo(0.7, 3)
-    expect(shotQuality(simulateShot(sc, { angle: rad(20), speed: 10 }), 1)).toBe(0)
+    const f = simulateShot(sc, { angle: rad(60), speed: idealSpeed(rad(60), sc.d, sc.releaseH), spin: SPIN })
+    expect(shotQuality(f)).toBeCloseTo(1, 3); expect(shotQuality(f)).toBe(f.accuracy)
+    expect(shotQuality(simulateShot(sc, { angle: rad(20), speed: 10 }))).toBe(0)
   })
   test('trajectory (lance livre) sai da altura de saída e chega ao aro', () => {
     const v = idealSpeed(rad(45), 4.57, 2.05); const tr = trajectory(rad(45), v, 2.05)
