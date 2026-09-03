@@ -1,61 +1,50 @@
-/* --- MURALHA (defesa por reação) — cena SVG frente a frente + linha de cue + botões --- */
+/* --- MURALHA (mg-defense): cena 3D + HUD por cima (cartão, relógio, contenção, gestos) --- */
 .mg-defense { display: flex; flex-direction: column; }
+.mg-df-stage { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #2E2A24;
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+.mg-df-canvas { display: block; width: 100%; height: 100%; }
+.mg-df-nogl { margin: 0; padding: 24px 16px; text-align: center; font-family: var(--mono); font-size: 12px;
+  line-height: 1.5; color: var(--dim); }
 
-/* linha de cue: altura fixa pra não pular o layout; a batida atual em tinta, veredito em flash */
-.mg-df-cue { height: 34px; display: flex; align-items: center; justify-content: center; font-size: 13px;
-  color: var(--ink); background: var(--paper-3); border-bottom: 1px solid var(--rule); text-align: center;
-  padding: 0 10px; }
-.mg-df-cue--flash { background: var(--ink); color: var(--on-ink); font-family: var(--black); font-size: 16px;
-  letter-spacing: 0.06em; }
-.mg-df-cue--bad { background: var(--red); color: var(--on-red); }
+.mg-df-hud { position: absolute; inset: 8px 10px; display: flex; flex-direction: column;
+  pointer-events: none; color: var(--on-ink); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.mg-df-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.mg-df-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.mg-df-clock { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--on-ink-dim); }
+.mg-df-clock b { color: var(--accent-warm); font-size: 17px; margin-left: 6px; }
+.mg-df-contain { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; width: 108px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--on-ink-dim); }
+.mg-df-contain__track { width: 100%; height: 4px; background: rgba(237, 230, 214, 0.25); }
+.mg-df-contain__fill { display: block; height: 100%; background: var(--red); }
 
-/* cena */
-.mg-df-floor { fill: var(--paper-3); }
-.mg-df-line { stroke: var(--rule); stroke-width: 3; }
-.mg-df-board { fill: none; stroke: var(--ink); stroke-width: 4; }
-.mg-df-rim { fill: none; stroke: var(--red); stroke-width: 5; }
-.mg-df-net { fill: none; stroke: var(--rule); stroke-width: 2; }
+/* cartão de tendências: pequeno no canto durante o duelo, grande na abertura */
+.mg-df-card { display: flex; flex-direction: column; gap: 2px; padding: 5px 8px; width: 155px; max-width: 52%;
+  background: rgba(28, 26, 22, 0.72); border-left: 3px solid var(--red); }
+.mg-df-card__name { font-family: var(--black); font-size: 11px; letter-spacing: 0.02em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-df-card__line { display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--on-ink-dim); }
+.mg-df-card__line b { color: var(--on-ink); font-weight: 600; }
+.mg-df-card__last { margin-top: 2px; border-top: 1px solid rgba(237, 230, 214, 0.2); padding-top: 3px; }
+.mg-df-card__last b { color: var(--accent-warm); letter-spacing: 0.14em; }
+.mg-df-card--big { width: 230px; max-width: 78%; gap: 4px; padding: 12px 14px; }
+.mg-df-card--big .mg-df-card__name { font-size: 19px; }
+.mg-df-card--big .mg-df-card__line { font-size: 12px; }
 
-.mg-df-you, .mg-df-att, .mg-df-ball { transition: transform 140ms ease-out; }
-.mg-df-you circle { fill: var(--red); }
-.mg-df-you text { fill: var(--on-red); font-size: 48px; text-anchor: middle; }
-.mg-df-you--contest circle { stroke: var(--paper); stroke-width: 6; }
-.mg-df-att circle { fill: var(--ink); }
-.mg-df-ball circle { fill: var(--accent-warm); stroke: var(--paper); stroke-width: 3; }
-.mg-df-ball--expose { transform: translate(90px, 10px); animation: mg-df-blink 220ms steps(2, start) infinite; }
-.mg-df-att--hesi { animation: mg-df-jitter 120ms linear infinite; }
-.mg-df-att--stopped { opacity: 0.55; }
-.mg-df-att--scored .mg-df-ball { opacity: 0; }
+.mg-df-intro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; background: rgba(28, 26, 22, 0.55); color: var(--on-ink);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.mg-df-ready { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--on-ink-dim); }
 
-/* desfecho: bola deles arca até a cesta; toco/roubo = anel vermelho que estoura */
-.mg-df-shot { fill: var(--accent-warm); stroke: var(--paper); stroke-width: 3;
-  animation: mg-df-arc 700ms ease-in forwards; }
-.mg-df-block { fill: none; stroke: var(--red); stroke-width: 8; transform-origin: 500px 365px;
-  animation: mg-df-burst 500ms ease-out forwards; }
+/* dicas de gesto: faixa rasteira de leitura (o alvo de toque é o palco inteiro) */
+.mg-df-gest { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
+.mg-df-gest span { display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 34px; padding: 3px; background: rgba(28, 26, 22, 0.42); font-family: var(--mono);
+  font-size: 10px; letter-spacing: 0.04em; color: var(--on-ink); }
 
-@keyframes mg-df-blink { 50% { opacity: 0.35; } }
-@keyframes mg-df-jitter { 0%, 100% { translate: 0 0; } 25% { translate: -10px 0; } 75% { translate: 10px 0; } }
-@keyframes mg-df-arc {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(-26px, -320px); }
-  100% { transform: translate(-52px, -240px); opacity: 0.2; }
-}
-@keyframes mg-df-burst { from { transform: scale(0.4); opacity: 1; } to { transform: scale(4); opacity: 0; } }
-
-/* faixa de batidas */
-.mg-df-beats { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
-  border-top: 1px solid var(--rule-soft); }
-.mg-df-beats__row { display: flex; gap: 6px; }
-.mg-df-beat { width: 14px; height: 14px; border: 2px solid var(--rule); box-sizing: border-box; }
-.mg-df-beat--now { border-color: var(--ink); }
-.mg-df-beat--hit { background: var(--ink); border-color: var(--ink); }
-.mg-df-beat--miss { background: var(--red); border-color: var(--red); }
-
-/* botões: ≥48px de alcance do polegar */
-.mg-df-row > .mg-btn { min-height: 48px; padding-left: 6px; padding-right: 6px; font-size: 12px; }
-
-/* reduce desliga só o cosmético: o sequenciador (ritmo) e os cues continuam */
-@media (prefers-reduced-motion: reduce) {
-  .mg-df-you, .mg-df-att, .mg-df-ball { transition: none; }
-  .mg-df-shot, .mg-df-block { animation-duration: 1ms; }
-}
+/* grito do desfecho, por cima da animação */
+.mg-df-shout { position: absolute; left: 0; right: 0; top: 32%; padding: 8px 10px; text-align: center;
+  background: rgba(28, 26, 22, 0.62); font-family: var(--black); font-size: 30px; letter-spacing: 0.03em;
+  color: var(--on-ink); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85); pointer-events: none; }
+.mg-df-shout small { display: block; margin-top: 4px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.16em; color: var(--accent-warm); }
