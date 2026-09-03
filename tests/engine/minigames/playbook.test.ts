@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
 import { initLeague } from '../../../src/data/league'
 import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
-import { applyTemplate, callScreen, COURT, createPlaybook, feint, inPaint, isSettled, moveTo, openness, pass, pumpFake, setRoute, shoot, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
+import { applyTemplate, callScreen, COURT, createPlaybook, feint, inPaint, isSettled, moveTo, openness, pass, planPass, pumpFake, setRoute, shoot, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
 const build = (ovr: number): Build => ({ attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>, picks: [], archetype: 'SF', overall: ovr })
@@ -224,7 +224,8 @@ describe('isSettled (jogada parada = laço congela)', () => {
     const rng = createRng(3)
     let s = createPlaybook(rng, input())
     expect(isSettled(s)).toBe(false)                                   // read/draw nunca
-    s = startRun(s)
+    s = { ...startRun(applyTemplate(s, 'iso')), scheme: 'man' }
+    s = setRoute(s, 1, []); s = setRoute(s, 2, []); s = setRoute(s, 3, []); s = setRoute(s, 4, [])
     expect(isSettled(s)).toBe(true)                                    // nada desenhado: para na hora
     s = moveTo(s, s.attackers[0].x, s.attackers[0].y - 1.5)
     expect(isSettled(s)).toBe(false)                                   // portador em rota
@@ -234,5 +235,63 @@ describe('isSettled (jogada parada = laço congela)', () => {
     const p = pass(s, 1, createRng(99), input())
     expect(p.phase).toBe('run'); expect(p.ball.flying).not.toBeNull() // passe limpo: bola no ar
     expect(isSettled(p)).toBe(false)
+  })
+})
+
+const no = { next: () => 0, int: () => 0, pick: <T,>(a: T[]) => a[0], chance: () => false }
+const routeLen = (pts: { x: number; y: number }[]) => pts.slice(1).reduce((n, p, i) => n + Math.hypot(p.x - pts[i].x, p.y - pts[i].y), 0)
+const liveTpl = (seed: number, tpl: Parameters<typeof applyTemplate>[1]) => { let s = applyTemplate(createPlaybook(createRng(seed), input()), tpl); s = { ...s, scheme: 'man' }; return startRun(s) }
+
+describe('formação inicial', () => {
+  test('sorteada entre ≥ 5 formações, determinística por seed', () => {
+    const seen = new Set<string>()
+    for (let seed = 0; seed < 60; seed++) seen.add(JSON.stringify(createPlaybook(createRng(seed), input()).attackers))
+    expect(seen.size).toBeGreaterThanOrEqual(5)
+    expect(createPlaybook(createRng(9), input()).attackers).toEqual(createPlaybook(createRng(9), input()).attackers)
+  })
+})
+
+describe('rebote pra qualquer um', () => {
+  test('quem pega é sorteado entre os 5 (peso por proximidade do aro); reboundBy = holder', () => {
+    const who = new Set<number>()
+    for (let seed = 0; seed < 60; seed++) {
+      let tight = liveTpl(seed, 'iso'); tight = { ...tight, defenders: tight.defenders.map(d => ({ ...d, x: tight.attackers[0].x + 0.4, y: tight.attackers[0].y })) }
+      const r = shoot(tight, createRng(seed), { ...input(), reboundChance: 1 })
+      expect(r.phase).toBe('run'); expect(r.reboundBy).toBe(r.ball.holder); who.add(r.ball.holder)
+    }
+    expect(who.size).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('passe planejado', () => {
+  const base = () => ({ ...applyTemplate(createPlaybook(createRng(1), input()), 'iso'), phase: 'draw' as const, scheme: 'man' as const })
+  test('planPass grava/limpa; alvo = portador ou null limpa; modelo limpa', () => {
+    const s = base()
+    expect(planPass(s, 2, 'late').plannedPass).toEqual({ to: 2, when: 'late', at: null })
+    expect(planPass(s, 0, 'early').plannedPass).toBeNull()
+    expect(planPass(planPass(s, 2, 'late'), null).plannedPass).toBeNull()
+    expect(applyTemplate(planPass(s, 2, 'late'), 'horns').plannedPass).toBeNull()
+  })
+  test('CEDO passa no 1º tick; TARDE só quando as rotas acabam; NORMAL no meio; isSettled false enquanto pendente', () => {
+    const early = startRun(planPass(base(), 2, 'early'))
+    expect(isSettled(early)).toBe(false)
+    const e1 = step(early, 0.05, no, input())
+    expect(e1.ball.flying?.to).toBe(2); expect(e1.plannedPass).toBeNull()
+
+    let late = step(startRun(planPass(base(), 2, 'late')), 0.05, no, input())
+    const lateAt = late.plannedPass!.at!
+    expect(lateAt).toBeGreaterThan(0.1); expect(late.ball.flying).toBeNull()
+    while (late.phase === 'run' && late.plannedPass) late = step(late, 0.05, no, input())
+    expect(late.ball.flying?.to).toBe(2)
+    late.routes.forEach((r, i) => { if (r.points.length >= 2) expect(late.routeProgress[i]).toBeGreaterThanOrEqual(routeLen(r.points) - 0.25) })
+
+    const mid = step(startRun(planPass(base(), 2, 'mid')), 0.05, no, input())
+    expect(mid.plannedPass!.at!).toBeGreaterThan(0.05); expect(mid.plannedPass!.at!).toBeLessThan(lateAt)
+  })
+  test('alvo virou portador antes do instante = plano só some', () => {
+    let s = startRun(planPass(base(), 2, 'late'))
+    s = { ...s, ball: { holder: 2, flying: null } }
+    while (s.phase === 'run' && s.plannedPass) s = step(s, 0.05, no, input())
+    expect(s.ball.holder).toBe(2); expect(s.ball.flying).toBeNull()
   })
 })

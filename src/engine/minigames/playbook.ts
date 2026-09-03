@@ -22,7 +22,8 @@ const FLIGHT = 0.35
 
 export interface Pos { x: number; y: number }
 export interface Defender extends Pos { speed: number; man: number; target: Pos }
-export type FormationId = 'fiveOut' | 'horns' | 'pnr' | 'iso'
+export type FormationId = 'fiveOut' | 'horns' | 'pnr' | 'iso' | 'box' | 'stack' | 'sideOut'
+export type PassWhen = 'early' | 'mid' | 'late'
 export type Scheme = 'man' | 'zone' | 'switch' | 'trap' | 'press'
 export type Phase = 'read' | 'draw' | 'run' | 'shooting' | 'turnover' | 'done'
 export type Template = 'pnr' | 'horns' | 'doubleScreen' | 'iso' | 'fiveOut' | 'transition'
@@ -44,6 +45,9 @@ export interface PlaybookState {
   turnover: 'intercept' | 'strip' | 'clock' | 'charge' | null
   firstShotOpenness: number | null
   rebounds: number
+  reboundBy: number | null                       // quem pegou o último rebote ofensivo (UI anima a bola até ele)
+  // passe agendado na prancheta (spec ajustes §1.1): `at` é resolvido no 1º tick de run
+  plannedPass: { to: number; when: PassWhen; at: number | null } | null
   result?: MinigameResult
 }
 
@@ -58,7 +62,11 @@ export const FORMATIONS: Record<FormationId, Pos[]> = {
   horns: [{ x: 7.62, y: 10 }, { x: 5.2, y: 6 }, { x: 10, y: 6 }, { x: 1.2, y: 1.5 }, { x: 14, y: 1.5 }],
   pnr: [{ x: 3, y: 8.5 }, { x: 4.5, y: 6.5 }, { x: 9.5, y: 9.5 }, { x: 13, y: 7 }, { x: 14, y: 1.5 }],
   iso: [{ x: 7.62, y: 9 }, { x: 1.2, y: 2 }, { x: 14, y: 2 }, { x: 2, y: 9.5 }, { x: 13.2, y: 9.5 }],
+  box: [{ x: 7.62, y: 10 }, { x: 5.2, y: 3.0 }, { x: 10.0, y: 3.0 }, { x: 5.2, y: 6.2 }, { x: 10.0, y: 6.2 }],
+  stack: [{ x: 3.0, y: 9.0 }, { x: 5.6, y: 3.0 }, { x: 5.6, y: 4.6 }, { x: 5.6, y: 6.2 }, { x: 13.5, y: 8.0 }],
+  sideOut: [{ x: 1.0, y: 7.0 }, { x: 4.0, y: 3.0 }, { x: 7.62, y: 5.5 }, { x: 11.5, y: 3.0 }, { x: 13.5, y: 9.0 }],
 }
+const FORMATION_IDS = Object.keys(FORMATIONS) as FormationId[]
 
 export const SCHEME_SIGNAL: Record<Scheme, string> = {
   man: 'mg.pb.scheme.man', zone: 'mg.pb.scheme.zone', switch: 'mg.pb.scheme.switch',
@@ -126,8 +134,8 @@ function weightedScheme(rng: Rng, five: OppPlayer[]): Scheme {
 }
 
 export function createPlaybook(rng: Rng, input: PlaybookInput): PlaybookState {
+  const formation = rng.pick(FORMATION_IDS)        // 1 call: início diferente a cada posse
   const scheme = weightedScheme(rng, input.five)
-  const formation: FormationId = 'horns'
   const attackers = FORMATIONS[formation].map(p => ({ ...p }))
   const defenders: Defender[] = input.five.map((p, i) => ({ x: 0, y: 0, speed: p.speed * input.difficulty, man: i, target: { x: 0, y: 0 } }))
   const s: PlaybookState = {
@@ -140,7 +148,7 @@ export function createPlaybook(rng: Rng, input: PlaybookInput): PlaybookState {
     helpUntil: 0, trapUntil: 0, trapDef: null, mismatch: false,
     feintUntil: 0, feintBonus: 0, pumpUntil: 0, pressure: 0,
     riskyBonusUntil: 0, reboundUsed: false, still: [0, 0, 0, 0, 0], lastScreenAt: -Infinity,
-    turnover: null, firstShotOpenness: null, rebounds: 0,
+    turnover: null, firstShotOpenness: null, rebounds: 0, reboundBy: null, plannedPass: null,
   }
   snapDefendersManToMan(s)
   return s
@@ -157,6 +165,7 @@ function clone(s: PlaybookState): PlaybookState {
     screenedUntil: [...s.screenedUntil],
     screenArmed: [...s.screenArmed],
     still: [...s.still],
+    plannedPass: s.plannedPass ? { ...s.plannedPass } : null,
   }
 }
 
@@ -174,7 +183,17 @@ export function applyTemplate(s: PlaybookState, tpl: Template): PlaybookState {
   next.attackers = positions
   next.routes = spec.routes.map((r, i) => ({ points: [{ ...positions[i] }, ...r.to.map(p => ({ ...p }))], screen: r.screen }))
   next.routeProgress = [0, 0, 0, 0, 0]
+  next.plannedPass = null
   snapDefendersManToMan(next)
+  return next
+}
+
+// Passe agendado (spec ajustes §1.1): `to` null / portador / fora do quinteto = limpa. O
+// instante é resolvido no step: CEDO = já, NORMAL = metade das rotas restantes, TARDE = fim.
+export function planPass(s: PlaybookState, to: number | null, when: PassWhen = 'mid'): PlaybookState {
+  if (s.phase !== 'draw' && s.phase !== 'run') return s
+  const next = clone(s)
+  next.plannedPass = to === null || to === s.ball.holder || to < 0 || to >= s.attackers.length ? null : { to, when, at: null }
   return next
 }
 
@@ -208,7 +227,7 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
     return s
   }
   if (state.phase !== 'run') return state
-  const s = clone(state)
+  let s = clone(state)
   s.t += dt
   s.clock -= dt
   if (s.clock <= 0) { s.clock = 0; return endTurnover(s, 'clock', 'mgMid') }
@@ -226,6 +245,19 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
   if (s.ball.flying) {
     s.ball.flying.progress += dt / FLIGHT
     if (s.ball.flying.progress >= 1) { s.ball.holder = s.ball.flying.to; s.ball.flying = null }
+  }
+
+  // passe agendado: resolve o instante no 1º tick (cobre RODAR inicial e retomada da pausa)
+  if (s.plannedPass) {
+    const pp = s.plannedPass
+    if (pp.at === null) {
+      const dur = Math.max(0, ...s.routes.map((r, i) => r.points.length < 2 ? 0 : (routeLength(r.points) - s.routeProgress[i]) / runSpeed))
+      pp.at = s.t + (pp.when === 'early' ? 0 : pp.when === 'mid' ? dur / 2 : dur)
+    }
+    if (s.t >= pp.at && !s.ball.flying) {
+      s.plannedPass = null
+      if (pp.to !== s.ball.holder) { const passed = pass(s, pp.to, rng, input); if (passed.phase !== 'run') return passed; s = passed }
+    }
   }
 
   const holder = s.ball.holder
@@ -372,6 +404,12 @@ export function shoot(s: PlaybookState, rng: Rng, input: PlaybookInput, finish?:
     next.firstShotOpenness = eff
     next.reboundUsed = true
     if (rng.chance(input.reboundChance)) {
+      // quem pega: qualquer um dos 5, peso por proximidade do aro (1 call)
+      const w = next.attackers.map(p => 1 / (0.6 + distToBasket(p)))
+      let roll = rng.next() * w.reduce((a, b) => a + b, 0), who = w.length - 1
+      for (let i = 0; i < w.length; i++) { roll -= w[i]; if (roll <= 0) { who = i; break } }
+      next.ball = { holder: who, flying: null }
+      next.reboundBy = who
       next.clock = 5
       next.routes = next.routes.map(() => ({ points: [], screen: false }))
       next.routeProgress = next.routeProgress.map(() => 0)
@@ -397,7 +435,7 @@ export function shoot(s: PlaybookState, rng: Rng, input: PlaybookInput, finish?:
 // Jogada "parou": ninguém em rota, bola na mão, sem finta/pump em curso. A UI congela o
 // laço (relógio incluso) até a próxima decisão — o relógio só corre com a jogada rodando.
 export function isSettled(s: PlaybookState): boolean {
-  if (s.phase !== 'run' || s.ball.flying) return false
+  if (s.phase !== 'run' || s.ball.flying || s.plannedPass) return false
   if (s.feintUntil > s.t || s.pumpUntil > s.t) return false
   return s.routes.every((r, i) => r.points.length < 2 || s.routeProgress[i] >= routeLength(r.points))
 }
