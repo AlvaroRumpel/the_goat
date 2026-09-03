@@ -1,7 +1,7 @@
 import type { Rng, WatchedGameKind } from '../types'
 import type { MinigameResult } from './index'
 import { clamp01 } from './index'
-import type { AttrMods, OppPlayer } from './common'
+import type { AttrMods, Mate, OppPlayer } from './common'
 import { applyScreens, clampCourt, dist, distToSegment, lerp, manTarget, moveToward, pointAlongRoute, pressTarget, routeLength, zoneTarget } from './playbook-defense'
 
 // Quadro tático de ataque ("JOGADA") v2 — engine puro. Metros; meia-quadra, cesta no topo
@@ -54,6 +54,7 @@ export interface PlaybookState {
 export interface PlaybookInput {
   kind: WatchedGameKind; five: OppPlayer[]; mods: AttrMods; difficulty: number
   skill: Record<'layup' | 'mid' | 'three' | 'dunk', number>; reboundChance: number
+  mates: Mate[]                                   // atacantes 1..4 (0 = você); skill/velocidade/passe deles
 }
 
 // índice 0 = você, sempre com a bola no início (mantido do v1; base dos templates)
@@ -233,11 +234,12 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
   if (s.clock <= 0) { s.clock = 0; return endTurnover(s, 'clock', 'mgMid') }
 
   // ímãs seguem as rotas desenhadas; rota vazia/de 1 ponto = parado
-  const runSpeed = 4.2 * input.mods.speed
+  // velocidade por atacante: você por mods, companheiro pela dele
+  const speedOf = (i: number) => i === 0 ? 4.2 * input.mods.speed : input.mates[i - 1].speed * 1.1
   s.routes.forEach((route, i) => {
     if (route.points.length < 2) return
     const mult = s.mismatch && i === 0 ? 1.15 : 1
-    s.routeProgress[i] = Math.min(routeLength(route.points), s.routeProgress[i] + runSpeed * mult * dt)
+    s.routeProgress[i] = Math.min(routeLength(route.points), s.routeProgress[i] + speedOf(i) * mult * dt)
     s.attackers[i] = clampCourt(pointAlongRoute(route.points, s.routeProgress[i]), COURT)
   })
 
@@ -251,7 +253,7 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
   if (s.plannedPass) {
     const pp = s.plannedPass
     if (pp.at === null) {
-      const dur = Math.max(0, ...s.routes.map((r, i) => r.points.length < 2 ? 0 : (routeLength(r.points) - s.routeProgress[i]) / runSpeed))
+      const dur = Math.max(0, ...s.routes.map((r, i) => r.points.length < 2 ? 0 : (routeLength(r.points) - s.routeProgress[i]) / speedOf(i)))
       pp.at = s.t + (pp.when === 'early' ? 0 : pp.when === 'mid' ? dur / 2 : dur)
     }
     if (s.t >= pp.at && !s.ball.flying) {
@@ -329,7 +331,7 @@ export function pass(s: PlaybookState, to: number, rng: Rng, input: PlaybookInpu
   const laneDist = Math.min(...next.defenders.map(d => distToSegment(d, from, dest)))
   if (laneDist < 0.9) {
     const laneRisk = 1 - laneDist / 0.9
-    const chance = laneRisk * 0.45 / input.mods.laneSafety * (risky ? 2 : 1)
+    const chance = laneRisk * 0.45 / input.mods.laneSafety * (risky ? 2 : 1) * (holder === 0 ? 1 : input.mates[holder - 1].pass)
     if (rng.chance(chance)) return endTurnover(next, 'intercept', 'mgAssist')
   }
   next.ball.flying = { from: holder, to, progress: 0 }
@@ -383,11 +385,9 @@ function resolveOptionId(option: ShotOption, finish?: 'layup' | 'dunk' | 'floate
   return finish === 'dunk' ? 'mgDunk' : 'mgLayup' // 'layup' e 'floater' resolvem pra mgLayup
 }
 
-const ASSIST_SKILL = 0.6   // companheiro genérico
-
-function skillFor(optionId: string, input: PlaybookInput): number {
-  if (optionId === 'mgAssist') return ASSIST_SKILL
-  return optionId === 'mgLayup' ? input.skill.layup : optionId === 'mgDunk' ? input.skill.dunk : optionId === 'mgThree' ? input.skill.three : input.skill.mid
+function skillFor(optionId: string, input: PlaybookInput, holder: number): number {
+  const type = optionId === 'mgLayup' ? 'layup' : optionId === 'mgDunk' ? 'dunk' : optionId === 'mgThree' ? 'three' : 'mid'
+  return holder === 0 ? input.skill[type] : input.mates[holder - 1].skill[type]
 }
 
 // spec 2026-09-03 §D: quality = min(1, skill(tipo) × abertura + 0.1 de criação). Abertura < 0.4
@@ -398,7 +398,7 @@ export function shoot(s: PlaybookState, rng: Rng, input: PlaybookInput, finish?:
   const next = clone(s)
   const holder = next.ball.holder
   const optionId = resolveOptionId(shotOptionFor(next), finish)
-  const skill = skillFor(optionId, input)
+  const skill = skillFor(optionId, input, holder)
   const eff = clamp01(openness(next, holder) + (next.riskyBonusUntil > next.t ? 0.3 : 0))
   if (eff < 0.4 && !next.reboundUsed) {
     next.firstShotOpenness = eff

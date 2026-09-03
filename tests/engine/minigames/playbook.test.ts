@@ -1,14 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
 import { initLeague } from '../../../src/data/league'
-import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
+import { attrMods, opponentFive, teammates, type Mate } from '../../../src/engine/minigames/common'
 import { applyTemplate, callScreen, COURT, createPlaybook, feint, inPaint, isSettled, moveTo, openness, pass, planPass, pumpFake, setRoute, shoot, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
 const build = (ovr: number): Build => ({ attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>, picks: [], archetype: 'SF', overall: ovr })
 const league = initLeague()
-const input = (): PlaybookInput => ({ kind: 'rivalry', five: opponentFive(league, 'bos'), mods: attrMods(build(80), 27), difficulty: 1,
-  skill: { layup: 1, mid: 1, three: 1, dunk: 1 }, reboundChance: 0.5 })
+const mates = () => teammates(league, 'lal', 23)
+const input = (over: Partial<PlaybookInput> = {}): PlaybookInput => ({ kind: 'rivalry', five: opponentFive(league, 'bos'), mods: attrMods(build(80), 27), difficulty: 1,
+  skill: { layup: 1, mid: 1, three: 1, dunk: 1 }, reboundChance: 0.5, mates: mates(), ...over })
 const inside = (p: { x: number; y: number }) => p.x >= 0 && p.x <= COURT.w && p.y >= 0 && p.y <= COURT.d
 const run = (s: PlaybookState, secs: number, rng: ReturnType<typeof createRng>) => { for (let i = 0; i < secs * 20; i++) { if (s.phase !== 'run' && s.phase !== 'read') break; s = step(s, 0.05, rng, input()) } return s }
 
@@ -293,5 +294,46 @@ describe('passe planejado', () => {
     s = { ...s, ball: { holder: 2, flying: null } }
     while (s.phase === 'run' && s.plannedPass) s = step(s, 0.05, no, input())
     expect(s.ball.holder).toBe(2); expect(s.ball.flying).toBeNull()
+  })
+})
+
+describe('companheiros reais', () => {
+  // posse já em run, bola com o companheiro 1, aberto (defensores longe)
+  const withMate1 = (inp: PlaybookInput) => {
+    let s = startRun(applyTemplate(createPlaybook(createRng(3), inp), 'iso'))
+    s.ball = { holder: 1, flying: null }
+    s.attackers[1] = { x: COURT.basket.x, y: COURT.basket.y + 7.5 }          // três aberto
+    s.defenders = s.defenders.map(d => ({ ...d, x: 0, y: COURT.d - 1 }))
+    return s
+  }
+  test('arremesso de companheiro usa a skill DELE por tipo (não a sua nem 0.6 fixo)', () => {
+    const weak = { ...mates()[0], skill: { layup: 0.3, mid: 0.3, three: 0.3, dunk: 0.3 } }
+    const strong = { ...weak, skill: { layup: 1, mid: 1, three: 1, dunk: 1 } }
+    const q = (m: Mate) => { const inp = input({ mates: [m, ...mates().slice(1)] }); return shoot(withMate1(inp), createRng(1), inp).result!.quality }
+    expect(q(strong)).toBeGreaterThan(q(weak) + 0.3)
+    expect(q(strong)).toBeGreaterThan(0.9)
+  })
+  test('cada companheiro corre na velocidade dele: o rápido termina a rota antes do lento', () => {
+    const route = [{ x: 0, y: 25 }, { x: 0, y: 5 }]
+    const prog = (speed: number) => {
+      const inp = input({ mates: mates().map((m, i) => i === 0 ? { ...m, speed } : m) })
+      let s = startRun(setRoute(applyTemplate(createPlaybook(createRng(3), inp), 'iso'), 1, route))
+      for (let i = 0; i < 20; i++) s = step(s, 0.05, createRng(1), inp)
+      return s.routeProgress[1]
+    }
+    expect(prog(4.4)).toBeGreaterThan(prog(3.0) * 1.3)
+  })
+  test('passe de playmaker intercepta menos (chance × 0.8) — mesma seed, faixa apertada', () => {
+    const tight = (m: Mate) => {
+      const inp = input({ mates: [{ ...m, pass: m.pass }, ...mates().slice(1)] })
+      let s = withMate1(inp)
+      s.attackers[2] = { x: s.attackers[1].x + 3, y: s.attackers[1].y }
+      s.defenders[0] = { ...s.defenders[0], x: s.attackers[1].x + 1.5, y: s.attackers[1].y }   // na linha do passe
+      let picks = 0
+      for (let seed = 0; seed < 200; seed++) if (pass(s, 2, createRng(seed), inp).turnover === 'intercept') picks++
+      return picks
+    }
+    const base = mates()[0]
+    expect(tight({ ...base, pass: 0.8 })).toBeLessThan(tight({ ...base, pass: 1 }))
   })
 })
