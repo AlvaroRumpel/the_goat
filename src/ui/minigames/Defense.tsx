@@ -16,7 +16,12 @@ const END_KEY: Record<DuelState['phase'], string> = {
   live: 'clock', done: 'pass', steal: 'steal', block: 'block', shot: 'shot', drive: 'drive', foul: 'foul', clock: 'clock',
 }
 const R_YOU = 56, R_HIM = 52
-const KEYS: Array<[Gesture, string]> = [['left', 'mg.def.left'], ['tap', 'mg.def.steal'], ['up', 'mg.def.arm'], ['right', 'mg.def.right']]
+// gesto · glifo da tecla · rótulo
+const KEYS: Array<[Gesture, string, string]> = [
+  ['left', 'mg.def.key.left', 'mg.def.left'], ['tap', 'mg.def.key.down', 'mg.def.steal'],
+  ['up', 'mg.def.key.up', 'mg.def.arm'], ['right', 'mg.def.key.right', 'mg.def.right'],
+]
+const at = (p: { x: number; y: number }) => ({ transform: `translate(${p.x}px, ${p.y}px)` })
 
 export function DefenseGame(props: MinigameProps): JSX.Element {
   const flow = useDuelFlow(props)
@@ -53,18 +58,19 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
           {COURT_LAYERS}
           <path className={'mg-df__cone' + (cover ? ' mg-df__cone--on' : '')}
             d={`M ${you.x - 18} ${you.y} L ${him.x - CONE_HALF * S} ${him.y} L ${him.x + CONE_HALF * S} ${him.y} L ${you.x + 18} ${you.y} Z`} />
-          <g className="mg-pb__them">
-            <circle cx={him.x} cy={him.y} r={R_HIM} className="mg-pb__mag mg-pb__mag--them" filter="url(#pb-mag)" />
-            <text x={him.x} y={him.y + 14} className="mg-pb__num mg-pb__num--them">{star.short.slice(0, 2)}</text>
-            <text x={him.x} y={him.y + R_HIM + 40} className="mg-pb__tag">{star.short}</text>
+          {/* ímãs por transform + transição CSS: o tick de 20 Hz vira deslize contínuo; no drive ele vai à cesta em 600 ms */}
+          <g className={'mg-pb__them mg-df__pos' + (st.phase === 'drive' ? ' mg-df__pos--drive' : '')} style={at(him)}>
+            <circle r={R_HIM} className="mg-pb__mag mg-pb__mag--them" filter="url(#pb-mag)" />
+            <text y={14} className="mg-pb__num mg-pb__num--them">{star.short.slice(0, 2)}</text>
+            <text y={R_HIM + 40} className="mg-pb__tag">{star.short}</text>
+            {st.move && <text className="mg-df__glyph" x={R_HIM + 30} y={16}>{GLYPH[st.move.kind]}</text>}
           </g>
-          {st.move && <text className="mg-df__glyph" x={him.x + R_HIM + 30} y={him.y + 16}>{GLYPH[st.move.kind]}</text>}
-          <g className={'mg-pb__us' + (st.airborne > 0 ? ' mg-df__you--air' : '') + (st.armed > 0 ? ' mg-df__you--armed' : '')}>
-            <circle cx={you.x} cy={you.y} r={R_YOU} className="mg-pb__mag" filter="url(#pb-mag)" />
-            <text x={you.x} y={you.y + 15} className="mg-pb__num">{number ?? '★'}</text>
-            <text x={you.x} y={you.y + R_YOU + 40} className="mg-pb__tag">{t(lang, 'mg.you')}</text>
+          <g className={'mg-pb__us mg-df__pos' + (st.airborne > 0 ? ' mg-df__you--air' : '') + (st.armed > 0 ? ' mg-df__you--armed' : '')} style={at(you)}>
+            <circle r={R_YOU} className="mg-pb__mag" filter="url(#pb-mag)" />
+            <text y={15} className="mg-pb__num">{number ?? '★'}</text>
+            <text y={R_YOU + 40} className="mg-pb__tag">{t(lang, 'mg.you')}</text>
           </g>
-          <circle className={'mg-pb__ball' + (st.exposed > 0 ? ' mg-df__ball--loose' : '')} cx={ball.x} cy={ball.y} r={st.exposed > 0 ? 34 : 26} />
+          <circle className={'mg-pb__ball mg-df__pos' + (st.exposed > 0 ? ' mg-df__ball--loose' : '') + (st.phase === 'drive' ? ' mg-df__pos--drive' : '')} style={at(ball)} r={st.exposed > 0 ? 34 : 26} />
         </svg>
         <div className="mg-df-hud">
           <div className="mg-df-top">
@@ -79,7 +85,7 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
           </div>
           {phase === 'live' && (
             <div className="mg-df-gest">
-              <span>{t(lang, 'mg.def.gest.slide')}</span><span>{t(lang, 'mg.def.gest.tap')}</span><span>{t(lang, 'mg.def.gest.up')}</span>
+              <span>{t(lang, 'mg.def.keys.slide')}</span><span>{t(lang, 'mg.def.keys.steal')}</span><span>{t(lang, 'mg.def.keys.arm')}</span>
             </div>
           )}
         </div>
@@ -106,18 +112,26 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
         )}
       </div>
       <div className="mg-df-pad">
-        {KEYS.map(([g, key]) => <GestBtn key={key} flow={flow} g={g} label={t(lang, key)} on={g === 'up' && st.armed > 0} />)}
+        {KEYS.map(([g, key, label]) => <GestBtn key={g} flow={flow} g={g} keyLabel={t(lang, key)} label={t(lang, label)} on={g === 'up' && st.armed > 0} />)}
       </div>
     </div>
   )
 }
 
-// pointerdown = gesto imediato; Enter/Espaço tratados aqui e param a propagação pro
-// listener global do useSwipe não contar o mesmo toque duas vezes.
-function GestBtn({ flow, g, label, on }: { flow: DuelFlow; g: Gesture; label: string; on: boolean }): JSX.Element {
+// ESQ/DIR: segurar desliza (pointerdown liga, soltar/sair desliga); ROUBAR/CONTESTAR: gesto no
+// pointerdown. Enter/Espaço tratados aqui e param a propagação pro listener global de teclado
+// (defenseFlow) não contar o mesmo toque duas vezes.
+function GestBtn({ flow, g, keyLabel, label, on }: { flow: DuelFlow; g: Gesture; keyLabel: string; label: string; on: boolean }): JSX.Element {
+  const holds = g === 'left' || g === 'right'
+  const release = holds ? () => flow.hold(0) : undefined
   return (
     <button type="button" className={'mg-btn mg-df-padbtn' + (on ? ' mg-pb__armed' : '')} aria-pressed={g === 'up' ? on : undefined}
-      disabled={flow.phase !== 'live'} onPointerDown={() => flow.gesture(g)}
-      onKeyDown={e => { if (e.key !== ' ' && e.key !== 'Enter') return; e.preventDefault(); e.stopPropagation(); flow.gesture(g) }}>{label}</button>
+      disabled={flow.phase !== 'live'}
+      onPointerDown={() => holds ? flow.hold(g === 'left' ? -1 : 1) : flow.gesture(g)}
+      onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
+      onKeyDown={e => { if (e.key !== ' ' && e.key !== 'Enter') return; e.preventDefault(); e.stopPropagation(); flow.gesture(g) }}>
+      <kbd className="mg-df-padbtn__key">{keyLabel}</kbd>
+      <span>{label}</span>
+    </button>
   )
 }

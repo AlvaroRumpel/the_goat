@@ -4,7 +4,14 @@
 .mg-df-stage { position: relative; width: 100%; flex: 1; min-height: 180px; display: flex; background: var(--paper); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .mg-df-svg { display: block; width: 100%; height: 100%; }
 .mg-df-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--ink-3); }
-.mg-df-padbtn { min-height: 48px; padding: 12px 4px; font-size: 11px; letter-spacing: 0.04em; }
+.mg-df-padbtn { min-height: 56px; padding: 8px 4px; font-size: 11px; letter-spacing: 0.04em; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 3px; }
+.mg-df-padbtn__key { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: var(--accent-warm); }
+.mg-pb__armed .mg-df-padbtn__key { color: var(--ink); }
+/* ímãs/bola posicionados por transform: o tick de 20 Hz vira deslize contínuo; no drive ele vai à cesta */
+.mg-df__pos { transition: transform 60ms linear; }
+.mg-df__pos--drive { transition-duration: 600ms; transition-timing-function: ease-in; }
+@media (prefers-reduced-motion: reduce) { .mg-df__pos { transition: none; } }
 
 .mg-df__cone { fill: rgba(28, 26, 22, 0.06); stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 4; stroke-dasharray: 18 14; }
 .mg-df__cone--on { fill: rgba(168, 35, 28, 0.22); stroke: var(--red); stroke-opacity: 1; }
@@ -44,7 +51,7 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
 .mg-df-ready { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--on-ink-dim); }
 
-/* dicas de gesto: faixa rasteira de leitura (o alvo de toque é o palco inteiro) */
+/* legenda das teclas: faixa rasteira de leitura (o alvo de toque é o palco inteiro; A/D W S) */
 .mg-df-gest { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
 .mg-df-gest span { display: flex; align-items: center; justify-content: center; text-align: center;
   min-height: 34px; padding: 3px; background: rgba(28, 26, 22, 0.42); font-family: var(--mono);

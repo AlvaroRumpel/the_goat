@@ -697,14 +697,18 @@ async function main() {
 
     // Play the first moment's minigame to its outcome — one branch per kind (§2-4 of the
     // arcade v2 spec). Skill isn't the point here, wiring and rendering are: the wall
-    // (mg-defense) gets alternating slide gestures, the playbook (mg-pb) rolls the default
+    // (mg-defense) gets alternating held slides (A/D) and a contest (W), the playbook (mg-pb) rolls the default
     // routes and takes whatever shot the ball-handler has, the slingshot (mg-shot) gets one
     // drag-and-release — that is the whole shot.
     if (await arcadePage.locator('.mg-defense').count() > 0) {
-      log('arcade minigame: muralha (duelo 1x1) — alternating ArrowLeft/ArrowRight for 9s')
-      for (let k = 0; k < 30; k++) {
-        await arcadePage.keyboard.press(k % 5 === 4 ? 'ArrowUp' : k % 2 === 0 ? 'ArrowLeft' : 'ArrowRight')
-        await arcadePage.waitForTimeout(300)
+      log('arcade minigame: muralha (duelo 1x1) — holding A/D alternately for ~9s, W every 4th')
+      for (let k = 0; k < 20; k++) {
+        const key = k % 2 === 0 ? 'KeyA' : 'KeyD'
+        await arcadePage.keyboard.down(key)
+        await arcadePage.waitForTimeout(350)
+        await arcadePage.keyboard.up(key)
+        if (k % 4 === 3) await arcadePage.keyboard.press('KeyW')
+        await arcadePage.waitForTimeout(100)
       }
     } else if (await arcadePage.locator('.mg-pb').count() > 0) {
       log('arcade minigame: prancheta (playbook) — RODAR then shoot')

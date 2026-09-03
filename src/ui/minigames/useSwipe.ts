@@ -12,7 +12,7 @@ export function classifySwipe(dx: number, dy: number, dtMs: number): Gesture | n
   return null
 }
 
-// Liga pointer + teclado no elemento de `ref` e chama `onGesture` a cada gesto reconhecido.
+// Liga pointer no elemento de `ref` e chama `onGesture` a cada gesto reconhecido (teclado: defenseFlow).
 export function useSwipe(ref: RefObject<HTMLElement | null>, onGesture: (g: Gesture) => void, enabled: boolean): void {
   useEffect(() => {
     const el = ref.current
@@ -25,18 +25,11 @@ export function useSwipe(ref: RefObject<HTMLElement | null>, onGesture: (g: Gest
       start = null
       if (g) onGesture(g)
     }
-    const key = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
-      const g = e.key === 'ArrowLeft' ? 'left' : e.key === 'ArrowRight' ? 'right' : e.key === 'ArrowUp' ? 'up' : e.key === ' ' || e.key === 'Enter' ? 'tap' : null
-      if (g) { e.preventDefault(); onGesture(g) }
-    }
     el.addEventListener('pointerdown', down)
     el.addEventListener('pointerup', up)
-    window.addEventListener('keydown', key)
     return () => {
       el.removeEventListener('pointerdown', down)
       el.removeEventListener('pointerup', up)
-      window.removeEventListener('keydown', key)
     }
   }, [ref, onGesture, enabled])
 }

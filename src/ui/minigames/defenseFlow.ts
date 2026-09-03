@@ -10,7 +10,7 @@ import {
 } from '../../engine/minigames/defense'
 import { useSwipe, type Gesture } from './useSwipe'
 
-// MURALHA — fluxo (cartão → duelo ao vivo → desfecho, laço do engine a 20 Hz, gestos),
+// MURALHA — fluxo (cartão → duelo ao vivo → desfecho, laço do engine a 20 Hz, gestos + WASD),
 // compartilhado com o desenho 2D (`Defense.tsx`). O engine (defense.ts) é a verdade; o
 // desfecho OBEDECE `outcome.success` (roubo limpo que o engine reprovou vira apito do juiz).
 
@@ -42,6 +42,7 @@ export interface DuelFlow {
   endAt: RefObject<number | null>
   outRef: RefObject<MinigameProps['outcome']>
   gesture(g: Gesture): void
+  hold(dir: -1 | 0 | 1): void
 }
 
 export function useDuelFlow(props: MinigameProps): DuelFlow {
@@ -100,7 +101,7 @@ export function useDuelFlow(props: MinigameProps): DuelFlow {
     return () => clearInterval(id)
   }, [phase, commit, rng, input])
 
-  // ---------- gestos (swipe no palco + setas/espaço + botões do fallback) ----------
+  // ---------- gestos (swipe no palco = burst; botões e teclas) ----------
   const gesture = useCallback((g: Gesture) => {
     const s = stRef.current
     if (phaseRef.current !== 'live' || s.phase !== 'live') return
@@ -112,7 +113,32 @@ export function useDuelFlow(props: MinigameProps): DuelFlow {
     if (next.phase === 'live' && next.stealTries > s.stealTries) tapBlock.current = now
     commit(next)
   }, [commit, input, rng])
+  // segurar (A/D, setas, botões ESQ/DIR): desliza até soltar (dir 0)
+  const hold = useCallback((dir: -1 | 0 | 1) => {
+    const s = stRef.current
+    if (phaseRef.current !== 'live' || s.phase !== 'live') return
+    commit(slide(s, dir, input, true))
+  }, [commit, input])
   useSwipe(stageRef, gesture, phase === 'live')
 
-  return { props, stRef, S: stRef.current, phase, showResult, star, tend, team, stageRef, endAt, outRef, gesture }
+  // teclado: A/← D/→ seguram o deslize; W/↑ contesta; S/↓/Espaço/Enter rouba (sem repeat)
+  useEffect(() => {
+    if (phase !== 'live') return
+    const held = new Set<'left' | 'right'>()
+    const dirOf = () => ((held.has('right') ? 1 : 0) + (held.has('left') ? -1 : 0)) as -1 | 0 | 1
+    const side = (k: string) => k === 'a' || k === 'A' || k === 'ArrowLeft' ? 'left' : k === 'd' || k === 'D' || k === 'ArrowRight' ? 'right' : null
+    const down = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
+      const sd = side(e.key)
+      if (sd) { e.preventDefault(); if (!held.has(sd)) { held.add(sd); hold(dirOf()) } return }
+      if (e.repeat) return
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') { e.preventDefault(); gesture('up') }
+      else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); gesture('tap') }
+    }
+    const up = (e: KeyboardEvent) => { const sd = side(e.key); if (sd && held.delete(sd)) hold(dirOf()) }
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up)
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
+  }, [phase, gesture, hold])
+
+  return { props, stRef, S: stRef.current, phase, showResult, star, tend, team, stageRef, endAt, outRef, gesture, hold }
 }
