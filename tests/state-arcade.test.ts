@@ -80,4 +80,10 @@ describe('modo arcade — minigames no lugar das opções', () => {
     s = gameReducer(s, { type: 'SKIP_GAME' })
     expect(s.phase).toBe('gameResult')
   })
+
+  test('mgFreeThrow resolve no arcade', () => {
+    let s = playToKeyGame(47, 'arcade')
+    s = gameReducer(s, { type: 'DECIDE_MOMENT', optionId: 'mgFreeThrow', exec: { quality: 0.9 } })
+    expect(s.pendingGame!.outcomes[0].optionId).toBe('mgFreeThrow')
+  })
 })

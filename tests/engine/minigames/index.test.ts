@@ -47,10 +47,13 @@ describe('minigameSeed', () => {
 
 describe('resolveMoment com exec (execução do minigame)', () => {
   const opt = minigameOption('mgThree')!
-  test('catálogo mg* tem 8 ids e cada um resolve', () => {
-    expect(MINIGAME_OPTION_IDS).toHaveLength(8)
+  test('catálogo mg* tem 9 ids e cada um resolve', () => {
+    expect(MINIGAME_OPTION_IDS).toHaveLength(9)
     for (const id of MINIGAME_OPTION_IDS) expect(minigameOption(id)?.id).toBe(id)
     expect(minigameOption('nope')).toBeUndefined()
+  })
+  test('mgFreeThrow é safe em clutch', () => {
+    expect(minigameOption('mgFreeThrow')).toMatchObject({ risk: 'safe', attr: 'clutch' })
   })
   test('sempre 2 calls, com ou sem exec, com ou sem turnover', () => {
     for (const exec of [undefined, { quality: 1 }, { quality: 0, turnover: true }]) {

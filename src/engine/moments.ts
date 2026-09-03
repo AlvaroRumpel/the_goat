@@ -106,6 +106,7 @@ const MG = {
   mgLock:    { id: 'mgLock',    attr: 'defense',   risk: 'safe' },
   mgContest: { id: 'mgContest', attr: 'defense',   attr2: 'physical', risk: 'bold' },
   mgSteal:   { id: 'mgSteal',   attr: 'defense',   attr2: 'handles',  risk: 'reckless' },
+  mgFreeThrow: { id: 'mgFreeThrow', attr: 'clutch', risk: 'safe' },
 } as const satisfies Record<string, MomentOption>
 
 export const MINIGAME_OPTION_IDS: string[] = Object.values(MG).map(o => o.id)
