@@ -44,8 +44,15 @@ export function Hoop({ x }: { x: number }): JSX.Element {
   )
 }
 
-export function Ball({ x, y }: { x: number; y: number }): JSX.Element {
-  return <circle className="mg-sh__ball" cx={x} cy={y} r={BALL_R * M} />
+// `r` = rotação em rad (backspin: bola indo pra direita gira anti-horário → rotate negativo no SVG)
+export function Ball({ x, y, r = 0 }: { x: number; y: number; r?: number }): JSX.Element {
+  const R = BALL_R * M
+  return (
+    <g className="mg-sh__ball" transform={`rotate(${-r * 180 / Math.PI} ${x} ${y})`}>
+      <circle cx={x} cy={y} r={R} />
+      <path className="mg-sh__seam" d={`M ${x - R} ${y} L ${x + R} ${y} M ${x} ${y - R} Q ${x - R * 0.9} ${y} ${x} ${y + R}`} />
+    </g>
+  )
 }
 
 // chão: linha + tabuado

@@ -15,7 +15,7 @@ const FT_D = 4.57, FT_H = 2.05 // linha do lance livre; altura de saída parada
 const PATH_HZ = 60
 // cena sem defensor (reach −1 = mão nunca no caminho); `who` só precisa de `reach` aqui
 const FT_SCENE = { d: FT_D, releaseH: FT_H, gap: 0, who: { reach: -1 }, kind: 'mid', optionId: 'mgMid' } as ShotScene
-const FT_FULL = ballPath(FT_SCENE, simulateShot(FT_SCENE, { angle: rad(50), speed: idealSpeed(rad(50), FT_D, FT_H) }), true, PATH_HZ)
+const FT_FULL = ballPath(FT_SCENE, simulateShot(FT_SCENE, { angle: rad(55), speed: idealSpeed(rad(55), FT_D, FT_H), spin: 2.5 }), true, PATH_HZ)
 const FT_PATH = FT_FULL.slice(0, FT_FULL.findIndex(p => p.y < RIM_H - 0.6) + PATH_HZ / 2)   // até 0.5 s depois da rede
 export const FLIGHT_MS = FT_PATH.length / PATH_HZ * 1000
 
@@ -45,7 +45,7 @@ export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Bu
   }, [flying])
 
   const tap = () => { if (flying || shot >= 2) return; setShot(s => s + 1); t0.current = performance.now(); now.current = t0.current; setFlying(true) }
-  const ball = flying ? FT_PATH[Math.min(FT_PATH.length - 1, Math.floor((now.current - t0.current) / 1000 * PATH_HZ))] : { x: 0, y: FT_H }
+  const ball = flying ? FT_PATH[Math.min(FT_PATH.length - 1, Math.floor((now.current - t0.current) / 1000 * PATH_HZ))] : { x: 0, y: FT_H, r: 0 }
 
   return (
     <div className="mg mg-shot mg-ft">
@@ -55,7 +55,7 @@ export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Bu
           <Floor w={W} />
           <Hoop x={px(FT_D)} />
           <Figure x={px(-0.3)} dir={1} hand={{ x: px(0), y: py(FT_H) }} label="" />
-          <Ball x={px(ball.x)} y={py(ball.y)} />
+          <Ball x={px(ball.x)} y={py(ball.y)} r={ball.r} />
         </svg>
       </div>
       <div className="mg-sh-bar">

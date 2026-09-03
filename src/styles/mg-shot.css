@@ -21,7 +21,8 @@
 .mg-sh__fig--them { stroke: var(--ink); }
 .mg-sh__fig--them circle { fill: var(--ink); }
 .mg-sh__tag { stroke: none; fill: var(--ink); font-family: var(--mono); font-size: 6.5px; letter-spacing: 0.1em; }
-.mg-sh__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 0.8; }
+.mg-sh__ball circle { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 0.8; }
+.mg-sh__seam { fill: none; stroke: var(--ink); stroke-opacity: 0.55; stroke-width: 0.5; }
 .mg-sh__guide { fill: var(--ink); opacity: 0.45; }
 
 .mg-sh-hud { position: absolute; inset: 8px 10px auto 10px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }

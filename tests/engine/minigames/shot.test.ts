@@ -4,7 +4,7 @@ import { initLeague } from '../../../src/data/league'
 import { opponentFive } from '../../../src/engine/minigames/common'
 import {
   aimNoise, BALL_R, ballPath, BOARD_X, createScene, flightPoint, freeThrowQuality, idealSpeed, launchFromPull, rad, RIM_H, RIM_R,
-  shotQuality, simulateShot, skillOf, stageFlight, trajectory, type ShotScene,
+  shotQuality, simulateShot, skillOf, SPIN_MAX, spinOf, stageFlight, trajectory, type ShotScene,
 } from '../../../src/engine/minigames/shot'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
@@ -52,9 +52,9 @@ describe('estilingue', () => {
     expect(launchFromPull(-0.1, 0)).toBeNull()
     expect(launchFromPull(-9, -9)!.speed).toBe(14); expect(launchFromPull(-0.3, -0.3)!.speed).toBe(2)
   })
-  test('lançamento ideal = accuracy ≈ 1, fate in; ponto final no aro', () => {
+  test('lançamento ideal (arco alto) = accuracy ≈ 1, fate in; ponto final no aro', () => {
     const sc = scene()
-    const f = simulateShot(sc, { angle: rad(50), speed: idealSpeed(rad(50), sc.d, sc.releaseH) })
+    const f = simulateShot(sc, { angle: rad(60), speed: idealSpeed(rad(60), sc.d, sc.releaseH) })
     expect(f.fate).toBe('in'); expect(f.accuracy).toBeCloseTo(1, 3)
     const end = flightPoint(f, f.tEnd); expect(end.x).toBeCloseTo(sc.d, 3); expect(end.y).toBeCloseTo(RIM_H, 3)
   })
@@ -65,12 +65,29 @@ describe('estilingue', () => {
     const b = simulateShot(scene(), { angle: rad(20), speed: 10 }); expect(b.fate).toBe('blocked'); expect(b.accuracy).toBe(0)
     expect(simulateShot(scene(), { angle: rad(120), speed: 8 }).fate).toBe('short')
   })
-  test('tolerância: 0.2 m fora ainda pontua na meia; finalização tolera mais', () => {
-    const near = simulateShot(scene(), { angle: rad(50), speed: idealSpeed(rad(50), 6.2, 2.05) })
+  test('tolerância: 0.2 m fora (arco alto, com giro) ainda pontua na meia; finalização tolera mais', () => {
+    const near = simulateShot(scene(), { angle: rad(60), speed: idealSpeed(rad(60), 6.2, 2.05), spin: SPIN_MAX })
     expect(near.accuracy).toBeGreaterThan(0.3); expect(near.accuracy).toBeLessThan(0.8)
     const fin = scene({ d: 1.4, gap: 0.8, kind: 'layup', optionId: 'mgLayup' })
-    const f = simulateShot(fin, { angle: rad(70), speed: idealSpeed(rad(70), 1.7, 2.05) })
+    const f = simulateShot(fin, { angle: rad(70), speed: idealSpeed(rad(70), 1.7, 2.05), spin: SPIN_MAX })
     expect(f.accuracy).toBeGreaterThan(0.5)
+  })
+  test('ângulo de entrada: centro perfeito mas raso (lançamento 35°) = flat e accuracy < 0.45; 50° ≈ 0.75; 60° = 1', () => {
+    const sc = scene()
+    const at = (deg: number) => simulateShot(sc, { angle: rad(deg), speed: idealSpeed(rad(deg), sc.d, sc.releaseH) })
+    const flat = at(35), mid = at(50), high = at(60)
+    expect(Math.abs(flat.err)).toBeLessThan(0.02); expect(flat.fate).toBe('flat'); expect(flat.accuracy).toBeLessThan(0.45)
+    expect(mid.accuracy).toBeGreaterThan(0.6); expect(mid.accuracy).toBeLessThan(0.9); expect(mid.fate).toBe('in')
+    expect(high.accuracy).toBeCloseTo(1, 3); expect(high.entry).toBeGreaterThan(rad(50))
+    expect(high.accuracy).toBeGreaterThan(mid.accuracy); expect(mid.accuracy).toBeGreaterThan(flat.accuracy)
+  })
+  test('backspin: mesmo erro de 0.2 m no aro pontua mais com giro (aro amigo); spinOf cresce com skill até SPIN_MAX', () => {
+    const sc = scene()
+    const l = { angle: rad(60), speed: idealSpeed(rad(60), sc.d + 0.2, sc.releaseH) }
+    const dry = simulateShot(sc, { ...l, spin: 0 }), wet = simulateShot(sc, { ...l, spin: SPIN_MAX })
+    expect(Math.abs(dry.err - 0.2)).toBeLessThan(0.02); expect(wet.err).toBeCloseTo(dry.err, 6)
+    expect(wet.accuracy).toBeGreaterThan(dry.accuracy + 0.1)
+    expect(spinOf(0.25)).toBeLessThan(spinOf(1)); expect(spinOf(1)).toBeCloseTo(SPIN_MAX, 6)
   })
   test('aimNoise: skill 1 = sem ruído; skill 0.25 espalha; determinístico', () => {
     const l = { angle: rad(50), speed: 8 }
@@ -81,7 +98,7 @@ describe('estilingue', () => {
   })
   test('shotQuality ∈ [0,1], cresce com skill, 0 quando bloqueado', () => {
     const sc = scene()
-    const f = simulateShot(sc, { angle: rad(50), speed: idealSpeed(rad(50), sc.d, sc.releaseH) })
+    const f = simulateShot(sc, { angle: rad(60), speed: idealSpeed(rad(60), sc.d, sc.releaseH) })
     expect(shotQuality(f, 1)).toBeCloseTo(1, 3); expect(shotQuality(f, 0.5)).toBeCloseTo(0.8, 3); expect(shotQuality(f, 0.25)).toBeCloseTo(0.7, 3)
     expect(shotQuality(simulateShot(sc, { angle: rad(20), speed: 10 }), 1)).toBe(0)
   })
@@ -123,6 +140,17 @@ describe('desfecho físico', () => {
       if (p.x < path[i - 1].x - 1e-4) back = true
     }
     expect(back).toBe(true)
+  })
+  test('ballPath: com backspin a bola morre no aro (para mais perto da cesta) e o path carrega a rotação', () => {
+    const sc = scene()
+    const l = { angle: rad(60), speed: idealSpeed(rad(60), sc.d, sc.releaseH) }
+    const dry = stageFlight(sc, simulateShot(sc, { ...l, spin: 0 }), false), wet = stageFlight(sc, simulateShot(sc, { ...l, spin: SPIN_MAX }), false)
+    expect(dry.fate).toBe('in'); expect(wet.fate).toBe('in')
+    const pd = ballPath(sc, dry, false), pw = ballPath(sc, wet, false)
+    expect(throughHoop(sc, pw)).toBe(false)
+    expect(Math.abs(pw.at(-1)!.x - sc.d)).toBeLessThan(Math.abs(pd.at(-1)!.x - sc.d))
+    expect(pd.every(p => p.r === 0)).toBe(true)
+    expect(pw[10].r).toBeGreaterThan(pw[5].r); expect(pw[5].r).toBeGreaterThan(0)
   })
   test('ballPath: toco = a bola não passa da mão dele e cai no chão; todo voo termina parado no chão', () => {
     const sc = scene()

@@ -651,6 +651,7 @@
   "mg.shot.short": "SHORT",
   "mg.shot.long": "LONG",
   "mg.shot.rimOut": "IN AND OUT",
+  "mg.shot.flat": "TOO FLAT",
   "mg.shot.type.floater": "FLOATER",
   "mg.shot.phase.flight": "FLIGHT",
   "mg.shot.phase.aim": "AIM",

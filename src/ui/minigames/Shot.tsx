@@ -5,16 +5,17 @@ import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
 import { attrMods, opponentFive } from '../../engine/minigames/common'
 import {
-  aimNoise, ballPath, createScene, flightPoint, launchFromPull, RIM_H, shotQuality, simulateShot, skillOf, stageFlight,
-  type Flight, type ShotScene,
+  aimNoise, ballPath, createScene, flightPoint, launchFromPull, RIM_H, shotQuality, simulateShot, skillOf, spinOf, stageFlight,
+  type Flight, type PathPoint, type ShotScene,
 } from '../../engine/minigames/shot'
 import { Ball, Figure, Floor, GY, H, Hoop, M, py, STAND_REACH } from './shotScene'
 
 // ARREMESSO estilingue (spec 2026-09-03 arcade-ajustes §2): vista lateral em SVG, papel sépia.
 // Você à esquerda, aro à distância sorteada, defensor PARADO com a mão erguida entre vocês
 // (só obstáculo). Arraste em qualquer ponto do palco e solte: a puxada vira o lançamento; o
-// pontilhado mostra o começo do arco (mais longo com skill). O engine simula o voo e devolve a
-// quality; a animação toca `ballPath` (aro, tabela, chão, mão) de um voo que OBEDECE `outcome`.
+// pontilhado mostra a fração `skill` do arco. Backspin = spinOf(skill). O engine simula o voo e
+// devolve a quality; a animação toca `ballPath` (aro, tabela, chão, mão, giro) de um voo que
+// OBEDECE `outcome`.
 
 const X0 = 1.4 * M                // sua mão (x = 0 m)
 const W_MIN = 7.4 * M             // bandeja não vira zoom gigante
@@ -23,7 +24,7 @@ const GUIDE_STEPS = 16
 const px = (xm: number) => X0 + xm * M
 
 type Phase = 'aim' | 'flight' | 'done'
-type UiFate = 'swish' | 'short' | 'long' | 'rimOut' | 'blocked'
+type UiFate = 'swish' | 'short' | 'long' | 'flat' | 'rimOut' | 'blocked'
 const ZONE: Record<ShotScene['kind'], string> = { layup: 'finish', dunk: 'finish', mid: 'mid', three: 'three' }
 interface Drag { sx: number; sy: number; cx: number; cy: number }
 
@@ -70,7 +71,7 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
     setDrag(null)
     if (!l || resolved.current) return
     resolved.current = true
-    const f = simulateShot(scene, aimNoise(rng, skill, l))
+    const f = simulateShot(scene, aimNoise(rng, skill, { ...l, spin: spinOf(skill) }))
     setFlight(f); t0.current = performance.now(); now.current = t0.current; setPhase('flight')
     onResolveRef.current({ optionId: scene.optionId, quality: shotQuality(f, skill) })
   }
@@ -103,6 +104,7 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
     : outcome.success ? 'swish' : flight.fate === 'blocked' ? 'blocked' : flight.fate === 'in' ? 'rimOut' : flight.fate
   const guide = drag ? guideDots(scene, drag, skill) : []
   const ball = ballAt(phase, drag, path, now.current - t0.current, scene)
+  const spinDeg = ball.r
   const lift = Math.max(0, scene.releaseH - STAND_REACH)
   const hand = phase === 'aim' ? ball : { x: 0, y: scene.releaseH }
 
@@ -117,7 +119,7 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
           <Figure x={px(scene.gap + 0.28)} dir={-1} them hand={{ x: px(scene.gap), y: py(scene.who.reach) }} shoulder={scene.who.reach - 0.85} label={scene.who.short} />
           <Figure x={px(-0.3)} dir={1} lift={lift} hand={{ x: px(hand.x), y: py(hand.y) }} label={`${number ?? ''} ${lastName}`.trim()} />
           {guide.map((p, i) => <circle key={i} className="mg-sh__guide" cx={px(p.x)} cy={py(p.y)} r={1.4} />)}
-          <Ball x={px(ball.x)} y={py(ball.y)} />
+          <Ball x={px(ball.x)} y={py(ball.y)} r={spinDeg} />
         </svg>
         <div className="mg-sh-hud">
           <div className="mg-sh-hud__row">
@@ -146,22 +148,22 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
   )
 }
 
-// guia da mira: arco previsto SEM ruído, só a fração (0.3 + 0.5 × skill) do voo
+// guia da mira: arco previsto SEM ruído, só a fração `skill` do voo (0.25 → um quarto; 1 → até o aro)
 function guideDots(scene: ShotScene, drag: Drag, skill: number): Array<{ x: number; y: number }> {
   const l = launchFromPull(drag.cx - drag.sx, drag.cy - drag.sy)
   if (!l) return []
-  const f = simulateShot(scene, l)
-  const n = Math.round(GUIDE_STEPS * (0.3 + 0.5 * skill))
+  const f = simulateShot(scene, { ...l, spin: spinOf(skill) })
+  const n = Math.round(GUIDE_STEPS * skill)
   return Array.from({ length: n }, (_, i) => flightPoint(f, (i + 1) / GUIDE_STEPS * f.tEnd)).filter(p => p.y > 0)
 }
 
 // bola: na mão (segue a puxada até 1 m); no voo, amostra do `ballPath` pelo tempo real
-function ballAt(phase: Phase, drag: Drag | null, path: Array<{ x: number; y: number }> | null, elapsed: number, scene: ShotScene): { x: number; y: number } {
-  const hand = { x: 0, y: scene.releaseH }
+function ballAt(phase: Phase, drag: Drag | null, path: PathPoint[] | null, elapsed: number, scene: ShotScene): PathPoint {
+  const hand = { x: 0, y: scene.releaseH, r: 0 }
   if (phase === 'aim' || !path) {
     if (!drag) return hand
     const dx = drag.cx - drag.sx, dy = drag.cy - drag.sy, len = Math.hypot(dx, dy), k = len > 1 ? 1 / len : 1
-    return { x: hand.x + dx * k, y: Math.max(0.12, hand.y + dy * k) }
+    return { x: hand.x + dx * k, y: Math.max(0.12, hand.y + dy * k), r: 0 }
   }
   return path[Math.min(path.length - 1, Math.max(0, Math.floor(elapsed / 1000 * PATH_HZ)))]
 }
