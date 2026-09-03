@@ -1,7 +1,8 @@
 /* --- minigame ARREMESSO 2D — prefixo mg-sh-. Vista lateral em papel sépia (spec 2026-09-03 §B). --- */
 .mg-shot { display: flex; flex-direction: column; }
-.mg-sh-stage { position: relative; width: 100%; flex: 1; min-height: 180px; background: var(--paper); }
+.mg-sh-stage { position: relative; width: 100%; flex: 0 0 auto; aspect-ratio: 3 / 2; max-height: 58vh; min-height: 180px; background: var(--paper); }
 .mg-sh-svg { display: block; width: 100%; height: 100%; }
+.mg-ft .mg-sh-stage { aspect-ratio: 30 / 17; }
 .mg-sh__paper { fill: var(--paper); }
 .mg-sh__plank { fill: #DDD0B3; }
 .mg-sh__plank--b { fill: #D3C4A3; }
@@ -20,7 +21,7 @@
 .mg-sh-hud__row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .mg-sh-tagline { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--body-dim); }
 
-.mg-sh-bar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--ink); color: var(--on-ink); }
+.mg-sh-bar { display: flex; flex: 1; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--ink); color: var(--on-ink); }
 .mg-sh-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
 .mg-sh-row b { color: var(--accent-warm); }
 .mg-shot .mg-btn { min-height: 44px; }

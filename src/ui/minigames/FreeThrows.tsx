@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Build } from '../../engine/types'
 import type { Lang } from '../../i18n'
 import { t } from '../../i18n'
-import { freeThrowQuality, rad, refSpeed, REF_ANGLE, SHOTS, trajectory } from '../../engine/minigames/shot'
+import { freeThrowQuality, rad, refSpeed, REF_ANGLE, RIM_H, SHOTS, trajectory } from '../../engine/minigames/shot'
 import { FLIGHT_MS } from './Shot'
 
 // LANCES LIVRES (spec B): dois toques em ARREMESSAR, cada um anima a bola; quality =
@@ -42,7 +42,7 @@ export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Bu
   const tr = trajectory(rad(REF_ANGLE.mid), refSpeed('mid'), FT.releaseH)
   const p = flying ? Math.min(1, (now.current - t0.current) / FLIGHT_MS) : 0
   const ball = flying ? tr.pointAt(p * tr.tEnd) : { x: 0.35, y: 1.15 }
-  const hoop = px(FT.d), rimY = py(3.05)
+  const hoop = px(FT.d), rimY = py(RIM_H)
 
   return (
     <div className="mg mg-shot mg-ft">
