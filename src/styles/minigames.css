@@ -33,16 +33,3 @@
 .mg-result__sub { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; opacity: 0.85; }
 @keyframes mg-result-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mg-result { animation: none; } }
-
-/* barra de timing (salto, bloqueio, box-out, rebote ofensivo) */
-/* alvo de toque de 44px no eixo curto; a barra visível continua com 28px (::before = trilho) */
-.mg-timing { position: relative; width: 100%; height: 44px; cursor: pointer; touch-action: none; }
-.mg-timing::before { content: ''; position: absolute; inset: 8px 0; background: var(--track); }
-.mg-timing--vertical { width: 44px; height: 100%; }
-.mg-timing--vertical::before { inset: 0 8px; }
-.mg-timing__win { position: absolute; background: var(--accent-warm); }
-.mg-timing:not(.mg-timing--vertical) .mg-timing__win { top: 8px; bottom: 8px; }
-.mg-timing--vertical .mg-timing__win { left: 8px; right: 8px; }
-.mg-timing__cur { position: absolute; background: var(--ink); }
-.mg-timing:not(.mg-timing--vertical) .mg-timing__cur { top: 8px; bottom: 8px; width: 3px; margin-left: -1px; }
-.mg-timing--vertical .mg-timing__cur { left: 8px; right: 8px; height: 3px; margin-top: -1px; }

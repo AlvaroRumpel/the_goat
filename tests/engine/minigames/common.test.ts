@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { initLeague } from '../../../src/data/league'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
-import { attrMods, bestDefender, difficulty, freeThrowP, opponentFive, opponentStar, reboundChance, reboundWindow, tendencies, timingHit } from '../../../src/engine/minigames/common'
+import { attrMods, bestDefender, difficulty, freeThrowP, opponentFive, opponentStar, reboundChance, tendencies } from '../../../src/engine/minigames/common'
 
 const build = (ovr: number, over: Partial<Record<SlotId, number>> = {}): Build => ({
   attributes: { ...Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])), ...over } as Record<SlotId, number>,
@@ -46,12 +46,7 @@ describe('dificuldade e mods', () => {
     expect(hi.feint).toBeGreaterThan(lo.feint)
     expect(hi.stripResist).toBeGreaterThan(lo.stripResist)
     expect(hi.laneSafety).toBeGreaterThan(lo.laneSafety)
-    expect(hi.jumpWindow).toBeGreaterThan(lo.jumpWindow)
     expect(hi.reactMs).toBeGreaterThan(lo.reactMs)
-    expect(hi.stealWindow).toBeGreaterThan(lo.stealWindow)
-    expect(hi.boxWindow).toBeGreaterThan(lo.boxWindow)
-    expect(hi.tremor).toBeLessThan(lo.tremor)
-    expect(hi.tol.three).toBeGreaterThan(lo.tol.three)
     expect(hi.blockP).toBeGreaterThan(lo.blockP)
     expect(hi.stealP).toBeGreaterThan(lo.stealP)
     expect(hi.reboundP).toBeGreaterThan(lo.reboundP)
@@ -67,20 +62,6 @@ describe('dificuldade e mods', () => {
 })
 
 describe('helpers', () => {
-  test('timingHit', () => {
-    expect(timingHit(0.5, 0.5, 0.1)).toBe('perfect')
-    expect(timingHit(0.58, 0.5, 0.1)).toBe('hit')
-    expect(timingHit(0.7, 0.5, 0.1)).toBe('miss')
-  })
-  test('reboundWindow: reboteiro melhor = janela mais estreita; clampa em 0.05..0.3', () => {
-    const mods = attrMods(build(80), 27)
-    const five = opponentFive(league, 'bos')
-    const withOvr = (ovr: number) => five.map((p, i) => i === 0 ? { ...p, ovr, tags: ['rebounder' as const] } : { ...p, tags: [] })
-    expect(reboundWindow(mods, withOvr(95))).toBeLessThan(reboundWindow(mods, withOvr(60)))
-    expect(reboundWindow(mods, withOvr(75))).toBeCloseTo(mods.boxWindow, 6)
-    expect(reboundWindow({ ...mods, boxWindow: 0.9 }, withOvr(60))).toBe(0.3)
-    expect(reboundWindow({ ...mods, boxWindow: 0.06 }, withOvr(99))).toBe(0.05)
-  })
   test('freeThrowP clampa', () => {
     expect(freeThrowP(60)).toBeCloseTo(0.62, 5)
     expect(freeThrowP(20)).toBe(0.4)

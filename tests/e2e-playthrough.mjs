@@ -698,12 +698,12 @@ async function main() {
     // Play the first moment's minigame to its outcome — one branch per kind (§2-4 of the
     // arcade v2 spec). Skill isn't the point here, wiring and rendering are: the wall
     // (mg-defense) gets alternating slide gestures, the playbook (mg-pb) rolls the default
-    // routes and takes whatever shot the ball-handler has, the 3D shot (mg-shot) picks a
-    // type, switches to the meter, and taps twice to lock aim + once to release the jump.
+    // routes and takes whatever shot the ball-handler has, the 2D shot (mg-shot) picks a
+    // type — that is the whole shot.
     if (await arcadePage.locator('.mg-defense').count() > 0) {
       log('arcade minigame: muralha (duelo 1x1) — alternating ArrowLeft/ArrowRight for 9s')
       for (let k = 0; k < 30; k++) {
-        await arcadePage.keyboard.press(k % 2 === 0 ? 'ArrowLeft' : 'ArrowRight')
+        await arcadePage.keyboard.press(k % 5 === 4 ? 'ArrowUp' : k % 2 === 0 ? 'ArrowLeft' : 'ArrowRight')
         await arcadePage.waitForTimeout(300)
       }
     } else if (await arcadePage.locator('.mg-pb').count() > 0) {
@@ -715,15 +715,8 @@ async function main() {
         .or(arcadePage.locator('button', { hasText: 'BANDEJA' }))
       await shootBtn.first().click()
     } else if (await arcadePage.locator('.mg-shot').count() > 0) {
-      log('arcade minigame: arremesso 3D — type, medidor, 2 taps to lock + 1 to jump')
+      log('arcade minigame: arremesso 2D — pick a type (that is the shot)')
       await arcadePage.locator('.mg-sh-pickbtn').first().click()
-      await arcadePage.locator('button', { hasText: 'MEDIDOR' }).click()
-      await arcadePage.waitForTimeout(150)
-      await arcadePage.keyboard.press('Space') // power
-      await arcadePage.waitForTimeout(150)
-      await arcadePage.keyboard.press('Space') // angle -> jump phase
-      await arcadePage.waitForTimeout(150)
-      await arcadePage.keyboard.press('Space') // jump timing -> release
     }
 
     // The `.mg-result` overlay is short-lived (~600-800ms) — wait for it right after the

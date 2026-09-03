@@ -35,10 +35,9 @@ export function difficulty(kind: WatchedGameKind, starOvr: number): number {
 }
 
 export interface AttrMods {
-  speed: number; feint: number; stripResist: number; laneSafety: number; jumpWindow: number
-  reactMs: number; stealWindow: number; boxWindow: number; tremor: number; fatigue: number
+  speed: number; feint: number; stripResist: number; laneSafety: number
+  reactMs: number; fatigue: number
   blockP: number; stealP: number; reboundP: number
-  tol: Record<'layup' | 'floater' | 'mid' | 'three' | 'dunk', number>
 }
 // x = atributo efetivo − 60 (−20..39); cada mod é linear em x, clampado
 export function attrMods(build: Build, age: number, quarter = 1): AttrMods {
@@ -52,36 +51,15 @@ export function attrMods(build: Build, age: number, quarter = 1): AttrMods {
     feint: lin(a('handles'), 0.8, 0.02, 0.5, 1.6),
     stripResist: lin(a('handles'), 1.0, 0.012, 0.7, 1.45),
     laneSafety: lin(a('passing'), 1.0, 0.014, 0.7, 1.5),
-    jumpWindow: lin(a('physical'), 0.1, 0.0025, 0.06, 0.2) * (1 - fatigue * 0.6),
     reactMs: lin(a('defense'), 0, 3, -60, 120),
-    stealWindow: lin(a('defense'), 0.12, 0.003, 0.07, 0.24),
-    boxWindow: lin(a('rebounding'), 0.15, 0.003, 0.08, 0.26),
-    tremor: lin(a('clutch'), 1.0, -0.015, 0.3, 1.3),
     fatigue,
     blockP: lin(a('defense'), 0.35, 0.006, 0.2, 0.6),
     stealP: lin(a('defense'), 0.45, 0.006, 0.25, 0.8),
     reboundP: lin(a('rebounding'), 0.4, 0.006, 0.2, 0.7),
-    tol: {
-      layup: lin(a('finishing'), 1.0, 0.008, 0.8, 1.3), floater: lin(a('finishing'), 0.95, 0.008, 0.75, 1.25),
-      mid: lin(a('handles'), 1.0, 0.008, 0.8, 1.3), three: lin(a('three'), 1.0, 0.008, 0.8, 1.3), dunk: lin(a('finishing'), 1.0, 0.008, 0.8, 1.3),
-    },
   }
 }
 
-export function timingHit(t: number, center: number, halfWidth: number): 'perfect' | 'hit' | 'miss' {
-  const d = Math.abs(t - center)
-  return d <= halfWidth * 0.25 ? 'perfect' : d <= halfWidth ? 'hit' : 'miss'
-}
 export function freeThrowP(ovr: number): number { return clamp(0.62 + (ovr - 60) * 0.006, 0.4, 0.92) }
-
-// janela do rebote ofensivo (spec §2.3): seu box-out contra o reboteiro deles —
-// tag `rebounder`, senão o maior ovr entre C/PF, senão o primeiro do five.
-export function reboundWindow(mods: AttrMods, five: OppPlayer[]): number {
-  const r = five.find(p => p.tags.includes('rebounder'))
-    ?? five.filter(p => p.pos === 'C' || p.pos === 'PF').sort((a, b) => b.ovr - a.ovr)[0]
-    ?? five[0]
-  return clamp(mods.boxWindow * (1 - (r.ovr - 75) / 100), 0.05, 0.3)
-}
 
 // chance do rebote ofensivo (spec D): seu reboundP contra o reboteiro deles —
 // tag `rebounder`, senão o maior ovr entre C/PF, senão o primeiro do five.
