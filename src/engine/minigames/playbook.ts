@@ -2,7 +2,7 @@ import type { Rng, WatchedGameKind } from '../types'
 import type { MinigameResult } from './index'
 import { clamp01 } from './index'
 import type { AttrMods, OppPlayer } from './common'
-import { applyScreens, clampCourt, dist, lerp, manTarget, moveToward, pointAlongRoute, pressTarget, routeLength, zoneTarget } from './playbook-defense'
+import { applyScreens, clampCourt, dist, distToSegment, lerp, manTarget, moveToward, pointAlongRoute, pressTarget, routeLength, zoneTarget } from './playbook-defense'
 
 // Quadro tático de ataque ("JOGADA") v2 — engine puro. Metros; meia-quadra, cesta no topo
 // (y = 0 é a linha de fundo). Toda aleatoriedade vem do Rng LOCAL injetado pela UI.
@@ -26,6 +26,9 @@ export type Scheme = 'man' | 'zone' | 'switch' | 'trap' | 'press'
 export type Phase = 'read' | 'draw' | 'run' | 'rebound' | 'shooting' | 'turnover' | 'done'
 export type Template = 'pnr' | 'horns' | 'doubleScreen' | 'iso' | 'fiveOut' | 'transition'
 export type ShotOption = 'layup-or-dunk' | 'mgMid' | 'mgThree' | 'mgAssist'
+// contrato do sentinela de falta: pumpFake marca s.result = { optionId: 'mgFreeThrow', quality: -1 } —
+// a UI roda FreeThrows e substitui quality antes de despachar; nunca enviar -1 pro reducer.
+export interface FoulResult { foul: true }
 
 export interface Route { points: Pos[]; screen: boolean }
 
@@ -36,7 +39,8 @@ export interface PlaybookState {
   ball: { holder: number; flying: { from: number; to: number; progress: number } | null }
   lastPassAt: number; passes: number; screenedUntil: number[]; screenArmed: boolean[]
   helpUntil: number; trapUntil: number; trapDef: number | null; mismatch: boolean
-  feintUntil: number; pumpUntil: number; pressure: number
+  feintUntil: number; feintBonus: number; pumpUntil: number; pressure: number
+  riskyBonusUntil: number; reboundUsed: boolean; still: number[]
   turnover: 'intercept' | 'strip' | 'clock' | 'charge' | null
   firstShotOpenness: number | null
   result?: MinigameResult
@@ -80,12 +84,15 @@ export function beyondArc(p: Pos): boolean {
   if (p.y <= COURT.cornerY) return p.x < COURT.cornerX || p.x > COURT.w - COURT.cornerX
   return distToBasket(p) > COURT.arc
 }
+// defensor do pump fake fica "no ar" (não conta na abertura) enquanto pumpUntil > t
 function nearestDefenderDist(s: PlaybookState, idx: number): number {
-  return Math.min(...s.defenders.map(d => dist(d, s.attackers[idx])))
+  const active = s.defenders.filter(d => !(s.pumpUntil > s.t && d.man === idx))
+  return active.length === 0 ? Infinity : Math.min(...active.map(d => dist(d, s.attackers[idx])))
 }
-// abertura = qualidade do arremesso (spec §2.5)
+// abertura = qualidade do arremesso (spec §2.5); finta ativa (feintUntil) soma feintBonus metros pro portador
 export function openness(s: PlaybookState, idx: number): number {
-  return clamp01((nearestDefenderDist(s, idx) - 0.5) / 1.6)
+  const feintOpen = idx === s.ball.holder && s.feintUntil > s.t ? s.feintBonus : 0
+  return clamp01((nearestDefenderDist(s, idx) + feintOpen - 0.5) / 1.6)
 }
 export function shotOptionFor(s: PlaybookState): ShotOption {
   if (s.ball.holder !== s.you) return 'mgAssist'
@@ -127,7 +134,8 @@ export function createPlaybook(rng: Rng, input: PlaybookInput): PlaybookState {
     ball: { holder: 0, flying: null },
     lastPassAt: 0, passes: 0, screenedUntil: [0, 0, 0, 0, 0], screenArmed: [false, false, false, false, false],
     helpUntil: 0, trapUntil: 0, trapDef: null, mismatch: false,
-    feintUntil: 0, pumpUntil: 0, pressure: 0,
+    feintUntil: 0, feintBonus: 0, pumpUntil: 0, pressure: 0,
+    riskyBonusUntil: 0, reboundUsed: false, still: [0, 0, 0, 0, 0],
     turnover: null, firstShotOpenness: null,
   }
   snapDefendersManToMan(s)
@@ -144,6 +152,7 @@ function clone(s: PlaybookState): PlaybookState {
     ball: { ...s.ball, flying: s.ball.flying ? { ...s.ball.flying } : null },
     screenedUntil: [...s.screenedUntil],
     screenArmed: [...s.screenArmed],
+    still: [...s.still],
   }
 }
 
@@ -238,7 +247,7 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
       // marcador batido no drible (>1.2m atrás) fica pra trás 1s
       if (distToBasket(holderPos) < distToBasket(d) - 1.2) s.screenedUntil[i] = Math.max(s.screenedUntil[i], s.t + 1.0)
     }
-    if (s.screenedUntil[i] > s.t) return
+    if (s.screenedUntil[i] > s.t) { s.still[i] += dt; return } // travado no bloqueio = alvo congelado, conta como parado
     let target: Pos
     if (s.scheme === 'zone') target = zoneTarget(s.attackers, holderPos, inPaint(holderPos), ZONES, i)
     else if (i === helperDefIdx) target = lerp(holderPos, COURT.basket, 0.15)
@@ -246,10 +255,18 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
     else if (s.scheme === 'trap' && s.trapUntil > s.t && i === s.trapDef) target = lerp(holderPos, COURT.basket, 0.15)
     else target = manTarget(s.attackers, COURT.basket, holder, d)
     target = clampCourt(target, COURT)
+    // still[d]: segundos com o alvo praticamente parado (<0.05m de variação por tick) — defensor "setado"
+    s.still[i] = dist(target, d.target) < 0.05 ? s.still[i] + dt : 0
     d.target = target
     const moved = moveToward(d, target, d.speed * dt)
     d.x = moved.x; d.y = moved.y
   })
+
+  // carga: portador entra a <0.5m de um defensor setado (still ≥ 0.6s) dentro do garrafão
+  if (!s.ball.flying && inPaint(holderPos)) {
+    const charged = s.defenders.some((d, i) => s.still[i] >= 0.6 && dist(d, holderPos) < 0.5)
+    if (charged) return endTurnover(s, 'charge', 'mgLayup')
+  }
 
   // desarme: ≥2 defensores a <1m do portador por >0.5s acumulado (×1.5 em press, ÷ stripResist)
   const closeCount = s.defenders.filter(d => dist(d, holderPos) < 1).length
@@ -260,4 +277,109 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
   }
 
   return s
+}
+
+// ---- ações ao vivo (Task 7) ----
+
+export function pass(s: PlaybookState, to: number, rng: Rng, input: PlaybookInput, risky = false): PlaybookState {
+  const next = clone(s)
+  const holder = next.ball.holder
+  const from = next.attackers[holder]
+  const dest = next.attackers[to]
+  const laneDist = Math.min(...next.defenders.map(d => distToSegment(d, from, dest)))
+  if (laneDist < 0.9) {
+    const laneRisk = 1 - laneDist / 0.9
+    const chance = laneRisk * 0.45 / input.mods.laneSafety * (risky ? 2 : 1)
+    if (rng.chance(chance)) return endTurnover(next, 'intercept', 'mgAssist')
+  }
+  next.ball.flying = { from: holder, to, progress: 0 }
+  next.lastPassAt = next.t
+  next.passes += 1
+  if (risky) next.riskyBonusUntil = next.t + 1.5
+  return next
+}
+
+export function feint(s: PlaybookState, rng: Rng, input: PlaybookInput): PlaybookState {
+  const next = clone(s)
+  next.feintUntil = next.t + 0.6
+  next.feintBonus = 0.8 * input.mods.feint
+  if (rng.chance(0.06 / input.mods.stripResist)) return endTurnover(next, 'strip', 'mgLayup')
+  return next
+}
+
+export function callScreen(s: PlaybookState): PlaybookState {
+  const next = clone(s)
+  const holder = next.ball.holder
+  const holderPos = next.attackers[holder]
+  let nearest = -1, nd = Infinity
+  next.attackers.forEach((p, i) => { if (i === holder) return; const d2 = dist(p, holderPos); if (d2 < nd) { nd = d2; nearest = i } })
+  if (nearest < 0) return next
+  const point = nd === 0 ? { ...holderPos } : lerp(holderPos, next.attackers[nearest], 0.7 / nd)
+  next.routes[nearest] = { points: [{ ...next.attackers[nearest] }, point], screen: true }
+  next.routeProgress[nearest] = 0
+  return next
+}
+
+export function pumpFake(s: PlaybookState, rng: Rng, input: PlaybookInput): PlaybookState {
+  const next = clone(s)
+  const holder = next.ball.holder
+  const holderPos = next.attackers[holder]
+  const defHolder = next.defenders.find(d => d.man === holder)
+  if (!defHolder || dist(defHolder, holderPos) >= 1.2) return next
+  next.pumpUntil = next.t + 0.7
+  if (rng.chance(0.15 * input.difficulty)) {
+    next.phase = 'done'
+    // sentinela: quality = -1 sinaliza a UI a rodar FreeThrows e substituir antes de despachar
+    next.result = { optionId: 'mgFreeThrow', quality: -1 }
+  }
+  return next
+}
+
+function resolveOptionId(option: ShotOption, finish?: 'layup' | 'dunk' | 'floater'): string {
+  if (option !== 'layup-or-dunk') return option
+  return finish === 'dunk' ? 'mgDunk' : 'mgLayup' // 'layup' e 'floater' resolvem pra mgLayup
+}
+
+export function shoot(s: PlaybookState, finish?: 'layup' | 'dunk' | 'floater'): PlaybookState {
+  const next = clone(s)
+  const holder = next.ball.holder
+  const optionId = resolveOptionId(shotOptionFor(next), finish)
+  const eff = clamp01(openness(next, holder) + (next.riskyBonusUntil > next.t ? 0.3 : 0))
+  if (eff < 0.4 && !next.reboundUsed) {
+    next.phase = 'rebound'
+    next.firstShotOpenness = eff
+    return next
+  }
+  const screenedRecently = next.screenedUntil.some(u => u > next.t - 1.5)
+  const typeFactor = optionId === 'mgThree' ? 0.9 : optionId === 'mgMid' ? 0.95 : 1
+  const clockFactor = next.clock < 2 ? 0.85 : 1
+  const creationBonus = next.passes >= 2 || screenedRecently ? 0.1 : 0
+  const quality = eff < 0.4 ? eff : Math.min(1, eff * typeFactor * clockFactor + creationBonus)
+  next.phase = 'shooting'
+  next.result = { optionId, quality }
+  return next
+}
+
+export function reboundTap(s: PlaybookState, hit: 'perfect' | 'hit' | 'miss'): PlaybookState {
+  const next = clone(s)
+  if (hit === 'miss') {
+    next.phase = 'shooting'
+    next.result = { optionId: resolveOptionId(shotOptionFor(next), 'layup'), quality: next.firstShotOpenness ?? 0 }
+    return next
+  }
+  next.phase = 'run'
+  next.clock = 5
+  next.routes = next.routes.map(() => ({ points: [], screen: false }))
+  next.routeProgress = next.routeProgress.map(() => 0)
+  next.reboundUsed = true
+  return next
+}
+
+export function moveTo(s: PlaybookState, x: number, y: number): PlaybookState {
+  const next = clone(s)
+  const holder = next.ball.holder
+  const dest = clampCourt({ x, y }, COURT)
+  next.routes[holder] = { points: [{ ...next.attackers[holder] }, dest], screen: next.routes[holder].screen }
+  next.routeProgress[holder] = 0
+  return next
 }

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
 import { initLeague } from '../../../src/data/league'
 import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
-import { applyTemplate, COURT, createPlaybook, inPaint, setRoute, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
+import { applyTemplate, callScreen, COURT, createPlaybook, feint, inPaint, moveTo, openness, pass, pumpFake, reboundTap, setRoute, shoot, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
 const build = (ovr: number): Build => ({ attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>, picks: [], archetype: 'SF', overall: ovr })
@@ -112,5 +112,59 @@ describe('fases e rotas', () => {
     let s = startRun(applyTemplate(createPlaybook(createRng(8), input()), 'horns'))
     for (let i = 0; i < 300 && s.phase === 'run'; i++) s = step(s, 0.05, createRng(8), input())
     expect(s.phase).toBe('turnover'); expect(s.turnover).toBe('clock'); expect(s.result).toEqual({ optionId: 'mgMid', quality: 0, turnover: true })
+  })
+})
+
+describe('ações', () => {
+  const live = (seed: number, tpl: Parameters<typeof applyTemplate>[1] = 'horns') => { let s = applyTemplate(createPlaybook(createRng(seed), input()), tpl); s = { ...s, scheme: 'man' }; return startRun(s) }
+  test('passe limpo chega; passe com defensor na linha pode ser interceptado; passe de risco intercepta mais', () => {
+    let clean = 0, risky = 0
+    for (let seed = 0; seed < 150; seed++) {
+      let s = live(seed); const rng = createRng(seed)
+      // coloca um defensor no meio da linha 0→2
+      const mid = { x: (s.attackers[0].x + s.attackers[2].x) / 2, y: (s.attackers[0].y + s.attackers[2].y) / 2 }
+      s = { ...s, defenders: s.defenders.map((d, i) => i === 1 ? { ...d, ...mid } : d) }
+      if (pass(s, 2, rng, input()).turnover === 'intercept') clean++
+      if (pass(s, 2, createRng(seed), input(), true).turnover === 'intercept') risky++
+    }
+    expect(clean).toBeGreaterThan(0); expect(risky).toBeGreaterThan(clean)
+    let far = live(1); far = { ...far, defenders: far.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
+    expect(pass(far, 2, createRng(1), input()).turnover).toBeNull()
+  })
+  test('finta abre espaço temporário e pode perder a bola', () => {
+    let s = live(2); const d0 = openness(s, 0); s = feint(s, createRng(2), input())
+    expect(s.feintUntil).toBeGreaterThan(s.t); expect(openness(s, 0)).toBeGreaterThanOrEqual(d0)
+    let lost = 0; for (let seed = 0; seed < 300; seed++) if (feint(live(3), createRng(seed), input()).turnover === 'strip') lost++
+    expect(lost).toBeGreaterThan(0); expect(lost).toBeLessThan(60)
+  })
+  test('pedir bloqueio cria rota com screen no companheiro mais perto', () => {
+    const s = callScreen(live(4)); const r = s.routes.findIndex((r, i) => i !== 0 && r.screen && r.points.length > 0)
+    expect(r).toBeGreaterThan(0)
+  })
+  test('finta de arremesso com marcador perto: pumpUntil sobe; às vezes puxa falta (mgFreeThrow)', () => {
+    let fouls = 0, pumps = 0
+    for (let seed = 0; seed < 200; seed++) { let s = live(seed, 'iso'); s = { ...s, defenders: s.defenders.map(d => d.man === 0 ? { ...d, x: s.attackers[0].x + 0.5, y: s.attackers[0].y } : d) }; s = pumpFake(s, createRng(seed), input()); if (s.phase === 'done' && s.result?.optionId === 'mgFreeThrow') fouls++; else if (s.pumpUntil > s.t) pumps++ }
+    expect(fouls).toBeGreaterThan(5); expect(pumps).toBeGreaterThan(100)
+  })
+  test('shoot: aberto = shooting com quality alta; fechado (< 0.4) = rebound; rebote acertado dá 2ª posse', () => {
+    let open = live(5, 'iso'); open = { ...open, defenders: open.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
+    const o = shoot(open); expect(o.phase).toBe('shooting'); expect(o.result!.quality).toBeGreaterThan(0.8)
+    let tight = live(6, 'iso'); tight = { ...tight, defenders: tight.defenders.map(d => ({ ...d, x: tight.attackers[0].x + 0.4, y: tight.attackers[0].y })) }
+    let r = shoot(tight); expect(r.phase).toBe('rebound'); expect(r.firstShotOpenness).toBeLessThan(0.4)
+    const again = reboundTap(r, 'hit'); expect(again.phase).toBe('run'); expect(again.clock).toBe(5)
+    const miss = reboundTap(r, 'miss'); expect(miss.phase).toBe('shooting'); expect(miss.result!.quality).toBeCloseTo(r.firstShotOpenness!, 5)
+  })
+  test('bônus de criação: 2 passes antes do arremesso somam 0.1', () => {
+    let s = live(7); s = { ...s, defenders: s.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
+    const solo = shoot(s).result!.quality
+    let p = { ...s, passes: 2 }
+    expect(shoot(p).result!.quality).toBeCloseTo(Math.min(1, solo + 0.1), 5)
+  })
+  test('carga: infiltrar em defensor parado no garrafão = turnover charge', () => {
+    let s = live(8, 'iso'); s = { ...s, defenders: s.defenders.map((d, i) => i === 0 ? { ...d, x: COURT.basket.x, y: COURT.basket.y + 2.0, target: { x: COURT.basket.x, y: COURT.basket.y + 2.0 } } : d) }
+    for (let i = 0; i < 20; i++) s = step(s, 0.05, createRng(8), input())   // defensor parado > 0.6s
+    s = moveTo(s, COURT.basket.x, COURT.basket.y + 2.0)
+    for (let i = 0; i < 60 && s.phase === 'run'; i++) s = step(s, 0.05, createRng(8), input())
+    expect(s.turnover).toBe('charge'); expect(s.result?.turnover).toBe(true)
   })
 })

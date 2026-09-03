@@ -8,6 +8,15 @@ import type { Defender, PlaybookInput, PlaybookState, Pos } from './playbook'
 export const dist = (a: Pos, b: Pos) => Math.hypot(a.x - b.x, a.y - b.y)
 export const lerp = (a: Pos, b: Pos, f: number): Pos => ({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f })
 
+// menor distância de p ao segmento a→b (projeção clampada em [0,1]) — usado na interceptação de passe
+export function distToSegment(p: Pos, a: Pos, b: Pos): number {
+  const abx = b.x - a.x, aby = b.y - a.y
+  const len2 = abx * abx + aby * aby
+  if (len2 === 0) return dist(p, a)
+  const t = Math.min(1, Math.max(0, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2))
+  return dist(p, { x: a.x + abx * t, y: a.y + aby * t })
+}
+
 export function clampCourt(p: Pos, court: { w: number; d: number }): Pos {
   return { x: Math.min(court.w - 0.3, Math.max(0.3, p.x)), y: Math.min(court.d - 0.3, Math.max(0.3, p.y)) }
 }
