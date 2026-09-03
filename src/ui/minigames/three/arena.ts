@@ -163,6 +163,23 @@ export function buildArena(opts: { crowdRows?: number; teamShort?: string } = {}
   return { group, farHoop: new THREE.Vector3(0, 3.05, COURT_HZ), nearHoop: new THREE.Vector3(0, 3.05, -COURT_HZ), dispose: () => disposables.forEach(d => d.dispose()) }
 }
 
+// Libera geometria, material(is) e mapas de um objeto avulso (bola, rig temporário).
+export function disposeObject(o: THREE.Object3D): void {
+  o.traverse(child => {
+    const m = child as THREE.Mesh
+    if (m.geometry) m.geometry.dispose()
+    const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : []
+    for (const mat of mats) {
+      for (const key of ['map', 'emissiveMap', 'normalMap', 'roughnessMap', 'alphaMap'] as const) {
+        const tex = (mat as any)[key]
+        if (tex && tex.dispose) tex.dispose()
+      }
+      mat.dispose()
+    }
+  })
+}
+
+// Caller descarta a bola com `disposeObject(ball)` quando terminar (sem dispose próprio).
 export function buildBall(): THREE.Group {
   const g = new THREE.Group()
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.121, 20, 16), new THREE.MeshStandardMaterial({ color: '#C77E2C', roughness: 0.55 }))
