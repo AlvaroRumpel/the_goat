@@ -87,3 +87,19 @@ describe('modo arcade — minigames no lugar das opções', () => {
     expect(s.pendingGame!.outcomes[0].optionId).toBe('mgFreeThrow')
   })
 })
+
+describe('modo arcade — ritmo enxuto', () => {
+  test('temporada arcade tem 2 slots de key game (rivalry + special) e ≤ 3 momentos na regular; normal tem ≥ 3 slots', () => {
+    const a = playToKeyGame(41, 'arcade')
+    expect(a.calendar!.slots.map(s => s.keyGame.kind).sort()).toEqual(['rivalry', 'special'])
+    expect(a.pendingGame!.moments.length).toBeLessThanOrEqual(3)
+    const n = playToKeyGame(41, 'normal')
+    expect(n.calendar!.slots.length).toBeGreaterThanOrEqual(3)
+  })
+  test('replay: recarregar o save arcade reproduz o mesmo estado (rngCalls bate)', () => {
+    const s = playToKeyGame(41, 'arcade')
+    const again = playToKeyGame(41, 'arcade')
+    expect(again.rngCalls).toBe(s.rngCalls)
+    expect(again.pendingGame!.moments).toEqual(s.pendingGame!.moments)
+  })
+})

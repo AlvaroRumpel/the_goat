@@ -283,6 +283,7 @@ function startSeasonCalendar(
     prevChampionTeamId: state.leagueHistory.at(-1)?.championTeamId ?? null,
     hasRivalryEvent: events.includes('rivalry'),
     rng,
+    arcade: state.career.mode === 'arcade',
   })
   const { slots } = buildCalendar(games, rng)
   const calendar: SeasonCalendar = {
@@ -472,6 +473,7 @@ function openPlayoffGame(state: GameState, pp: PendingPlayoffs, rng: Rng, calls:
     targetWinP: finals ? pp.pGame : pp.seriesProb,
     build: state.build!, age: state.age,
     marginBias: pp.playerOut ? PLAYER_OUT_MARGIN : 0,
+    arcade: state.career.mode === 'arcade',
     rng,
   })
   if (!pp.playerOut) {
@@ -592,6 +594,7 @@ function startWatchedKeyGame(state: GameState, game: KeyGame, rng: Rng): Pending
     context: { kind: game.kind, opponentTeamId: game.opponentTeamId },
     ourStrength: watchedGameStrength(state, state.currentOffer!.teamId), oppStrength,
     build: state.build!, age: state.age, rng,
+    arcade: state.career.mode === 'arcade',
     // sem targetWinP (a margem sai da força); expectedDelta é calculado dentro, sobre os
     // momentos sorteados, e é o que centra o ppgDelta em keyGameEffects
   })

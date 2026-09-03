@@ -2,9 +2,10 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
   applyMoment, autoResolveGame, clockOf, dagger, expectedAutoDelta, finishWatchedGame, gameRngCalls,
-  makeMoments, momentAts, momentCount, momentWeight, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
+  makeMoments, momentAts, momentCount, momentWeight, resolveMoment, scoreOf, selectKeyGames, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
+import { initLeague } from '../../src/data/league'
 
 const build = (ovr: number): Build => ({
   attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>,
@@ -444,5 +445,21 @@ describe('ritmo do arcade', () => {
       while (g.momentIndex < n) g = applyMoment(g, g.moments[g.momentIndex].options[0], b, 27, rng)
       expect(calls()).toBe(gameRngCalls(n))
     }
+  })
+})
+
+describe('partidas-chave no arcade', () => {
+  const league = initLeague()
+  const base = { league, playerTeamId: 'lal', prevStandings: null, prevChampionTeamId: null }
+  test('arcade: 2 jogos (rivalidade + especial), sem corrida de seed e sem extra de evento; 3 calls como no normal', () => {
+    const a = countedRng(5)
+    const games = selectKeyGames({ ...base, hasRivalryEvent: true, rng: a.rng, arcade: true })
+    expect(games.map(g => g.kind)).toEqual(['rivalry', 'special'])
+    expect(a.calls()).toBe(3)
+    const n = countedRng(5)
+    const normal = selectKeyGames({ ...base, hasRivalryEvent: true, rng: n.rng })
+    expect(normal.map(g => g.kind)).toEqual(['rivalry', 'seedRace', 'special', 'rivalry'])
+    expect(n.calls()).toBe(3)
+    expect(games[1].opponentTeamId).toBe(normal[2].opponentTeamId)   // mesmo sorteio do especial
   })
 })

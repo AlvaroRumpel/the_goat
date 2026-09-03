@@ -442,8 +442,9 @@ export function selectKeyGames(input: {
   prevChampionTeamId: string | null
   hasRivalryEvent: boolean
   rng: Rng
+  arcade?: boolean          // modo arcade: só rivalidade + especial (spec 2026-09-03 §2); calls iguais
 }): KeyGame[] {
-  const { league, playerTeamId, prevStandings, prevChampionTeamId, hasRivalryEvent, rng } = input
+  const { league, playerTeamId, prevStandings, prevChampionTeamId, hasRivalryEvent, rng, arcade = false } = input
   const strengths = new Map(TEAMS.map(t => [t.id, rosterStrength(league, t.id)]))
   const order = new Map(TEAMS.map((t, i) => [t.id, i]))
   const playerConf = teamById(playerTeamId).conf
@@ -489,6 +490,7 @@ export function selectKeyGames(input: {
     { kind: 'seedRace', opponentTeamId: seedRaceId },
     { kind: 'special', opponentTeamId: specialId },
   ]
+  if (arcade) return [games[0], games[2]]                 // depois das 3 calls, antes do extra
   if (hasRivalryEvent) games.push({ kind: 'rivalry', opponentTeamId: rivalryId })
   return games
 }
