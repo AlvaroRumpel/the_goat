@@ -5,7 +5,8 @@ import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
 import { initLeague } from '../../../src/data/league'
 import {
   angleValue, availableTypes, bankCrossX, createCloseout, crossX, evaluate, freeThrowQuality, idealSpeed,
-  jumpTiming, meterValue, rad, refSpeed, resultFor, scenarioFor, SHOTS, stepCloseout, trajectory, type ShotType,
+  jumpTiming, meterValue, rad, refSpeed, resultFor, scenarioFor, SHOTS, stepCloseout, trajectory,
+  type ShotEval, type ShotType,
 } from '../../../src/engine/minigames/shot'
 
 const build = (ovr: number, over: Partial<Record<SlotId, number>> = {}): Build => ({
@@ -132,6 +133,16 @@ describe('repertório', () => {
     expect(availableTypes(build(55), 27)).toEqual(['layup', 'mid', 'three', 'bank'])
     expect(availableTypes(build(95), 27)).toEqual(['layup', 'floater', 'mid', 'stepback', 'fadeaway', 'three', 'bank', 'dunk'])
   })
+  test('availableTypes: limites exatos das travas (idade 27, ageMultiplier = 1.0)', () => {
+    expect(availableTypes(build(80, { finishing: 59 }), 27)).not.toContain('floater')
+    expect(availableTypes(build(80, { finishing: 60 }), 27)).toContain('floater')
+    expect(availableTypes(build(80, { handles: 69 }), 27)).not.toContain('stepback')
+    expect(availableTypes(build(80, { handles: 70 }), 27)).toContain('stepback')
+    expect(availableTypes(build(80, { clutch: 69 }), 27)).not.toContain('fadeaway')
+    expect(availableTypes(build(80, { clutch: 70 }), 27)).toContain('fadeaway')
+    expect(availableTypes(build(80, { physical: 74 }), 27)).not.toContain('dunk')
+    expect(availableTypes(build(80, { physical: 75 }), 27)).toContain('dunk')
+  })
   test('velocidade ideal acerta o aro para todo tipo (exceto dunk)', () => {
     for (const t of Object.keys(SHOTS) as ShotType[]) {
       if (t === 'dunk') continue
@@ -173,5 +184,13 @@ describe('repertório', () => {
     expect(resultFor('layup', ev).optionId).toBe('mgLayup'); expect(resultFor('stepback', ev).optionId).toBe('mgThree'); expect(resultFor('bank', ev).optionId).toBe('mgMid')
     expect(freeThrowQuality([1, 0.5])).toBeCloseTo(0.75, 5)
     expect(jumpTiming(0.5, 0.5, mods)).toBe('perfect'); expect(jumpTiming(0.9, 0.5, mods)).toBe('miss')
+  })
+  test('resultFor mapeia optionId para os 8 tipos', () => {
+    const ev: ShotEval = { quality: 0.42, err: 0.1, entryAngle: 45, verdict: 'swish', blocked: false, contested: false }
+    for (const t of Object.keys(SHOTS) as ShotType[]) {
+      const r = resultFor(t, ev)
+      expect(r.optionId).toBe(SHOTS[t].optionId)
+      expect(r.quality).toBe(ev.quality)
+    }
   })
 })
