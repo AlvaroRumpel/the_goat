@@ -1,4 +1,4 @@
-import type { Build, MomentOutcome, WatchedGameContext } from '../../engine/types'
+import type { Build, LeagueState, MomentOutcome, WatchedGameContext } from '../../engine/types'
 import type { MinigameResult } from '../../engine/minigames'
 import type { Lang } from '../../i18n'
 
@@ -13,6 +13,9 @@ export interface MinigameProps {
   seed: number
   context: WatchedGameContext
   build: Build
+  age: number                  // idade nesta temporada (repertório e mods de atributo)
+  quarter: number              // 1-4, pelo minuto do momento (fadiga do 4Q)
+  league: LeagueState          // pra achar o quinteto/defensor do adversário
   number: number | null        // camisa do jogador (rótulo do "você")
   lang: Lang
   onResolve: (result: MinigameResult) => void

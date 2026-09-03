@@ -72,6 +72,9 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
         seed={seedRef.current!.seed}
         context={pending.context}
         build={state.build!}
+        age={state.age}
+        quarter={Math.min(4, Math.floor(moment.at / 12) + 1)}
+        league={state.league!}
         number={state.career.number}
         lang={lang}
         onResolve={onResolve}
