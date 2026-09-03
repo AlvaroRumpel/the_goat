@@ -27,6 +27,12 @@ const DEF_X = 0.7, DEF_Z0 = SZ + 1.7   // defensor colado = 1.7m à frente
 const HAND: [number, number, number] = [SX + 0.07, 2.72, SZ + 0.14]   // bola no set point
 const HOLD: [number, number, number] = [SX + 0.33, 1.18, SZ + 0.24]   // bola na mão, em pé
 
+// câmera baixa atrás-direita (ref-arremessso.jpg): fecha o enquadramento pra o arremessador
+// preencher o terço inferior-direito e a tabela ficar legível a 390px
+const CAM_FOV = 34
+const CAM_POS: [number, number, number] = [SX + 3.6, 2.05, SZ - 3.4]
+const CAM_AT: [number, number, number] = [-0.2, 2.45, HZ - 1.0]
+
 const SHOT_CLOCK = 8                   // segundos de posse a partir da mira
 const FLIGHT_MS = 900
 const POWER_MAX = 1.6                  // força 1.0 = 1.6 × velocidade de referência
@@ -74,7 +80,7 @@ export function ShotGame(props: MinigameProps) {
   return <Shot3D {...props} />
 }
 
-function Shot3D({ seed, context, build, age, quarter, league, number, lang, onResolve, outcome }: MinigameProps) {
+function Shot3D({ seed, context, build, age, quarter, league, number, lastName, lang, onResolve, outcome }: MinigameProps) {
   // seed local: scenarioFor primeiro, createCloseout depois (ordem fixa = determinismo)
   const setupRef = useRef<{ rng: Rng; scenario: ShotScenario } | null>(null)
   if (!setupRef.current) { const rng = createRng(seed); setupRef.current = { rng, scenario: scenarioFor(context, rng) } }
@@ -170,23 +176,28 @@ function Shot3D({ seed, context, build, age, quarter, league, number, lang, onRe
   }, [phase])
 
   // ---------- teclado: 1..8 escolhe, Espaço trava o medidor ----------
+  // o laço de lógica re-renderiza a 60fps: o listener assina UMA vez e lê o closure
+  // atual por ref (assinar por render tiraria e poria o handler a cada frame).
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  keyRef.current = e => {
+    const l = liveRef.current
+    if (l.phase === 'pick') { const i = '12345678'.indexOf(e.key); if (i >= 0 && types[i]) pick(types[i]); return }
+    if (l.phase === 'aim' && mode === 'meter' && e.key === ' ') { e.preventDefault(); meterTap() }
+  }
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const l = liveRef.current
-      if (l.phase === 'pick') { const i = '12345678'.indexOf(e.key); if (i >= 0 && types[i]) pick(types[i]); return }
-      if (l.phase === 'aim' && mode === 'meter' && e.key === ' ') { e.preventDefault(); meterTap() }
-    }
+    const onKey = (e: KeyboardEvent) => keyRef.current(e)
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [])
 
   // ---------- entrada ----------
   const tremor = () => noise ? Math.sin(liveRef.current.now / 1000 * 9) * 0.6 * noise * mods.tremor : 0
 
+  // trava com o `now` do último frame — o mesmo que o HUD desenhou: o que você vê é o que sai
   function meterTap() {
     const l = liveRef.current
     if (l.phase !== 'aim') return
-    const now = performance.now()
+    const now = l.now
     if (l.meterStage === 0) { l.power = meterValue(now - l.meterT0, powerMs); l.meterStage = 1; l.meterT0 = now; return }
     lockAim(angleValue(now - l.meterT0, angleMs) + tremor(), l.power)
   }
@@ -236,7 +247,7 @@ function Shot3D({ seed, context, build, age, quarter, league, number, lang, onRe
     ctx.scene.fog = new THREE.Fog('#2E2A24', 26, 60)
     const arena = buildArena({ teamShort: team.name.toUpperCase() })
     ctx.scene.add(arena.group)
-    const you = buildHuman({ jersey: RED, shorts: RED, number, name: t(lang, 'mg.you'), you: true })
+    const you = buildHuman({ jersey: RED, shorts: RED, number, name: lastName || t(lang, 'mg.you'), you: true })
     you.root.position.set(SX, 0, SZ); you.root.rotation.y = 0.15
     ctx.scene.add(you.root)
     const def = buildHuman({ jersey: INK, shorts: INK, number: null, name: defender.short, skin: '#5E4433', hair: '#120E0B' })
@@ -245,8 +256,9 @@ function Shot3D({ seed, context, build, age, quarter, league, number, lang, onRe
     const ball = buildBall()
     ball.position.set(...HOLD)
     ctx.scene.add(ball)
-    ctx.camera.position.set(SX + 3.6, 2.15, SZ - 3.4)
-    ctx.camera.lookAt(0.3, 2.5, HZ - 1.0)
+    ctx.camera.fov = CAM_FOV
+    ctx.camera.position.set(...CAM_POS)
+    ctx.camera.lookAt(...CAM_AT)
 
     const pos = new THREE.Vector3()
     ctx.onFrame(dt => {
@@ -274,7 +286,8 @@ function Shot3D({ seed, context, build, age, quarter, league, number, lang, onRe
   const meterPower = L.meterStage === 0 ? meterValue(now - L.meterT0, powerMs) : L.power
   const meterAngle = angleValue(now - L.meterT0, angleMs)
   const aiming = phase === 'aim'
-  const readAngle = !aiming ? L.angle : mode === 'drag' ? L.drag?.angle ?? null : L.meterStage === 1 ? meterAngle : null
+  const shake = aiming ? tremor() : 0        // a vaia treme a mira ANTES de travar, não só no lock
+  const readAngle = !aiming ? L.angle : mode === 'drag' ? (L.drag ? L.drag.angle + shake : null) : L.meterStage === 1 ? meterAngle + shake : null
   const readPower = !aiming ? L.power : mode === 'drag' ? L.drag?.power ?? null : meterPower
   const coPct = L.co ? clamp((L.coStart - L.co.x) / Math.max(0.1, L.coStart - 0.3), 0, 1) : 0
   const dist = type ? SHOTS[type].d : null
@@ -379,6 +392,6 @@ function ballAt(l: Live, type: ShotType | null, fate: Fate | null, defZ: number,
     if (p > 0.35) out.y -= (p - 0.35) * 4
     return out
   }
-  if (p > 0.75) out.lerp(new THREE.Vector3(...END[fate ?? 'swish']), (p - 0.75) / 0.25)
+  if (p > 0.8) out.lerp(new THREE.Vector3(...END[fate ?? 'swish']), (p - 0.8) / 0.2)
   return out
 }

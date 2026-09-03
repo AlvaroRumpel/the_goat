@@ -76,6 +76,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
         quarter={Math.min(4, Math.floor(moment.at / 12) + 1)}
         league={state.league!}
         number={state.career.number}
+        lastName={state.career.lastName}
         lang={lang}
         onResolve={onResolve}
         outcome={outcome}

@@ -17,6 +17,7 @@ export interface MinigameProps {
   quarter: number              // 1-4, pelo minuto do momento (fadiga do 4Q)
   league: LeagueState          // pra achar o quinteto/defensor do adversário
   number: number | null        // camisa do jogador (rótulo do "você")
+  lastName: string             // sobrenome nas costas da camisa
   lang: Lang
   onResolve: (result: MinigameResult) => void
   outcome: MomentOutcome | null
