@@ -682,6 +682,13 @@ async function main() {
     await arcadePage.waitForSelector('.game-plays', { timeout: 10000 })
     await arcadePage.locator('.game-plays').click() // skip the reveal → first moment opens
     await arcadePage.waitForSelector('.mg', { timeout: 15000 })
+    // tela "Está pronto?" (regras) — o minigame só monta depois do JOGAR
+    const readyGo = arcadePage.locator('.mg-ready__go')
+    console.log(`[assert] modo arcade: tela de regras antes do minigame: ${await readyGo.count() === 1}`)
+    if (await readyGo.count() !== 1) exitCode = 1
+    await arcadePage.screenshot({ path: `${SHOTS_DIR}/19-arcade-ready.png` })
+    await readyGo.click()
+    await arcadePage.waitForSelector('.mg:not(.mg-ready)', { timeout: 15000 })
     const optionCount = await arcadePage.locator('.game-option').count()
     const mgCount = await arcadePage.locator('.mg').count()
     console.log(`[assert] modo arcade: minigame open (${mgCount}) and no .game-option (${optionCount})`)

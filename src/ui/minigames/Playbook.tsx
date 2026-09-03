@@ -6,7 +6,7 @@ import { t } from '../../i18n'
 import { attrMods, difficulty, opponentFive, reboundWindow } from '../../engine/minigames/common'
 import { freeThrowQuality } from '../../engine/minigames/shot'
 import {
-  applyTemplate, callScreen, COURT, createPlaybook, feint, moveTo, openness, pass, pumpFake,
+  applyTemplate, callScreen, COURT, createPlaybook, feint, isSettled, moveTo, openness, pass, pumpFake,
   reboundTap, SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
   type PlaybookInput, type PlaybookState, type Pos, type Template,
 } from '../../engine/minigames/playbook'
@@ -137,9 +137,10 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   const snapshot = () => { undoRef.current = [...undoRef.current.slice(-19), ref.current] }
 
   // ---------- laço de 20Hz (read conta os 2s; run roda a posse) ----------
+  // jogada parada (isSettled) = tick pulado: relógio, defesa e pressão congelam até a próxima decisão
   useEffect(() => {
     if (st.phase !== 'read' && st.phase !== 'run') return
-    const id = setInterval(() => act(s => step(s, DT, rng, input)), DT * 1000)
+    const id = setInterval(() => { if (!isSettled(ref.current)) act(s => step(s, DT, rng, input)) }, DT * 1000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st.phase, rng, input])
@@ -170,10 +171,12 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   }, [foulPending])
 
   // ---------- entrada ----------
+  // via CTM: no palco flexível (tela cheia) o SVG fica letterboxado — o bounding box não é o viewBox
   const toCourt = (e: RPointerEvent): Pos | null => {
-    const r = svgRef.current?.getBoundingClientRect()
-    if (!r || r.width === 0 || r.height === 0) return null
-    return { x: (e.clientX - r.left) / r.width * COURT.w, y: (e.clientY - r.top) / r.height * COURT.d }
+    const m = svgRef.current?.getScreenCTM()
+    if (!m) return null
+    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
+    return { x: p.x / S, y: p.y / S }
   }
 
   // ímã (draw E run): começa um rascunho de rota; o pointerup decide toque × arrasto
@@ -274,7 +277,8 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   const holder = st.ball.holder
   const opt = shotOptionFor(st)
   const open = st.ball.flying ? 0 : openness(st, holder)
-  const phaseKey = phase === 'read' ? 'read' : phase === 'draw' ? 'draw' : phase === 'rebound' ? 'rebound' : 'run'
+  const phaseKey = phase === 'read' ? 'read' : phase === 'draw' ? 'draw' : phase === 'rebound' ? 'rebound'
+    : running && isSettled(st) ? 'paused' : 'run'
   const ball = ballPos(st)
 
   // bola no arremesso: vai ao aro em 500ms; depois obedece `outcome` (entra / quica pra fora)

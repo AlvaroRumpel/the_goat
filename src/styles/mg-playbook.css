@@ -19,8 +19,8 @@
 .mg-pb__open .bar__fill--bad { background: var(--red); }
 
 /* --- prancheta --- */
-.mg-pb__stage { position: relative; }
-.mg-pb__board { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+.mg-pb__stage { position: relative; flex: 1; min-height: 180px; display: flex; }
+.mg-pb .mg-pb__board { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 .mg-pb__plank { fill: var(--pb-wood-a); }
 .mg-pb__plank--b { fill: var(--pb-wood-b); }
 .mg-pb__joint { stroke: var(--pb-joint); stroke-width: 3; }

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { PAPER, INK, RED } from './arena'
 
-export type Pose = 'stand' | 'shoot' | 'closeout' | 'defend' | 'crossover' | 'dribble' | 'jump'
+export type Pose = 'stand' | 'shoot' | 'release' | 'closeout' | 'defend' | 'crossover' | 'dribble' | 'jump'
 
 interface Joints {
   hips: THREE.Group
@@ -22,7 +22,10 @@ interface PoseAngles {
 // [ombro.z, ombro.x, cotovelo.x, ombro.y] por braço; [quadril.x, joelho.x] por perna; [hipsY, hipsRotX, hipsRotY]
 const POSES: Record<Pose, PoseAngles> = {
   stand:     { armR: [0.25, 0, -0.3, 0],       armL: [0.25, 0, -0.3, 0],        legR: [0, 0],        legL: [0, 0],         hips: [0, 0, 0] },
-  shoot:     { armR: [2.6, -0.5, -1.2, 0.2],   armL: [2.2, -0.9, -1.45, -0.2],  legR: [0.55, -1.25], legL: [0.25, -0.5],   hips: [0.6, 0, 0] },
+  // set point: braços flexionam PRA FRENTE (ombro.x NEGATIVO; positivo joga pra trás), não abrem de lado (ombro.z) — cotovelos à
+  // frente do peito, antebraços pra cima, bola acima da testa; release = extensão no voo
+  shoot:     { armR: [0.3, -1.9, -1.5, 0],     armL: [0.55, -1.75, -1.45, 0.3],   legR: [0.5, -1.0],   legL: [0.3, -0.7],    hips: [0.6, 0, 0] },
+  release:   { armR: [0.15, -2.5, -0.35, 0],   armL: [0.5, -1.3, -0.9, 0.2],     legR: [0.35, -0.6],  legL: [0.2, -0.4],    hips: [0.6, 0, 0] },
   jump:      { armR: [3.0, 0.1, -0.15, 0],     armL: [3.0, 0.1, -0.15, 0],      legR: [0.4, -0.9],   legL: [0.4, -0.9],    hips: [0.7, 0, 0] },
   closeout:  { armR: [3.05, 0.1, -0.15, 0],    armL: [1.1, 0.5, -0.4, 0],       legR: [0.65, -0.95], legL: [-0.55, -0.15], hips: [0, 0.1, 0] },
   defend:    { armR: [1.4, 0.4, -0.55, 0],     armL: [1.4, 0.4, -0.55, 0],      legR: [0.4, -0.8],   legL: [0.4, -0.8],    hips: [-0.15, 0.22, 0] },

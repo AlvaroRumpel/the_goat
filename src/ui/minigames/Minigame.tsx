@@ -13,6 +13,8 @@ const ShotGame = lazy(() => import('./Shot').then(m => ({ default: m.ShotGame })
 const DefenseGame = lazy(() => import('./Defense').then(m => ({ default: m.DefenseGame })))
 
 const HOLD_MS = 1400
+// pré-carrega o chunk do three enquanto o jogador lê as regras (evita o fallback do Suspense no JOGAR)
+const preload: Record<string, () => Promise<unknown>> = { shot: () => import('./Shot'), defense: () => import('./Defense') }
 
 // Painel de decisão do modo arcade: no lugar das 2-3 opções, o minigame do momento.
 // Fluxo: minigame chama onResolve → DECIDE_MOMENT (engine resolve com exec) → o painel
@@ -23,6 +25,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
   const lang = state.lang
   const pending = state.pendingGame!
   const [holding, setHolding] = useState<number | null>(null)
+  const [readyIdx, setReadyIdx] = useState<number | null>(null)   // momento cuja tela de regras já foi aceita
   const idx = holding ?? pending.momentIndex
   const moment = pending.moments[idx]
   const outcome = pending.outcomes[idx] ?? null
@@ -53,12 +56,6 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
     dispatch({ type: 'DECIDE_MOMENT', optionId: r.optionId, exec: { quality: r.quality, turnover: r.turnover } })
   }, [holding, idx, dispatch])
 
-  const panelRef = useRef<HTMLDivElement>(null)
-  const visible = !!moment && (holding !== null || active)
-  useEffect(() => {
-    if (visible && active && holding === null) panelRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-  }, [visible, active, holding])
-
   if (!moment) return null
   if (holding === null && !active) return null
   const kind = minigameFor(moment)
@@ -67,8 +64,10 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
     : kind === 'defense' ? (hasWebGL() ? DefenseGame : DefenseFallback)
     : PlaybookGame
   const star = opponentStar(state.league!, pending.context.opponentTeamId)
+  // nada monta (relógio nenhum corre) antes do JOGAR
+  const ready = readyIdx === idx || holding !== null
   return (
-    <div className="game-decision mg-frame" ref={panelRef}>
+    <div className="game-decision mg-frame">
       {firstGame && (
         <div className="hint" style={{ borderLeft: '2px solid var(--red)', paddingLeft: 10 }}>
           {t(lang, 'game.tutorialArcade')}
@@ -81,7 +80,9 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
       </div>
       <div style={{ fontSize: 15, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
       <div className="mg-frame__hint">{t(lang, 'mg.hint.' + kind)}</div>
-      <Suspense fallback={<div className="mg" style={{ minHeight: 200 }} />}>
+      {!ready ? (
+        <ReadyCard kind={kind} lang={lang} onGo={() => setReadyIdx(idx)} />
+      ) : <Suspense fallback={<div className="mg" style={{ minHeight: 200 }} />}>
         <Comp
           key={idx}
           seed={seedRef.current!.seed}
@@ -96,13 +97,29 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
           onResolve={onResolve}
           outcome={outcome}
         />
-      </Suspense>
+      </Suspense>}
       {holding === null && (
         <button type="button" onClick={() => dispatch({ type: 'SKIP_GAME' })}
           className="mono-label" style={{ background: 'none', border: 0, color: 'var(--on-ink-dim)', textAlign: 'center', cursor: 'pointer' }}>
           {t(lang, 'game.simulate')}
         </button>
       )}
+    </div>
+  )
+}
+
+// "Está pronto?": título, regras (uma linha por passo) e JOGAR. Só depois o minigame monta.
+function ReadyCard({ kind, lang, onGo }: { kind: string; lang: GameState['lang']; onGo(): void }) {
+  useEffect(() => { void preload[kind]?.() }, [kind])
+  return (
+    <div className="mg mg-ready">
+      <span className="mono-label mono-label--red">{t(lang, 'mg.ready.title')}</span>
+      <h2 className="mg-ready__title">{t(lang, 'mg.title.' + kind)}</h2>
+      <span className="mono-label">{t(lang, 'mg.ready.how')}</span>
+      <ol className="mg-ready__rules">
+        {t(lang, 'mg.rules.' + kind).split('\n').map((line, i) => <li key={i}>{line}</li>)}
+      </ol>
+      <button type="button" className="mg-btn mg-btn--red mg-ready__go" onClick={onGo}>{t(lang, 'mg.ready.go')}</button>
     </div>
   )
 }

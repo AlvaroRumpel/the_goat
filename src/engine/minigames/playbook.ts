@@ -387,6 +387,14 @@ export function reboundTap(s: PlaybookState, hit: 'perfect' | 'hit' | 'miss'): P
   return next
 }
 
+// Jogada "parou": ninguém em rota, bola na mão, sem finta/pump em curso. A UI congela o
+// laço (relógio incluso) até a próxima decisão — o relógio só corre com a jogada rodando.
+export function isSettled(s: PlaybookState): boolean {
+  if (s.phase !== 'run' || s.ball.flying) return false
+  if (s.feintUntil > s.t || s.pumpUntil > s.t) return false
+  return s.routes.every((r, i) => r.points.length < 2 || s.routeProgress[i] >= routeLength(r.points))
+}
+
 export function moveTo(s: PlaybookState, x: number, y: number): PlaybookState {
   if (!isLive(s)) return s
   const next = clone(s)

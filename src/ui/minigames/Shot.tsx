@@ -17,7 +17,7 @@ import { ShotFrame } from './ShotFrame'
 const HZ = COURT_HZ
 const SX = 1.6, SZ = HZ - 8            // arremessador (protótipo)
 const DEF_X = 0.7, DEF_Z0 = SZ + 1.7   // defensor colado = 1.7m à frente
-const HAND: [number, number, number] = [SX + 0.07, 2.72, SZ + 0.14]   // bola no set point
+const HAND: [number, number, number] = [SX - 0.05, 2.61, SZ + 0.29]   // bola no set point (entre as mãos da pose 'shoot', medido)
 const HOLD: [number, number, number] = [SX + 0.33, 1.18, SZ + 0.24]   // bola na mão, em pé
 
 // câmera baixa atrás-direita (ref-arremessso.jpg): fecha o enquadramento pra o arremessador
@@ -63,8 +63,9 @@ export function ShotGame(props: MinigameProps) {
         def.root.position.z = DEF_Z0 + (l.co.x - 0.5)
         def.setPose(l.co.handUp ? 'closeout' : 'stand', Math.min(1, dt * 6))
       }
-      const up = l.phase === 'jump' || l.phase === 'flight' || l.phase === 'done'
-      you.setPose(up ? 'shoot' : 'stand', Math.min(1, dt / 0.25))
+      // salto = set point (bola na testa); soltou = extensão do braço no voo
+      const pose = l.phase === 'jump' ? 'shoot' : l.shot ? 'release' : 'stand'
+      you.setPose(pose, Math.min(1, dt / 0.25))
       ballAt(l, typeRef.current, fateRef.current, def.root.position.z, pos)
       if (l.shot) ball.position.copy(pos)
       else ball.position.lerp(pos, Math.min(1, dt * 8))

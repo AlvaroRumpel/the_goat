@@ -1,6 +1,6 @@
 /* --- ARREMESSO (mg-shot): cena 3D + HUD por cima + barra de controles. Prefixo mg-sh- --- */
 .mg-shot { display: flex; flex-direction: column; }
-.mg-sh-stage { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #2E2A24; cursor: crosshair;
+.mg-sh-stage { position: relative; width: 100%; flex: 1; min-height: 180px; background: #2E2A24; cursor: crosshair;
   touch-action: none; user-select: none; -webkit-user-select: none; }
 .mg-sh-canvas { display: block; width: 100%; height: 100%; }
 /* fallback sem WebGL: vista lateral em SVG no lugar do canvas (mesmo palco, mesmo HUD) */
@@ -28,7 +28,25 @@
 .mg-sh-co__fill { height: 100%; background: var(--red); }
 .mg-sh-warn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--red-soft); }
 .mg-sh-warn--dim { color: var(--on-ink-dim); }
-.mg-sh-jump { position: absolute; right: 12px; top: 18%; bottom: 18%; width: 28px; }
+/* salto: o palco inteiro recebe o toque; trilho/janela/cursor ficam desenhados à direita */
+.mg-sh-jump { position: absolute; inset: 20% 0 6%; }   /* abaixo do HUD; ::after estende o toque ao palco todo */
+.mg-sh-jump .mg-timing--vertical { width: 100%; }
+.mg-sh-jump .mg-timing--vertical::after { content: ''; position: absolute; left: 0; right: 0; top: -27%; bottom: -8.2%; }
+.mg-sh-jump .mg-timing--vertical::before,
+.mg-sh-jump .mg-timing--vertical .mg-timing__win,
+.mg-sh-jump .mg-timing--vertical .mg-timing__cur { left: auto; right: 12px; width: 36px; }
+.mg-sh-jump .mg-timing--vertical::before { top: 0; bottom: 0; }
+/* guia da mira (canto inferior esquerdo) e a dica grande do passo atual */
+.mg-shot .mg-sh-aim { position: absolute; left: 3%; bottom: 4%; width: 30%; max-width: 220px; height: auto;
+  aspect-ratio: 1; pointer-events: none; }
+.mg-sh-aim__fan { fill: rgba(237, 230, 214, 0.08); stroke: var(--on-ink-dim); stroke-width: 1; stroke-dasharray: 3 3; }
+.mg-sh-aim__arrow { stroke: var(--accent-warm); stroke-width: 3; stroke-linecap: round; }
+.mg-sh-aim__tip { fill: var(--accent-warm); }
+.mg-sh-aim--dim .mg-sh-aim__arrow, .mg-sh-aim--dim .mg-sh-aim__tip { opacity: 0.45; }
+.mg-sh-cue { position: absolute; left: 0; right: 0; top: 42%; padding: 0 12%; text-align: center; pointer-events: none;
+  font-family: var(--black); font-size: clamp(18px, 4vw, 30px); line-height: 1.1; letter-spacing: 0.03em;
+  color: var(--on-ink); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85); }
+.mg-sh-track { width: 100%; }
 
 .mg-sh-bar { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--ink); color: var(--on-ink); }
 .mg-sh-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }

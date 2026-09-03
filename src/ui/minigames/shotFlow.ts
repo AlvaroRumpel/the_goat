@@ -33,7 +33,8 @@ export const TYPE_KEY: Record<ShotType, string> = {
 }
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
-const loadMode = (): Mode => { try { return localStorage.getItem(MODE_KEY) === 'meter' ? 'meter' : 'drag' } catch { return 'drag' } }
+// padrão = medidor (dois toques em qualquer ponto do palco); arrasto fica como opção
+const loadMode = (): Mode => { try { return localStorage.getItem(MODE_KEY) === 'drag' ? 'drag' : 'meter' } catch { return 'meter' } }
 const saveMode = (m: Mode) => { try { localStorage.setItem(MODE_KEY, m) } catch { /* sem storage */ } }
 
 export interface Live {
@@ -180,7 +181,7 @@ export function useShotFlow(props: MinigameProps): ShotFlow {
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {})
   keyRef.current = e => {
     const l = liveRef.current
-    if (l.phase === 'pick') { const i = '12345678'.indexOf(e.key); if (i >= 0 && types[i]) pick(types[i]); return }
+    if (l.phase === 'pick') { const i = e.key.length === 1 ? '12345678'.indexOf(e.key) : -1; if (i >= 0 && types[i]) pick(types[i]); return }
     if (l.phase === 'aim' && mode === 'meter' && e.key === ' ') { e.preventDefault(); meterTap() }
   }
   useEffect(() => {

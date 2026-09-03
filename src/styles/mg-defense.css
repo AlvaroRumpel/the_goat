@@ -1,6 +1,6 @@
 /* --- MURALHA (mg-defense): cena 3D + HUD por cima (cartão, relógio, contenção, gestos) --- */
 .mg-defense { display: flex; flex-direction: column; }
-.mg-df-stage { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #2E2A24;
+.mg-df-stage { position: relative; width: 100%; flex: 1; min-height: 180px; background: #2E2A24;
   touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .mg-df-canvas { display: block; width: 100%; height: 100%; }
 /* fallback sem WebGL: vista de cima em SVG + botões de gesto embaixo do palco */

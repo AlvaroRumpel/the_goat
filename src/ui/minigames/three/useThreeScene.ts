@@ -59,7 +59,6 @@ export function useThreeScene(
       ro.disconnect()
       document.removeEventListener('visibilitychange', vis)
       cleanup?.()
-      renderer.forceContextLoss()
       renderer.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

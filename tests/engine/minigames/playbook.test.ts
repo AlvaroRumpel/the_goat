@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
 import { initLeague } from '../../../src/data/league'
 import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
-import { applyTemplate, callScreen, COURT, createPlaybook, feint, inPaint, moveTo, openness, pass, pumpFake, reboundTap, setRoute, shoot, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
+import { applyTemplate, callScreen, COURT, createPlaybook, feint, inPaint, isSettled, moveTo, openness, pass, pumpFake, reboundTap, setRoute, shoot, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
 const build = (ovr: number): Build => ({ attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>, picks: [], archetype: 'SF', overall: ovr })
@@ -207,5 +207,22 @@ describe('ações', () => {
     expect(shoot(afterPass)).toBe(afterPass)
     expect(pass(afterPass, 3, createRng(11), input())).toBe(afterPass)
     expect(pass(s, s.ball.holder, createRng(12), input())).toBe(s)
+  })
+})
+
+describe('isSettled (jogada parada = laço congela)', () => {
+  test('só em run, sem bola no ar, rotas concluídas e sem finta ativa', () => {
+    const rng = createRng(3)
+    let s = createPlaybook(rng, input())
+    expect(isSettled(s)).toBe(false)                                   // read/draw nunca
+    s = startRun(s)
+    expect(isSettled(s)).toBe(true)                                    // nada desenhado: para na hora
+    s = moveTo(s, s.attackers[0].x, s.attackers[0].y - 1.5)
+    expect(isSettled(s)).toBe(false)                                   // portador em rota
+    for (let i = 0; i < 40 && s.phase === 'run' && !isSettled(s); i++) s = step(s, 0.05, rng, input())
+    expect(s.phase).toBe('run'); expect(isSettled(s)).toBe(true)      // chegou: parou de novo
+    expect(isSettled(feint(s, createRng(99), input()))).toBe(false)    // finta corre 0.6s
+    const p = pass(s, 1, createRng(99), input())
+    if (p.phase === 'run') expect(isSettled(p)).toBe(false)           // bola no ar
   })
 })
