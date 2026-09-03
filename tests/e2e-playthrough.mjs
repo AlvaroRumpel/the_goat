@@ -702,10 +702,11 @@ async function main() {
     } else if (await arcadePage.locator('.mg-pb').count() > 0) {
       log('arcade minigame: prancheta (playbook) — RODAR then shoot')
       await arcadePage.locator('button', { hasText: 'RODAR' }).click()
-      await arcadePage.waitForTimeout(1000)
+      // whichever shoot button the ball-handler's distance resolved to (generic vs
+      // layup-or-dunk) — .or() auto-waits for the 'run' phase to render it, no fixed sleep
       const shootBtn = arcadePage.locator('button', { hasText: 'ARREMESSAR' })
-      if (await shootBtn.count() > 0) await shootBtn.click()
-      else await arcadePage.locator('button', { hasText: 'BANDEJA' }).click()
+        .or(arcadePage.locator('button', { hasText: 'BANDEJA' }))
+      await shootBtn.first().click()
     } else if (await arcadePage.locator('.mg-shot').count() > 0) {
       log('arcade minigame: arremesso 3D — type, medidor, 2 taps to lock + 1 to jump')
       await arcadePage.locator('.mg-sh-pickbtn').first().click()
