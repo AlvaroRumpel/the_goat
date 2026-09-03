@@ -3,8 +3,19 @@
 .mg-sh-stage { position: relative; width: 100%; aspect-ratio: 3 / 2; background: #2E2A24; cursor: crosshair;
   touch-action: none; user-select: none; -webkit-user-select: none; }
 .mg-sh-canvas { display: block; width: 100%; height: 100%; }
-.mg-sh-nogl { margin: 0; padding: 24px 16px; text-align: center; font-family: var(--mono); font-size: 12px;
-  line-height: 1.5; color: var(--dim); }
+/* fallback sem WebGL: vista lateral em SVG no lugar do canvas (mesmo palco, mesmo HUD) */
+.mg-sh-svg { display: block; width: 100%; height: 100%; }
+.mg-sh-fb__bg { fill: #2E2A24; }
+.mg-sh-fb__floor { stroke: var(--on-ink-dim); stroke-width: 1; }
+.mg-sh-fb__rig, .mg-sh-fb__board { stroke: var(--on-ink-dim); stroke-width: 2; }
+.mg-sh-fb__rim { stroke: var(--red); stroke-width: 4; }
+.mg-sh-fb__net { fill: none; stroke: var(--on-ink-dim); stroke-width: 1; }
+.mg-sh-fb__arc { fill: none; stroke: var(--accent-warm); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.mg-sh-fb__you { stroke: var(--red); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+.mg-sh-fb__def { stroke: var(--on-ink-dim); stroke-width: 2.5; fill: none; stroke-linecap: round; }
+.mg-sh-fb__def--up { stroke: var(--on-ink); }
+.mg-sh-fb__def .mg-sh-fb__hand { stroke: var(--red-soft); }
+.mg-sh-fb__ball { fill: var(--accent-warm); }
 
 .mg-sh-hud { position: absolute; inset: 8px 10px auto 10px; display: flex; flex-direction: column; gap: 5px;
   pointer-events: none; color: var(--on-ink); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }

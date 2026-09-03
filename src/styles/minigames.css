@@ -1,6 +1,7 @@
 /* --- minigames (modo arcade): moldura comum. Cada minigame tem o próprio mg-<x>.css --- */
 .mg-frame { display: flex; flex-direction: column; gap: 10px; }
-.mg-frame__head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mg-frame__head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.mg-frame__opp { color: var(--dim); }
 .mg-frame__hint { font-size: 12px; line-height: 1.4; color: var(--on-ink-dim); }
 .mg { position: relative; width: 100%; background: var(--paper); color: var(--ink); overflow: hidden;
   user-select: none; -webkit-user-select: none; touch-action: none; }

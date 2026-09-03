@@ -671,7 +671,6 @@
   "mg.shot.closeout": "CLOSEOUT",
   "mg.ft.title": "FREE THROWS",
   "mg.ft.n": "Free throw {n} of 2",
-  "mg.noWebgl": "No WebGL in this browser: simplified version.",
   "mg.away.noise": "The crowd boos — your aim shakes",
   "mg.def.left": "LEFT",
   "mg.def.right": "RIGHT",

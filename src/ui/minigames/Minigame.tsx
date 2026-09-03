@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState, type Dispatch } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { minigameFor, minigameSeed, type MinigameResult } from '../../engine/minigames'
+import { opponentStar } from '../../engine/minigames/common'
 import { PlaybookGame } from './Playbook'
 import { ShotGame } from './Shot'
+import { ShotFallback } from './ShotFallback'
 import { DefenseGame } from './Defense'
+import { DefenseFallback } from './DefenseFallback'
+import { hasWebGL } from './three/useThreeScene'
 
 const HOLD_MS = 1400
 
@@ -39,6 +43,14 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
     if (holding === null && lastMoment) dispatch({ type: 'FINISH_GAME' })
   }, [holding, lastMoment, dispatch])
 
+  // estável: os minigames guardam esta função em ref e um novo objeto por render reiniciaria
+  // os efeitos deles (laço de rAF/intervalo) a cada frame
+  const onResolve = useCallback((r: MinigameResult) => {
+    if (holding !== null) return
+    setHolding(idx)
+    dispatch({ type: 'DECIDE_MOMENT', optionId: r.optionId, exec: { quality: r.quality, turnover: r.turnover } })
+  }, [holding, idx, dispatch])
+
   const panelRef = useRef<HTMLDivElement>(null)
   const visible = !!moment && (holding !== null || active)
   useEffect(() => {
@@ -48,12 +60,11 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
   if (!moment) return null
   if (holding === null && !active) return null
   const kind = minigameFor(moment)
-  const Comp = kind === 'shot' ? ShotGame : kind === 'defense' ? DefenseGame : PlaybookGame
-  const onResolve = (r: MinigameResult) => {
-    if (holding !== null) return
-    setHolding(idx)
-    dispatch({ type: 'DECIDE_MOMENT', optionId: r.optionId, exec: { quality: r.quality, turnover: r.turnover } })
-  }
+  // sem WebGL, arremesso e muralha caem no painel 2D (mesmo fluxo, outro desenho)
+  const Comp = kind === 'shot' ? (hasWebGL() ? ShotGame : ShotFallback)
+    : kind === 'defense' ? (hasWebGL() ? DefenseGame : DefenseFallback)
+    : PlaybookGame
+  const star = opponentStar(state.league!, pending.context.opponentTeamId)
   return (
     <div className="game-decision mg-frame" ref={panelRef}>
       {firstGame && (
@@ -64,6 +75,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
       <div className="mg-frame__head">
         <span className="mono-label mono-label--red">{t(lang, 'mg.title.' + kind)}</span>
         <span className="mono-label">{t(lang, 'moment.' + moment.id + '.label')}</span>
+        <span className="mono-label mg-frame__opp">{star.short} · {star.pos} · {star.ovr}</span>
       </div>
       <div style={{ fontSize: 15, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
       <div className="mg-frame__hint">{t(lang, 'mg.hint.' + kind)}</div>
