@@ -40,7 +40,7 @@ export interface PlaybookState {
   lastPassAt: number; passes: number; screenedUntil: number[]; screenArmed: boolean[]
   helpUntil: number; trapUntil: number; trapDef: number | null; mismatch: boolean
   feintUntil: number; feintBonus: number; pumpUntil: number; pressure: number
-  riskyBonusUntil: number; reboundUsed: boolean; still: number[]
+  riskyBonusUntil: number; reboundUsed: boolean; still: number[]; lastScreenAt: number
   turnover: 'intercept' | 'strip' | 'clock' | 'charge' | null
   firstShotOpenness: number | null
   result?: MinigameResult
@@ -135,7 +135,7 @@ export function createPlaybook(rng: Rng, input: PlaybookInput): PlaybookState {
     lastPassAt: 0, passes: 0, screenedUntil: [0, 0, 0, 0, 0], screenArmed: [false, false, false, false, false],
     helpUntil: 0, trapUntil: 0, trapDef: null, mismatch: false,
     feintUntil: 0, feintBonus: 0, pumpUntil: 0, pressure: 0,
-    riskyBonusUntil: 0, reboundUsed: false, still: [0, 0, 0, 0, 0],
+    riskyBonusUntil: 0, reboundUsed: false, still: [0, 0, 0, 0, 0], lastScreenAt: -Infinity,
     turnover: null, firstShotOpenness: null,
   }
   snapDefendersManToMan(s)
@@ -281,7 +281,11 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
 
 // ---- ações ao vivo (Task 7) ----
 
+// bola em voo ou fora do 'run' = sem ações (evita passar/arremessar/fintar por cima de um passe em curso)
+const isLive = (s: PlaybookState) => s.phase === 'run' && s.ball.flying === null
+
 export function pass(s: PlaybookState, to: number, rng: Rng, input: PlaybookInput, risky = false): PlaybookState {
+  if (!isLive(s) || to === s.ball.holder) return s
   const next = clone(s)
   const holder = next.ball.holder
   const from = next.attackers[holder]
@@ -300,6 +304,7 @@ export function pass(s: PlaybookState, to: number, rng: Rng, input: PlaybookInpu
 }
 
 export function feint(s: PlaybookState, rng: Rng, input: PlaybookInput): PlaybookState {
+  if (!isLive(s)) return s
   const next = clone(s)
   next.feintUntil = next.t + 0.6
   next.feintBonus = 0.8 * input.mods.feint
@@ -308,6 +313,7 @@ export function feint(s: PlaybookState, rng: Rng, input: PlaybookInput): Playboo
 }
 
 export function callScreen(s: PlaybookState): PlaybookState {
+  if (!isLive(s)) return s
   const next = clone(s)
   const holder = next.ball.holder
   const holderPos = next.attackers[holder]
@@ -321,6 +327,7 @@ export function callScreen(s: PlaybookState): PlaybookState {
 }
 
 export function pumpFake(s: PlaybookState, rng: Rng, input: PlaybookInput): PlaybookState {
+  if (!isLive(s)) return s
   const next = clone(s)
   const holder = next.ball.holder
   const holderPos = next.attackers[holder]
@@ -341,6 +348,7 @@ function resolveOptionId(option: ShotOption, finish?: 'layup' | 'dunk' | 'floate
 }
 
 export function shoot(s: PlaybookState, finish?: 'layup' | 'dunk' | 'floater'): PlaybookState {
+  if (!isLive(s)) return s
   const next = clone(s)
   const holder = next.ball.holder
   const optionId = resolveOptionId(shotOptionFor(next), finish)
@@ -350,7 +358,7 @@ export function shoot(s: PlaybookState, finish?: 'layup' | 'dunk' | 'floater'): 
     next.firstShotOpenness = eff
     return next
   }
-  const screenedRecently = next.screenedUntil.some(u => u > next.t - 1.5)
+  const screenedRecently = next.t - next.lastScreenAt <= 1.5
   const typeFactor = optionId === 'mgThree' ? 0.9 : optionId === 'mgMid' ? 0.95 : 1
   const clockFactor = next.clock < 2 ? 0.85 : 1
   const creationBonus = next.passes >= 2 || screenedRecently ? 0.1 : 0

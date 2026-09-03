@@ -89,6 +89,7 @@ export function applyScreens(s: PlaybookState, input: PlaybookInput): void {
         if (d >= 1.0) return
         s.screenArmed[i] = true
         s.screenedUntil[defHolderIdx] = s.t + 0.8
+        s.lastScreenAt = s.t
         const defScreenerIdx = s.defenders.findIndex(d2 => d2.man === i)
         if (s.scheme === 'switch' && defScreenerIdx >= 0 && defScreenerIdx !== defHolderIdx) {
           const tmp = s.defenders[defHolderIdx].man

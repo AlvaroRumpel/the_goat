@@ -167,4 +167,33 @@ describe('ações', () => {
     for (let i = 0; i < 60 && s.phase === 'run'; i++) s = step(s, 0.05, createRng(8), input())
     expect(s.turnover).toBe('charge'); expect(s.result?.turnover).toBe(true)
   })
+  test('bônus de criação usa lastScreenAt (janela de 1.5s), não a duração do freeze do bloqueio', () => {
+    let s = { ...applyTemplate(createPlaybook(createRng(3), input()), 'pnr'), scheme: 'man' as const }
+    s = startRun(s)
+    const rng = createRng(3)
+    for (let i = 0; i < 90 && s.lastScreenAt === -Infinity; i++) s = step(s, 0.05, rng, input())
+    expect(s.lastScreenAt).toBeGreaterThan(-Infinity)
+    const far = (st: PlaybookState) => ({ ...st, defenders: st.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) })
+    const soon = { ...far(s), t: s.lastScreenAt + 1.0 }
+    const late = { ...far(s), t: s.lastScreenAt + 2.0 }
+    expect(shoot(soon).result!.quality).toBeCloseTo(shoot(late).result!.quality + 0.1, 5)
+  })
+  test('drible batido no press (sem bloqueio) nunca soma o bônus de criação', () => {
+    let s = live(9, 'iso'); s = { ...s, scheme: 'press' as const }
+    const holderDefIdx = s.defenders.findIndex(d => d.man === 0)
+    s = { ...s, defenders: s.defenders.map((d, i) => i === holderDefIdx ? { ...d, x: COURT.basket.x, y: 11.0 } : { ...d, x: 0.5, y: 13.5 }) }
+    s = step(s, 0.05, createRng(9), input())
+    expect(s.screenedUntil[holderDefIdx]).toBeGreaterThan(s.t) // blow-by detectado (marcador batido)
+    expect(s.lastScreenAt).toBe(-Infinity) // mas nenhum bloqueio de fato ocorreu
+    const far = { ...s, defenders: s.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
+    expect(shoot(far).result!.quality).toBeCloseTo(0.9, 5) // sem bônus: eff(1) × typeFactor(mgThree 0.9)
+  })
+  test('ações ficam bloqueadas com a bola em voo; auto-passe é no-op', () => {
+    let s = live(10); s = { ...s, defenders: s.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
+    const afterPass = pass(s, 2, createRng(10), input())
+    expect(afterPass.ball.flying).not.toBeNull()
+    expect(shoot(afterPass)).toBe(afterPass)
+    expect(pass(afterPass, 3, createRng(11), input())).toBe(afterPass)
+    expect(pass(s, s.ball.holder, createRng(12), input())).toBe(s)
+  })
 })
