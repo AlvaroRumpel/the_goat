@@ -91,9 +91,22 @@ describe('companheiros reais', () => {
     expect(a).toHaveLength(4)
     expect(a.every(p => league.players.find(l => l.id === p.id)?.teamId === 'lal')).toBe(true)
     for (let i = 1; i < 4; i++) expect(a[i - 1].ovr).toBeGreaterThanOrEqual(a[i].ovr)
-    for (const p of a) { expect(p.number).toBeGreaterThanOrEqual(10); expect(p.number).toBeLessThanOrEqual(56); expect(p.number).not.toBe(23) }
+    for (const p of a) { expect(p.number).toBeGreaterThanOrEqual(10); expect(p.number).toBeLessThanOrEqual(55); expect(p.number).not.toBe(23) }
     expect(a.map(p => p.number)).toEqual(b.map(p => p.number))
     expect(a[0].id).toBe(opponentFive(league, 'lal')[0].id)   // os mesmos 4 melhores que o adversário usaria
+    expect(new Set(a.map(p => p.number)).size).toBe(4)
+  })
+  test('teammates: colisão de hash entre dois ids vira camisas diferentes', () => {
+    // lg-a0 e lg-a22 colidem no hash de jerseyOf (h = (h*31+code) % 46 → mesmo 10+h)
+    const lg = {
+      year: 1,
+      players: [
+        { id: 'lg-a0', name: 'A B', pos: 'SF' as const, age: 27, ovr: 70, tags: [], teamId: 'x', rookie: false, prevPpg: null },
+        { id: 'lg-a22', name: 'C D', pos: 'SF' as const, age: 27, ovr: 65, tags: [], teamId: 'x', rookie: false, prevPpg: null },
+      ],
+    }
+    const [p0, p1] = teammates(lg, 'x', null)
+    expect(p0.number).not.toBe(p1.number)
   })
   test('skill pela régua do jogador: ovr 60 = 0.5 base; shooter três > não-shooter; playmaker pass < 1; dunk só grande/forte', () => {
     const mk = (id: string, ovr: number, tags: Mate['tags'], pos: Mate['pos'] = 'SF') =>

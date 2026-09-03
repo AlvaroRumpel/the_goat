@@ -1,5 +1,6 @@
 import { ageMultiplier } from '../season'
 import type { Archetype, Build, LeaguePlayer, LeagueState, LeagueTag, WatchedGameKind } from '../types'
+import { clamp01 } from './index'
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
@@ -22,13 +23,12 @@ export function bestDefender(five: OppPlayer[]): OppPlayer {
 // ---- seu time (prancheta): os 4 melhores por ovr, com camisa determinística e skill pela sua régua ----
 export type ShotType = 'layup' | 'mid' | 'three' | 'dunk'
 export interface Mate extends OppPlayer { number: number; skill: Record<ShotType, number>; pass: number }
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 // hash do id → 10..55, estável por jogador; nunca a sua camisa
 function jerseyOf(id: string, yourNumber: number | null): number {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 46
   const n = 10 + h
-  return n === yourNumber ? n + 1 : n
+  return n === yourNumber ? (n === 55 ? 10 : n + 1) : n
 }
 function toMate(p: LeaguePlayer, yourNumber: number | null): Mate {
   const base = clamp((p.ovr - 30) / 60, 0.25, 1)
@@ -43,7 +43,13 @@ function toMate(p: LeaguePlayer, yourNumber: number | null): Mate {
   return { ...toOpp(p), number: jerseyOf(p.id, yourNumber), skill, pass: p.tags.includes('playmaker') ? 0.8 : 1 }
 }
 export function teammates(league: LeagueState, teamId: string, yourNumber: number | null): Mate[] {
-  return league.players.filter(p => p.teamId === teamId).sort((a, b) => b.ovr - a.ovr || a.id.localeCompare(b.id)).slice(0, 4).map(p => toMate(p, yourNumber))
+  const mates = league.players.filter(p => p.teamId === teamId).sort((a, b) => b.ovr - a.ovr || a.id.localeCompare(b.id)).slice(0, 4).map(p => toMate(p, yourNumber))
+  const used = new Set<number>(yourNumber === null ? [] : [yourNumber])
+  for (const m of mates) {
+    while (used.has(m.number)) m.number = m.number === 55 ? 10 : m.number + 1
+    used.add(m.number)
+  }
+  return mates
 }
 
 export interface Tendencies { shoot: number; drive: number; pass: number; side: 'left' | 'right' }

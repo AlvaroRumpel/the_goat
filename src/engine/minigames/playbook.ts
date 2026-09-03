@@ -385,6 +385,7 @@ function resolveOptionId(option: ShotOption, finish?: 'layup' | 'dunk' | 'floate
   return finish === 'dunk' ? 'mgDunk' : 'mgLayup' // 'layup' e 'floater' resolvem pra mgLayup
 }
 
+// companheiro arremessa como 'mgAssist' (shotOptionFor) → cai em 'mid': layup/three/dunk dele hoje só existem pra futuro
 function skillFor(optionId: string, input: PlaybookInput, holder: number): number {
   const type = optionId === 'mgLayup' ? 'layup' : optionId === 'mgDunk' ? 'dunk' : optionId === 'mgThree' ? 'three' : 'mid'
   return holder === 0 ? input.skill[type] : input.mates[holder - 1].skill[type]
