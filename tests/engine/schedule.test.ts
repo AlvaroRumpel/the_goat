@@ -51,6 +51,27 @@ describe('buildCalendar', () => {
       expect(calls()).toBe(CALENDAR_RNG_CALLS)
     }
   })
+  test('âncora por papel, não por posição: arcade [rivalry, special] agenda special na sua própria janela', () => {
+    const ARCADE: KeyGame[] = [
+      { kind: 'rivalry', opponentTeamId: 'bos' },
+      { kind: 'special', opponentTeamId: 'lal' },
+    ]
+    for (let seed = 1; seed <= 50; seed++) {
+      const { rng } = countedRng(seed)
+      const { slots } = buildCalendar(ARCADE, rng)
+      expect(slots).toHaveLength(2)
+      const byKind = (k: string) => slots.find(s => s.keyGame.kind === k)!.gameIndex
+      expect(byKind('special')).toBeGreaterThanOrEqual(27)
+      expect(byKind('special')).toBeLessThanOrEqual(33)
+      expect(byKind('special')).not.toBeGreaterThanOrEqual(49)          // não cai na janela do seedRace
+    }
+    // modo normal [rivalry, seedRace, special, rivalry] continua com seedRace em [49, 54]
+    const { rng } = countedRng(7)
+    const { slots } = buildCalendar(FOUR, rng)
+    const byKind = (k: string) => slots.find(s => s.keyGame.kind === k)!.gameIndex
+    expect(byKind('seedRace')).toBeGreaterThanOrEqual(49)
+    expect(byKind('seedRace')).toBeLessThanOrEqual(54)
+  })
 })
 
 describe('simStretch', () => {

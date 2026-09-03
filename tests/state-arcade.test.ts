@@ -93,6 +93,8 @@ describe('modo arcade — ritmo enxuto', () => {
     const a = playToKeyGame(41, 'arcade')
     expect(a.calendar!.slots.map(s => s.keyGame.kind).sort()).toEqual(['rivalry', 'special'])
     expect(a.pendingGame!.moments.length).toBeLessThanOrEqual(3)
+    const specialSlot = a.calendar!.slots.find(s => s.keyGame.kind === 'special')!
+    expect(specialSlot.gameIndex).toBeLessThan(49)     // âncora própria (~30), não a janela do seedRace [49,54]
     const n = playToKeyGame(41, 'normal')
     expect(n.calendar!.slots.length).toBeGreaterThanOrEqual(3)
   })
