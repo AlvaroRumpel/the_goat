@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest'
 import { createRng } from '../../src/engine/rng'
 import {
   applyMoment, autoResolveGame, clockOf, dagger, expectedAutoDelta, finishWatchedGame, gameRngCalls,
-  makeMoments, momentAts, momentWeight, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
+  makeMoments, momentAts, momentCount, momentWeight, resolveMoment, scoreOf, SITUATIONS, SLOT_SEQUENCE, startWatchedGame,
 } from '../../src/engine/moments'
 import { SLOT_ORDER, type Build, type SlotId, type WatchedGameContext } from '../../src/engine/types'
 
@@ -412,5 +412,37 @@ describe('catálogo de situações', () => {
       }
     }
     expect(ALL_OPTION_IDS.length).toBe(byId.size)
+  })
+})
+
+describe('ritmo do arcade', () => {
+  const kinds = ['rivalry', 'playoff', 'finals'] as const
+  test('momentCount arcade: base 2/3/3 ± 1, clamp [2, 4], 1 call; normal segue 3/4/5 ± 1, clamp [2, 5]', () => {
+    for (const kind of kinds) {
+      const lo = { rivalry: 2, playoff: 2, finals: 2 }[kind], hi = { rivalry: 3, playoff: 4, finals: 4 }[kind]
+      const seen = new Set<number>()
+      for (let seed = 0; seed < 60; seed++) {
+        const { rng, calls } = countedRng(seed)
+        const n = momentCount({ kind, opponentTeamId: 'bos' }, rng, true)
+        expect(calls()).toBe(1)
+        expect(n).toBeGreaterThanOrEqual(lo); expect(n).toBeLessThanOrEqual(hi)
+        seen.add(n)
+      }
+      expect(seen.size).toBeGreaterThanOrEqual(2)
+    }
+    let big = 0
+    for (let seed = 0; seed < 60; seed++) big = Math.max(big, momentCount({ kind: 'finals', opponentTeamId: 'bos' }, createRng(seed)))
+    expect(big).toBe(5)                                                     // normal intocado
+  })
+  test('startWatchedGame({ arcade }) sorteia ≤ 4 momentos e mantém gameRngCalls(n)', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const { rng, calls } = countedRng(seed)
+      const b = build(85)
+      let g = startWatchedGame({ context: { kind: 'finals', opponentTeamId: 'bos' }, ourStrength: 75, oppStrength: 78, build: b, age: 27, rng, arcade: true })
+      const n = g.moments.length
+      expect(n).toBeLessThanOrEqual(4)
+      while (g.momentIndex < n) g = applyMoment(g, g.moments[g.momentIndex].options[0], b, 27, rng)
+      expect(calls()).toBe(gameRngCalls(n))
+    }
   })
 })

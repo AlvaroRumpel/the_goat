@@ -145,14 +145,15 @@ const FIRST_AT = 10
 
 // Base pelo peso do jogo. `elimination` NÃO entra: playoffContext o marca true em todo
 // jogo de rounds 0-2, então a distinção útil é kind (playoff = rounds 0-2, finals).
-function baseCount(kind: WatchedGameKind): number {
-  if (kind === 'finals') return 5
-  if (kind === 'playoff') return 4
-  return 3
+// modo arcade (cada momento é um minigame): base 2/3/3 e teto 4 — spec 2026-09-03 companheiros-e-ritmo §2
+function baseCount(kind: WatchedGameKind, arcade: boolean): number {
+  if (kind === 'finals') return arcade ? 3 : 5
+  if (kind === 'playoff') return arcade ? 3 : 4
+  return arcade ? 2 : 3
 }
 
-export function momentCount(context: WatchedGameContext, rng: Rng): number {
-  return clamp(baseCount(context.kind) + rng.int(-1, 1), 2, 5)   // 1 call
+export function momentCount(context: WatchedGameContext, rng: Rng, arcade = false): number {
+  return clamp(baseCount(context.kind, arcade) + rng.int(-1, 1), 2, arcade ? 4 : 5)   // 1 call, sempre
 }
 
 // n posições no relógio: a primeira em 10', a última sempre em 47.65' (4Q 00:21).
@@ -165,8 +166,8 @@ function slotsFor(n: number): SlotKey[] {
   return [...SLOT_SEQUENCE.slice(0, 4).slice(-(n - 1)), 'clutch']
 }
 
-export function makeMoments(context: WatchedGameContext, rng: Rng): Moment[] {
-  const n = momentCount(context, rng)                    // 1 call
+export function makeMoments(context: WatchedGameContext, rng: Rng, arcade = false): Moment[] {
+  const n = momentCount(context, rng, arcade)            // 1 call
   const ats = momentAts(n)
   return slotsFor(n).map((id, i) => {
     const s = rng.int(0, SITUATIONS[id].length - 1)       // 1 call por momento
@@ -298,11 +299,12 @@ export function startWatchedGame(input: {
   build: Build; age: number; rng: Rng
   targetWinP?: number      // playoffs: P(vencer este jogo) desejada
   marginBias?: number      // penalidade fixa de margem (ex.: PLAYER_OUT_MARGIN)
+  arcade?: boolean         // modo arcade: menos momentos (contagem de calls igual)
 }): PendingGame {
-  const { context, ourStrength, oppStrength, build, age, rng, targetWinP, marginBias = 0 } = input
+  const { context, ourStrength, oppStrength, build, age, rng, targetWinP, marginBias = 0, arcade = false } = input
   // Ordem obrigatória: os momentos vêm ANTES da margem porque expectedDelta depende
   // de quais momentos caíram — é o que mantém P(vitória) = targetWinP nos playoffs.
-  const moments = makeMoments(context, rng)              // 1 + n calls
+  const moments = makeMoments(context, rng, arcade)      // 1 + n calls
   const expectedDelta = expectedAutoDelta(build, age, moments)
   const center = (targetWinP === undefined
     ? (ourStrength - oppStrength) * 0.45
