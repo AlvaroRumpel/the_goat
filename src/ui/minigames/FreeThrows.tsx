@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Build } from '../../engine/types'
 import type { Lang } from '../../i18n'
 import { t } from '../../i18n'
-import { freeThrowQuality, rad, refSpeed, REF_ANGLE, RIM_H, SHOTS, trajectory } from '../../engine/minigames/shot'
-import { FLIGHT_MS } from './Shot'
+import { freeThrowQuality, idealSpeed, rad, RIM_H, trajectory } from '../../engine/minigames/shot'
 
 // LANCES LIVRES (spec B): dois toques em ARREMESSAR, cada um anima a bola; quality =
 // skill(três) sem defensor. Sem medidor, sem timing. Usado pela prancheta na falta puxada.
@@ -11,7 +10,8 @@ import { FLIGHT_MS } from './Shot'
 const M = 30, X0 = 60, GY = 150, W = 300, H = 170
 const px = (xm: number) => X0 + xm * M
 const py = (h: number) => Math.min(GY, Math.max(2, GY - h * M))
-const FT = SHOTS.mid            // 5.0 m ≈ linha do lance livre (4.57 m)
+const FT_D = 4.57, FT_H = 2.05 // linha do lance livre; altura de saída parada
+export const FLIGHT_MS = 900
 
 export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Build; age: number; onDone(q: number): void }) {
   const q = useMemo(() => freeThrowQuality(build, age), [build, age])
@@ -39,10 +39,10 @@ export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Bu
   }, [flying])
 
   const tap = () => { if (flying || shot >= 2) return; setShot(s => s + 1); t0.current = performance.now(); now.current = t0.current; setFlying(true) }
-  const tr = trajectory(rad(REF_ANGLE.mid), refSpeed('mid'), FT.releaseH)
+  const tr = trajectory(rad(45), idealSpeed(rad(45), FT_D, FT_H), FT_H)
   const p = flying ? Math.min(1, (now.current - t0.current) / FLIGHT_MS) : 0
   const ball = flying ? tr.pointAt(p * tr.tEnd) : { x: 0.35, y: 1.15 }
-  const hoop = px(FT.d), rimY = py(RIM_H)
+  const hoop = px(FT_D), rimY = py(RIM_H)
 
   return (
     <div className="mg mg-shot mg-ft">
