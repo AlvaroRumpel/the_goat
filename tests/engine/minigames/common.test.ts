@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { initLeague } from '../../../src/data/league'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
-import { attrMods, bestDefender, difficulty, freeThrowP, opponentFive, opponentStar, reboundChance, tendencies } from '../../../src/engine/minigames/common'
+import { attrMods, bestDefender, difficulty, freeThrowP, opponentFive, opponentStar, reboundChance, teammates, tendencies, type Mate } from '../../../src/engine/minigames/common'
 
 const build = (ovr: number, over: Partial<Record<SlotId, number>> = {}): Build => ({
   attributes: { ...Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])), ...over } as Record<SlotId, number>,
@@ -82,5 +82,29 @@ describe('helpers', () => {
     expect(reboundChance(mods, withOvr(75))).toBeCloseTo(mods.reboundP, 6)
     expect(reboundChance({ ...mods, reboundP: 0.9 }, withOvr(50))).toBe(0.85)
     expect(reboundChance({ ...mods, reboundP: 0.06 }, withOvr(99))).toBe(0.05)
+  })
+})
+
+describe('companheiros reais', () => {
+  test('teammates: 4 do time, ordenados por ovr desc, camisas estáveis em [10, 55] e diferentes da sua', () => {
+    const a = teammates(league, 'lal', 23), b = teammates(league, 'lal', 23)
+    expect(a).toHaveLength(4)
+    expect(a.every(p => league.players.find(l => l.id === p.id)?.teamId === 'lal')).toBe(true)
+    for (let i = 1; i < 4; i++) expect(a[i - 1].ovr).toBeGreaterThanOrEqual(a[i].ovr)
+    for (const p of a) { expect(p.number).toBeGreaterThanOrEqual(10); expect(p.number).toBeLessThanOrEqual(56); expect(p.number).not.toBe(23) }
+    expect(a.map(p => p.number)).toEqual(b.map(p => p.number))
+    expect(a[0].id).toBe(opponentFive(league, 'lal')[0].id)   // os mesmos 4 melhores que o adversário usaria
+  })
+  test('skill pela régua do jogador: ovr 60 = 0.5 base; shooter três > não-shooter; playmaker pass < 1; dunk só grande/forte', () => {
+    const mk = (id: string, ovr: number, tags: Mate['tags'], pos: Mate['pos'] = 'SF') =>
+      teammates({ year: 1, players: [{ id, name: 'A B', pos, age: 27, ovr, tags, teamId: 'x', rookie: false, prevPpg: null }] }, 'x', null)[0]
+    const plain = mk('lg-a', 60, [])
+    expect(plain.skill.mid).toBeCloseTo(0.5, 5); expect(plain.skill.three).toBeCloseTo(0.45, 5); expect(plain.skill.layup).toBeCloseTo(0.5, 5)
+    expect(plain.skill.dunk).toBeCloseTo(0.35, 5); expect(plain.pass).toBe(1)
+    const sh = mk('lg-b', 60, ['shooter']); expect(sh.skill.three).toBeCloseTo(0.575, 5); expect(sh.skill.mid).toBeCloseTo(0.525, 5)
+    const pm = mk('lg-c', 60, ['playmaker']); expect(pm.pass).toBe(0.8)
+    const big = mk('lg-d', 60, ['rebounder'], 'C'); expect(big.skill.layup).toBeCloseTo(0.55, 5); expect(big.skill.dunk).toBeCloseTo(0.55, 5)
+    expect(mk('lg-e', 99, []).skill.three).toBeCloseTo(0.9, 5)   // clamp01 depois do ×0.9 sobre base 1
+    expect(mk('lg-f', 40, []).skill.mid).toBe(0.25)              // piso 0.25
   })
 })

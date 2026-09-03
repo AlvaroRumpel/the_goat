@@ -19,6 +19,33 @@ export function bestDefender(five: OppPlayer[]): OppPlayer {
   return d ?? five[0]
 }
 
+// ---- seu time (prancheta): os 4 melhores por ovr, com camisa determinística e skill pela sua régua ----
+export type ShotType = 'layup' | 'mid' | 'three' | 'dunk'
+export interface Mate extends OppPlayer { number: number; skill: Record<ShotType, number>; pass: number }
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+// hash do id → 10..55, estável por jogador; nunca a sua camisa
+function jerseyOf(id: string, yourNumber: number | null): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 46
+  const n = 10 + h
+  return n === yourNumber ? n + 1 : n
+}
+function toMate(p: LeaguePlayer, yourNumber: number | null): Mate {
+  const base = clamp((p.ovr - 30) / 60, 0.25, 1)
+  const shooter = p.tags.includes('shooter'), rebounder = p.tags.includes('rebounder')
+  const layup = clamp01(base * (rebounder ? 1.1 : 1))
+  const skill: Record<ShotType, number> = {
+    layup,
+    mid: clamp01(base * (shooter ? 1.05 : 1)),
+    three: clamp01(base * (shooter ? 1.15 : 0.9)),
+    dunk: p.pos === 'PF' || p.pos === 'C' || p.ovr >= 75 ? layup : clamp01(layup * 0.7),
+  }
+  return { ...toOpp(p), number: jerseyOf(p.id, yourNumber), skill, pass: p.tags.includes('playmaker') ? 0.8 : 1 }
+}
+export function teammates(league: LeagueState, teamId: string, yourNumber: number | null): Mate[] {
+  return league.players.filter(p => p.teamId === teamId).sort((a, b) => b.ovr - a.ovr || a.id.localeCompare(b.id)).slice(0, 4).map(p => toMate(p, yourNumber))
+}
+
 export interface Tendencies { shoot: number; drive: number; pass: number; side: 'left' | 'right' }
 export function tendencies(p: OppPlayer): Tendencies {
   let shoot = 0.4, drive = 0.35, pass = 0.25
