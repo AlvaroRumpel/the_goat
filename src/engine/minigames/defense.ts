@@ -11,7 +11,8 @@ export type Move = 'hesi' | 'crossL' | 'crossR' | 'spin' | 'legs' | 'driveL' | '
 export interface DuelInput { tend: Tendencies; difficulty: number; mods: AttrMods; starOvr: number }
 export interface DuelState {
   t: number; clock: number; attX: number; defX: number; attDist: number
-  move: { kind: Move; at: number; dur: number } | null
+  defVx: number; slideUntil: number          // você desliza por velocidade: segurar (∞) ou burst (t + BURST)
+  move: { kind: Move; at: number; dur: number; fromX: number; toX: number } | null   // ele interpola fromX → toX
   exposed: number; airborne: number; contain: number; live: number
   stealTries: number; fouled: boolean; bitFake: boolean; contestDist: number | null; armed: number
   phase: 'live' | 'shot' | 'drive' | 'steal' | 'block' | 'foul' | 'clock' | 'done'
@@ -21,13 +22,31 @@ export const CONE_HALF = 0.62
 const POSSESSION = 8
 const RELEASE = 0.45
 const ARM_DUR = 1.2                    // postura armada dura ~1.2s; CONTESTAR de novo re-arma (spec C)
+export const SLIDE_SPEED = 3.2         // m/s do seu deslize (× mods.speed)
+export const BURST = 0.3               // s: swipe = deslize curto
+const APPROACH = 0.45                  // m/s: ele vem devagar em direção à cesta…
+const MIN_DIST = 4.0                   // …até aqui (o drive é que o leva ao aro)
 const DUR: Record<Move, number> = { hesi: 0.5, crossL: 0.45, crossR: 0.45, spin: 0.7, legs: 0.5, driveL: 0.8, driveR: 0.8, pumpFake: 0.6, shoot: 0.9, pass: 0.3 }
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+const lerp = (a: number, b: number, k: number) => a + (b - a) * k
 
 export function createDuel(_input: DuelInput): DuelState {
-  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: 0, phase: 'live', log: [] }
+  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, defVx: 0, slideUntil: 0, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: 0, phase: 'live', log: [] }
 }
 export function inFront(s: DuelState): boolean { return Math.abs(s.attX - s.defX) < CONE_HALF }
+
+// pra onde o movimento leva o atacante (decidido no início; o drive só dá 0.3 provisório —
+// o resto é decidido no fim, se ele bateu você)
+function targetX(s: DuelState, m: Move): number {
+  switch (m) {
+    case 'crossL': return clamp(s.attX - 0.9, -2.5, 2.5)
+    case 'crossR': return clamp(s.attX + 0.9, -2.5, 2.5)
+    case 'spin': return clamp(s.attX + (s.attX <= 0 ? 1.1 : -1.1), -2.5, 2.5)
+    case 'driveL': return clamp(s.attX - 0.3, -2.5, 2.5)
+    case 'driveR': return clamp(s.attX + 0.3, -2.5, 2.5)
+    default: return s.attX
+  }
+}
 
 function pickMove(s: DuelState, rng: Rng, input: DuelInput): Move {
   const { tend } = input
@@ -45,14 +64,11 @@ function pickMove(s: DuelState, rng: Rng, input: DuelInput): Move {
 
 function finishMove(s: DuelState, m: Move, _input: DuelInput): DuelState {
   switch (m) {
-    case 'crossL': return { ...s, attX: clamp(s.attX - 0.9, -2.5, 2.5) }
-    case 'crossR': return { ...s, attX: clamp(s.attX + 0.9, -2.5, 2.5) }
-    case 'spin': return { ...s, attX: clamp(s.attX + (s.attX <= 0 ? 1.1 : -1.1), -2.5, 2.5) }
     case 'driveL': case 'driveR': {
       const dir = m === 'driveR' ? 1 : -1
       const beaten = !inFront(s) || s.airborne > 0
-      if (beaten) return { ...s, attX: clamp(s.attX + dir * 0.6, -2.5, 2.5), attDist: 1.2, phase: 'drive' }
-      return { ...s, attX: clamp(s.attX + dir * 0.3, -2.5, 2.5) }
+      if (beaten) return { ...s, attX: clamp(s.attX + dir * 0.3, -2.5, 2.5), attDist: 1.2, phase: 'drive' }
+      return s
     }
     case 'pass': return { ...s, phase: 'done' }
     case 'shoot': return { ...s, phase: 'shot' }
@@ -64,11 +80,18 @@ export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): Due
   if (s0.phase !== 'live') return s0
   let s: DuelState = { ...s0, t: s0.t + dt, clock: s0.clock - dt, live: s0.live + dt }
   s.exposed = Math.max(0, s.exposed - dt); s.airborne = Math.max(0, s.airborne - dt); s.armed = Math.max(0, s.armed - dt)
+  // você: velocidade (segurar = até soltar; burst = BURST s); no ar não desliza
+  if (s.airborne > 0) s.defVx = 0
+  s.defX = clamp(s.defX + s.defVx * dt, -2.5, 2.5)
+  if (s.t >= s.slideUntil) s.defVx = 0
+  // ele: avança devagar; o movimento em curso interpola attX
+  s.attDist = Math.max(MIN_DIST, 7.5 - APPROACH * s.live)
+  if (s.move) s.attX = lerp(s.move.fromX, s.move.toX, clamp01((s.t - s.move.at) / s.move.dur))
   if (inFront(s) && s.airborne === 0) s.contain += dt
   if (s.clock <= 0 && s.move?.kind !== 'shoot') return finalize({ ...s, phase: 'clock' })
   if (!s.move) {
     const kind = pickMove(s, rng, input)
-    s.move = { kind, at: s.t, dur: DUR[kind] / input.difficulty }
+    s.move = { kind, at: s.t, dur: DUR[kind] / input.difficulty, fromX: s.attX, toX: targetX(s, kind) }
     s.log = [...s.log, kind]
     if (kind === 'legs') s.exposed = 0.7
     if (kind === 'crossL' || kind === 'crossR') s.exposed = 0.4
@@ -86,15 +109,16 @@ export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): Due
     s.contestDist = Math.abs(s.attX - s.defX) + (s.armed > 0 ? 0 : 0.8)
   }
   if (s.t - m.at >= m.dur) {
-    s = finishMove(s, m.kind, input); s.move = null
+    s = finishMove({ ...s, attX: m.toX }, m.kind, input); s.move = null
     if (s.phase !== 'live') return finalize(s)
   }
   return s
 }
 
-export function slide(s: DuelState, dir: -1 | 1, input: DuelInput): DuelState {
+// dir 0 = parar; hold = segue até o próximo slide(0); senão burst de BURST s (swipe)
+export function slide(s: DuelState, dir: -1 | 0 | 1, input: DuelInput, hold = false): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
-  return { ...s, defX: clamp(s.defX + dir * 0.9 * input.mods.speed, -2.5, 2.5) }
+  return { ...s, defVx: dir * SLIDE_SPEED * input.mods.speed, slideUntil: dir === 0 ? 0 : hold ? Infinity : s.t + BURST }
 }
 // sem guarda de `airborne` aqui de propósito: a 2ª tentativa errada precisa contar como
 // falta mesmo logo após a 1ª (que seta airborne=1.2 como cooldown de contenção, não

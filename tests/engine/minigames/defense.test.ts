@@ -36,7 +36,7 @@ describe('duelo', () => {
     const inp = input({ tend: { drive: 0.6, shoot: 0.2, pass: 0.2, side: 'right' } })
     let s = createDuel(inp); const rng = createRng(0)
     // política: a cada tick, deslize pro lado do atacante se saiu do cone
-    for (let i = 0; i < 160 && s.phase === 'live'; i++) { if (!inFront(s)) s = slide(s, s.attX > s.defX ? 1 : -1, inp); s = step(s, 0.05, rng, inp) }
+    for (let i = 0; i < 160 && s.phase === 'live'; i++) { s = slide(s, inFront(s) ? 0 : s.attX > s.defX ? 1 : -1, inp, true); s = step(s, 0.05, rng, inp) }
     const active = s.contain / s.live
     let p = createDuel(inp); const rng2 = createRng(0)
     for (let i = 0; i < 160 && p.phase === 'live'; i++) p = step(p, 0.05, rng2, inp)
@@ -130,6 +130,30 @@ describe('duelo', () => {
     const far = { ...near, contestDist: 1.6 }
     expect(resultOf(near).quality).toBeGreaterThan(resultOf(far).quality)
     expect(resultOf(near).optionId).toBe('mgContest'); expect(resultOf(far).optionId).toBe('mgLock')
+  })
+  test('movimento contínuo: ele nunca salta (|Δx| por tick ≤ 0.35 fora do fim do drive) e avança devagar (attDist cai, ≥ 4)', () => {
+    for (let seed = 0; seed < 30; seed++) {
+      let s = createDuel(input()); const rng = createRng(seed); let prev = s
+      for (let i = 0; i < 200 && s.phase === 'live'; i++) {
+        s = step(s, 0.05, rng, input())
+        if (s.phase === 'live') {
+          expect(Math.abs(s.attX - prev.attX)).toBeLessThanOrEqual(0.35)
+          expect(s.attDist).toBeLessThanOrEqual(prev.attDist); expect(s.attDist).toBeGreaterThanOrEqual(4)
+        }
+        prev = s
+      }
+    }
+  })
+  test('slide: segurar move a 3.2 m/s × speed; burst para sozinho em 0.3s; dir 0 para; no ar não desliza', () => {
+    const inp = input(); const v = 3.2 * inp.mods.speed
+    let s = slide(createDuel(inp), 1, inp, true); const rng = createRng(1)
+    for (let i = 0; i < 10; i++) s = step(s, 0.05, rng, inp)
+    expect(s.defX).toBeCloseTo(0.5 * v, 2)
+    s = slide(s, 0, inp); s = step(s, 0.05, rng, inp); expect(s.defVx).toBe(0)
+    let b = slide(createDuel(inp), -1, inp); const rng2 = createRng(2)
+    for (let i = 0; i < 12; i++) b = step(b, 0.05, rng2, inp)
+    expect(b.defVx).toBe(0); expect(b.defX).toBeCloseTo(-0.3 * v, 1)
+    const air = { ...createDuel(inp), airborne: 1 }; expect(slide(air, 1, inp, true).defVx).toBe(0)
   })
   test('difficulty maior = movimentos mais curtos', () => {
     const slow = run(createDuel(input()), 2, createRng(2), input({ difficulty: 0.9 })), fast = run(createDuel(input()), 2, createRng(2), input({ difficulty: 1.3 }))
