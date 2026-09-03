@@ -152,6 +152,16 @@ describe('desfecho físico', () => {
     expect(pd.every(p => p.r === 0)).toBe(true)
     expect(pw[10].r).toBeGreaterThan(pw[5].r); expect(pw[5].r).toBeGreaterThan(0)
   })
+  test('erro com geometria "in" (qualquer ângulo/giro): o aro cospe e a bola TERMINA NO CHÃO — nunca fica presa girando no aro', () => {
+    const sc = scene()
+    for (const deg of [45, 50, 55, 60, 65]) for (const off of [-0.09, -0.04, 0, 0.04, 0.09]) for (const spin of [0, 2, SPIN_MAX]) {
+      const f = simulateShot(sc, { angle: rad(deg), speed: idealSpeed(rad(deg), sc.d + off, sc.releaseH), spin })
+      const path = ballPath(sc, stageFlight(sc, f, false), false)
+      expect(throughHoop(sc, path)).toBe(false)
+      const e = path.at(-1)!
+      expect(Math.abs(e.y - RIM_H) < 0.4 && Math.abs(e.x - sc.d) < 0.5, `${deg}° off ${off} spin ${spin} → ${e.x.toFixed(2)},${e.y.toFixed(2)}`).toBe(false)
+    }
+  })
   test('ballPath: toco = a bola não passa da mão dele e cai no chão; todo voo termina parado no chão', () => {
     const sc = scene()
     const b = simulateShot(sc, { angle: rad(20), speed: 10 }); expect(b.fate).toBe('blocked')
