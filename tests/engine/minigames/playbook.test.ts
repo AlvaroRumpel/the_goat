@@ -39,13 +39,58 @@ describe('fases e rotas', () => {
     expect(s.attackers[2].y).toBeLessThan(5); expect(s.attackers.every(inside) && s.defenders.every(inside)).toBe(true)
     expect(s.attackers[3]).toEqual(before3)
   })
-  test('bloqueio prende o defensor mais próximo do portador por 0.8s', () => {
-    let s = applyTemplate(createPlaybook(createRng(3), input()), 'pnr')
-    s = { ...s, scheme: 'man' }
-    const you = s.attackers[0]
-    s = setRoute(s, 4, [{ ...s.attackers[4] }, { x: you.x + 0.6, y: you.y + 0.6 }]); s = toggleScreen(s, 4); if (!s.routes[4].screen) s = toggleScreen(s, 4)
-    s = run(startRun(s), 2.5, createRng(3))
-    expect(s.screenedUntil.some(u => u > 0)).toBe(true)
+  test('bloqueio (man): prende uma vez (one-shot) e libera de novo depois de 0.8s', () => {
+    let s = { ...applyTemplate(createPlaybook(createRng(3), input()), 'pnr'), scheme: 'man' as const }
+    s = startRun(s)
+    const rng = createRng(3)
+    let everArmed = false, freedAfterFire = false
+    for (let i = 0; i < 90 && s.phase === 'run'; i++) {
+      s = step(s, 0.05, rng, input())
+      const defHolderIdx = s.defenders.findIndex(d => d.man === s.ball.holder)
+      const remaining = s.screenedUntil[defHolderIdx] - s.t
+      expect(remaining).toBeLessThanOrEqual(0.8 + 1e-9) // nunca rearma além da janela de 0.8s
+      if (remaining > 0) everArmed = true
+      else if (everArmed) freedAfterFire = true
+    }
+    expect(everArmed).toBe(true)
+    expect(freedAfterFire).toBe(true)
+  })
+  test('switch: troca de homem uma vez no bloqueio, sem oscilar depois', () => {
+    let s = { ...applyTemplate(createPlaybook(createRng(3), input()), 'pnr'), scheme: 'switch' as const }
+    s = startRun(s)
+    const rng = createRng(3)
+    const seen = new Set<string>()
+    for (let i = 0; i < 90 && s.phase === 'run'; i++) {
+      s = step(s, 0.05, rng, input())
+      seen.add(s.defenders.map(d => d.man).join(','))
+    }
+    expect(seen.size).toBe(2) // configuração inicial + 1 troca — nunca mais que isso
+  })
+  test('trap: só o defensor do bloqueador dobra no portador, e só enquanto durar', () => {
+    let s = { ...applyTemplate(createPlaybook(createRng(3), input()), 'pnr'), scheme: 'trap' as const }
+    s = startRun(s)
+    const rng = createRng(3)
+    let sawWindow = false, sawAfter = false, duringOk = true, afterOk = true
+    for (let i = 0; i < 90 && s.phase === 'run'; i++) {
+      s = step(s, 0.05, rng, input())
+      const holder = s.ball.holder
+      const holderPos = s.attackers[holder]
+      const trapTarget = { x: holderPos.x + (COURT.basket.x - holderPos.x) * 0.15, y: holderPos.y + (COURT.basket.y - holderPos.y) * 0.15 }
+      const doublers = s.defenders.filter(d => d.man !== holder && Math.hypot(d.target.x - trapTarget.x, d.target.y - trapTarget.y) < 0.01).length
+      if (s.trapUntil > s.t) { sawWindow = true; if (doublers !== 1) duringOk = false }
+      else if (sawWindow) { sawAfter = true; if (doublers !== 0) afterOk = false }
+    }
+    expect(sawWindow).toBe(true); expect(duringOk).toBe(true)
+    expect(sawAfter).toBe(true); expect(afterOk).toBe(true)
+  })
+  test('zona: bloqueio nunca dispara (screenedUntil fica em zero o run inteiro)', () => {
+    let s = { ...applyTemplate(createPlaybook(createRng(3), input()), 'pnr'), scheme: 'zone' as const }
+    s = startRun(s)
+    const rng = createRng(3)
+    for (let i = 0; i < 90 && s.phase === 'run'; i++) {
+      s = step(s, 0.05, rng, input())
+      expect(s.screenedUntil.every(u => u === 0)).toBe(true)
+    }
   })
   test('zona: defensores ocupam áreas (ninguém segue o corte); pressão: marcador a ≤ 0.6m', () => {
     let z = { ...applyTemplate(createPlaybook(createRng(4), input()), 'fiveOut'), scheme: 'zone' as const }

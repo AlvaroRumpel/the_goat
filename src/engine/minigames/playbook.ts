@@ -2,6 +2,7 @@ import type { Rng, WatchedGameKind } from '../types'
 import type { MinigameResult } from './index'
 import { clamp01 } from './index'
 import type { AttrMods, OppPlayer } from './common'
+import { applyScreens, clampCourt, dist, lerp, manTarget, moveToward, pointAlongRoute, pressTarget, routeLength, zoneTarget } from './playbook-defense'
 
 // Quadro tático de ataque ("JOGADA") v2 — engine puro. Metros; meia-quadra, cesta no topo
 // (y = 0 é a linha de fundo). Toda aleatoriedade vem do Rng LOCAL injetado pela UI.
@@ -33,8 +34,8 @@ export interface PlaybookState {
   attackers: Pos[]; defenders: Defender[]; you: 0
   routes: Route[]; routeProgress: number[]
   ball: { holder: number; flying: { from: number; to: number; progress: number } | null }
-  lastPassAt: number; passes: number; screenedUntil: number[]
-  helpUntil: number; trapUntil: number; mismatch: boolean
+  lastPassAt: number; passes: number; screenedUntil: number[]; screenArmed: boolean[]
+  helpUntil: number; trapUntil: number; trapDef: number | null; mismatch: boolean
   feintUntil: number; pumpUntil: number; pressure: number
   turnover: 'intercept' | 'strip' | 'clock' | 'charge' | null
   firstShotOpenness: number | null
@@ -57,7 +58,10 @@ export const SCHEME_SIGNAL: Record<Scheme, string> = {
 }
 
 const TEMPLATES: Record<Template, { formation: keyof typeof FORMATIONS; routes: Array<{ to: Pos[]; screen: boolean }> }> = {
-  pnr: { formation: 'pnr', routes: [{ to: [{ x: 6.2, y: 6.0 }], screen: false }, { to: [], screen: false }, { to: [], screen: false }, { to: [], screen: false }, { to: [{ x: 8.4, y: 8.6 }], screen: true }] },
+  // portador (índice 0) fica parado no pnr — ele só anda com as ações ao vivo da Task 7; o
+  // bloqueador (índice 4) termina a ~0.25m do defensor do portador (frac 0.15 de (3,8.5) até
+  // a cesta = (3.693, 7.461) — ver relatório da Task 6, round 1, para a conta).
+  pnr: { formation: 'pnr', routes: [{ to: [], screen: false }, { to: [], screen: false }, { to: [], screen: false }, { to: [], screen: false }, { to: [{ x: 3.9, y: 7.6 }], screen: true }] },
   horns: { formation: 'horns', routes: [{ to: [{ x: 7.62, y: 7.0 }], screen: false }, { to: [{ x: 3.0, y: 5.0 }], screen: false }, { to: [{ x: 12.2, y: 5.0 }], screen: false }, { to: [{ x: 6.4, y: 8.2 }], screen: true }, { to: [{ x: 8.8, y: 8.2 }], screen: true }] },
   doubleScreen: { formation: 'fiveOut', routes: [{ to: [], screen: false }, { to: [{ x: 5.4, y: 4.0 }], screen: true }, { to: [{ x: 9.8, y: 4.0 }], screen: true }, { to: [{ x: 7.62, y: 3.2 }], screen: false }, { to: [], screen: false }] },
   iso: { formation: 'iso', routes: [{ to: [], screen: false }, { to: [{ x: 1.2, y: 4.3 }], screen: false }, { to: [{ x: 14.0, y: 4.3 }], screen: false }, { to: [{ x: 2.0, y: 9.0 }], screen: false }, { to: [{ x: 13.2, y: 9.0 }], screen: false }] },
@@ -67,18 +71,7 @@ const TEMPLATES: Record<Template, { formation: keyof typeof FORMATIONS; routes: 
 // 5 áreas fixas: 2 nas asas do arco (topo), 3 embaixo (cantos + meio do garrafão) — índices 2..4 colapsam com o portador no garrafão
 const ZONES: Pos[] = [{ x: 4.6, y: 8.2 }, { x: 10.6, y: 8.2 }, { x: 2.4, y: 3.2 }, { x: 7.62, y: 3.6 }, { x: 12.8, y: 3.2 }]
 
-const dist = (a: Pos, b: Pos) => Math.hypot(a.x - b.x, a.y - b.y)
 export const distToBasket = (p: Pos) => dist(p, COURT.basket)
-const lerp = (a: Pos, b: Pos, f: number): Pos => ({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f })
-const clampCourt = (p: Pos): Pos => ({
-  x: Math.min(COURT.w - 0.3, Math.max(0.3, p.x)),
-  y: Math.min(COURT.d - 0.3, Math.max(0.3, p.y)),
-})
-function moveToward(p: Pos, target: Pos, maxStep: number): Pos {
-  const d = dist(p, target)
-  if (d <= maxStep) return { ...target }
-  return lerp(p, target, maxStep / d)
-}
 
 export function inPaint(p: Pos): boolean {
   return Math.abs(p.x - COURT.basket.x) <= COURT.paintW / 2 && p.y <= COURT.paintD
@@ -101,35 +94,11 @@ export function shotOptionFor(s: PlaybookState): ShotOption {
   return beyondArc(p) ? 'mgThree' : 'mgMid'
 }
 
-function manTarget(s: PlaybookState, d: Defender): Pos {
-  const frac = d.man === s.ball.holder ? 0.15 : 0.35
-  return lerp(s.attackers[d.man], COURT.basket, frac)
-}
 function snapDefendersManToMan(s: PlaybookState): void {
   s.defenders.forEach(d => {
-    const target = manTarget(s, d)
+    const target = manTarget(s.attackers, COURT.basket, s.ball.holder, d)
     d.target = target; d.x = target.x; d.y = target.y
   })
-}
-
-function routeLength(points: Pos[]): number {
-  let total = 0
-  for (let i = 1; i < points.length; i++) total += dist(points[i - 1], points[i])
-  return total
-}
-function pointAlongRoute(points: Pos[], progress: number): Pos {
-  if (points.length === 0) return { x: 0, y: 0 }
-  if (points.length === 1) return { ...points[0] }
-  let remaining = progress
-  for (let i = 1; i < points.length; i++) {
-    const segLen = dist(points[i - 1], points[i])
-    if (remaining <= segLen || i === points.length - 1) {
-      const f = segLen === 0 ? 1 : clamp01(remaining / segLen)
-      return lerp(points[i - 1], points[i], f)
-    }
-    remaining -= segLen
-  }
-  return { ...points[points.length - 1] }
 }
 
 // pesos do sorteio (spec §2): man 3, zone 2, switch/trap 1+(força−70)/10, press 1 — 1 rng call
@@ -156,8 +125,8 @@ export function createPlaybook(rng: Rng, input: PlaybookInput): PlaybookState {
     routes: attackers.map(() => ({ points: [], screen: false })),
     routeProgress: [0, 0, 0, 0, 0],
     ball: { holder: 0, flying: null },
-    lastPassAt: 0, passes: 0, screenedUntil: [0, 0, 0, 0, 0],
-    helpUntil: 0, trapUntil: 0, mismatch: false,
+    lastPassAt: 0, passes: 0, screenedUntil: [0, 0, 0, 0, 0], screenArmed: [false, false, false, false, false],
+    helpUntil: 0, trapUntil: 0, trapDef: null, mismatch: false,
     feintUntil: 0, pumpUntil: 0, pressure: 0,
     turnover: null, firstShotOpenness: null,
   }
@@ -174,6 +143,7 @@ function clone(s: PlaybookState): PlaybookState {
     routeProgress: [...s.routeProgress],
     ball: { ...s.ball, flying: s.ball.flying ? { ...s.ball.flying } : null },
     screenedUntil: [...s.screenedUntil],
+    screenArmed: [...s.screenArmed],
   }
 }
 
@@ -197,7 +167,7 @@ export function applyTemplate(s: PlaybookState, tpl: Template): PlaybookState {
 
 export function setRoute(s: PlaybookState, idx: number, points: Pos[]): PlaybookState {
   const next = clone(s)
-  next.routes[idx] = { points: points.slice(0, 6).map(clampCourt), screen: s.routes[idx].screen }
+  next.routes[idx] = { points: points.slice(0, 6).map(p => clampCourt(p, COURT)), screen: s.routes[idx].screen }
   next.routeProgress[idx] = 0
   return next
 }
@@ -215,23 +185,6 @@ export function startRun(s: PlaybookState): PlaybookState {
   next.clock = RUN_CLOCK
   next.t = 0
   return next
-}
-
-// alvo do defensor de zona: centro da área, puxado pro atacante mais perto dela; os 3 de
-// baixo (índices 2..4) colapsam pro portador quando ele entra no garrafão.
-function zoneTarget(s: PlaybookState, defIdx: number, holderPos: Pos): Pos {
-  const zone = ZONES[defIdx]
-  if (inPaint(holderPos) && defIdx >= 2) return lerp(zone, holderPos, 0.5)
-  let nearestAtt = -1, nd = Infinity
-  s.attackers.forEach((p, i) => { const d2 = dist(p, zone); if (d2 < nd) { nd = d2; nearestAtt = i } })
-  if (nearestAtt >= 0 && nd < 3.0) return lerp(zone, s.attackers[nearestAtt], 0.4)
-  return { ...zone }
-}
-// pressão total-quadra: marcador cola a 0.5m do portador (linha até a cesta)
-function pressTarget(holderPos: Pos): Pos {
-  const toBasket = distToBasket(holderPos)
-  if (toBasket <= 0.5) return { ...holderPos }
-  return lerp(holderPos, COURT.basket, 0.5 / toBasket)
 }
 
 export function step(state: PlaybookState, dt: number, rng: Rng, input: PlaybookInput): PlaybookState {
@@ -253,7 +206,7 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
     if (route.points.length < 2) return
     const mult = s.mismatch && i === 0 ? 1.15 : 1
     s.routeProgress[i] = Math.min(routeLength(route.points), s.routeProgress[i] + runSpeed * mult * dt)
-    s.attackers[i] = clampCourt(pointAlongRoute(route.points, s.routeProgress[i]))
+    s.attackers[i] = clampCourt(pointAlongRoute(route.points, s.routeProgress[i]), COURT)
   })
 
   // bola em voo (fica pronto para pass/shoot da Task 7; não é acionado aqui ainda)
@@ -265,30 +218,8 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
   const holder = s.ball.holder
   const holderPos = s.attackers[holder]
 
-  // bloqueios: atacante com screen que chegou no fim da rota ou está perto do defensor do
-  // portador prende esse defensor por 0.8s; switch troca de homem; trap dobra no portador
-  const defHolderIdx = s.defenders.findIndex(d => d.man === holder)
-  if (defHolderIdx >= 0) {
-    s.routes.forEach((route, i) => {
-      if (!route.screen || i === holder) return
-      const total = routeLength(route.points)
-      const reachedEnd = s.routeProgress[i] >= total
-      const near = dist(s.attackers[i], s.defenders[defHolderIdx]) < 1.45
-      if (!reachedEnd && !near) return
-      s.screenedUntil[defHolderIdx] = s.t + 0.8
-      if (s.scheme === 'switch') {
-        const defScreenerIdx = s.defenders.findIndex(d => d.man === i)
-        if (defScreenerIdx >= 0 && defScreenerIdx !== defHolderIdx) {
-          const tmp = s.defenders[defHolderIdx].man
-          s.defenders[defHolderIdx].man = s.defenders[defScreenerIdx].man
-          s.defenders[defScreenerIdx].man = tmp
-          const bigManIdx = input.five.reduce((best, p, idx, arr) => (p.reach > arr[best].reach ? idx : best), 0)
-          if (s.defenders[bigManIdx].man === 0) s.mismatch = true
-        }
-      }
-      if (s.scheme === 'trap') s.trapUntil = s.t + 1.5
-    })
-  }
+  // bloqueios/switch/trap — ver playbook-defense.ts (não roda em zone)
+  applyScreens(s, input)
 
   // ajuda (só man): portador no garrafão puxa o defensor do companheiro mais perto da cesta
   let helperDefIdx = -1
@@ -309,12 +240,12 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
     }
     if (s.screenedUntil[i] > s.t) return
     let target: Pos
-    if (s.scheme === 'zone') target = zoneTarget(s, i, holderPos)
+    if (s.scheme === 'zone') target = zoneTarget(s.attackers, holderPos, inPaint(holderPos), ZONES, i)
     else if (i === helperDefIdx) target = lerp(holderPos, COURT.basket, 0.15)
-    else if (s.scheme === 'press' && d.man === holder) target = pressTarget(holderPos)
-    else if (s.scheme === 'trap' && s.trapUntil > s.t && s.routes[d.man]?.screen) target = lerp(holderPos, COURT.basket, 0.15)
-    else target = manTarget(s, d)
-    target = clampCourt(target)
+    else if (s.scheme === 'press' && d.man === holder) target = pressTarget(COURT.basket, holderPos)
+    else if (s.scheme === 'trap' && s.trapUntil > s.t && i === s.trapDef) target = lerp(holderPos, COURT.basket, 0.15)
+    else target = manTarget(s.attackers, COURT.basket, holder, d)
+    target = clampCourt(target, COURT)
     d.target = target
     const moved = moveToward(d, target, d.speed * dt)
     d.x = moved.x; d.y = moved.y
