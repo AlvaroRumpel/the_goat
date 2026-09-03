@@ -1,19 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type Dispatch } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { minigameFor, minigameSeed, type MinigameResult } from '../../engine/minigames'
 import { opponentStar } from '../../engine/minigames/common'
 import { PlaybookGame } from './Playbook'
 import { ShotGame } from './Shot'
-import { DefenseFallback } from './DefenseFallback'
-import { hasWebGL } from './three/webgl'
-
-// three.js só entra no bundle de quem abre a muralha com WebGL (chunk próprio) — arremesso é 2D puro
-const DefenseGame = lazy(() => import('./Defense').then(m => ({ default: m.DefenseGame })))
+import { DefenseGame } from './Defense'
 
 const HOLD_MS = 1400
-// pré-carrega o chunk do three enquanto o jogador lê as regras (evita o fallback do Suspense no JOGAR)
-const preload: Record<string, () => Promise<unknown>> = { defense: () => import('./Defense') }
 
 // Painel de decisão do modo arcade: no lugar das 2-3 opções, o minigame do momento.
 // Fluxo: minigame chama onResolve → DECIDE_MOMENT (engine resolve com exec) → o painel
@@ -58,10 +52,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
   if (!moment) return null
   if (holding === null && !active) return null
   const kind = minigameFor(moment)
-  // sem WebGL, a muralha cai no painel 2D (mesmo fluxo, outro desenho); arremesso é sempre 2D
-  const Comp = kind === 'shot' ? ShotGame
-    : kind === 'defense' ? (hasWebGL() ? DefenseGame : DefenseFallback)
-    : PlaybookGame
+  const Comp = kind === 'shot' ? ShotGame : kind === 'defense' ? DefenseGame : PlaybookGame
   const star = opponentStar(state.league!, pending.context.opponentTeamId)
   // nada monta (relógio nenhum corre) antes do JOGAR
   const ready = readyIdx === idx || holding !== null
@@ -81,7 +72,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
       <div className="mg-frame__hint">{t(lang, 'mg.hint.' + kind)}</div>
       {!ready ? (
         <ReadyCard kind={kind} lang={lang} onGo={() => setReadyIdx(idx)} />
-      ) : <Suspense fallback={<div className="mg" style={{ minHeight: 200 }} />}>
+      ) : (
         <Comp
           key={idx}
           seed={seedRef.current!.seed}
@@ -96,7 +87,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
           onResolve={onResolve}
           outcome={outcome}
         />
-      </Suspense>}
+      )}
       {holding === null && (
         <button type="button" onClick={() => dispatch({ type: 'SKIP_GAME' })}
           className="mono-label" style={{ background: 'none', border: 0, color: 'var(--on-ink-dim)', textAlign: 'center', cursor: 'pointer' }}>
@@ -109,7 +100,6 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
 
 // "Está pronto?": título, regras (uma linha por passo) e JOGAR. Só depois o minigame monta.
 function ReadyCard({ kind, lang, onGo }: { kind: string; lang: GameState['lang']; onGo(): void }) {
-  useEffect(() => { void preload[kind]?.() }, [kind])
   return (
     <div className="mg mg-ready">
       <span className="mono-label mono-label--red">{t(lang, 'mg.ready.title')}</span>

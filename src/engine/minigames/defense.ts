@@ -1,10 +1,11 @@
 import type { Rng } from '../types'
 import { clamp01, type MinigameResult } from './index'
-import { freeThrowP, timingHit, type AttrMods, type Tendencies } from './common'
+import { freeThrowP, type AttrMods, type Tendencies } from './common'
 
 // MURALHA (defesa, modo arcade) v2 — spec §4. Duelo 1x1 contínuo: a IA atacante escolhe
-// movimentos por tendência, você desliza pra sombrear, toca pra roubar, sobe pra tocar.
-// Puro: sem React, sem tempo real — o relógio é `dt` injetado por tick.
+// movimentos por tendência, você desliza pra sombrear, toca pra roubar (chance por defesa
+// com a bola exposta), CONTESTAR arma a postura. Puro: sem React, sem tempo real — o
+// relógio é `dt` injetado por tick.
 
 export type Move = 'hesi' | 'crossL' | 'crossR' | 'spin' | 'legs' | 'driveL' | 'driveR' | 'pumpFake' | 'shoot' | 'pass'
 export interface DuelInput { tend: Tendencies; difficulty: number; mods: AttrMods; starOvr: number }
@@ -12,7 +13,7 @@ export interface DuelState {
   t: number; clock: number; attX: number; defX: number; attDist: number
   move: { kind: Move; at: number; dur: number } | null
   exposed: number; airborne: number; contain: number; live: number
-  stealTries: number; fouled: boolean; bitFake: boolean; contestDist: number | null
+  stealTries: number; fouled: boolean; bitFake: boolean; contestDist: number | null; armed: boolean
   phase: 'live' | 'shot' | 'drive' | 'steal' | 'block' | 'foul' | 'clock' | 'done'
   log: Move[]; result?: MinigameResult; freeThrows?: [boolean, boolean]
 }
@@ -23,7 +24,7 @@ const DUR: Record<Move, number> = { hesi: 0.5, crossL: 0.45, crossR: 0.45, spin:
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export function createDuel(_input: DuelInput): DuelState {
-  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, phase: 'live', log: [] }
+  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: false, phase: 'live', log: [] }
 }
 export function inFront(s: DuelState): boolean { return Math.abs(s.attX - s.defX) < CONE_HALF }
 
@@ -68,16 +69,23 @@ export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): Due
     const kind = pickMove(s, rng, input)
     s.move = { kind, at: s.t, dur: DUR[kind] / input.difficulty }
     s.log = [...s.log, kind]
-    if (kind === 'legs') s.exposed = 0.35
-    if (kind === 'crossL' || kind === 'crossR') s.exposed = 0.2
+    if (kind === 'legs') s.exposed = 0.7
+    if (kind === 'crossL' || kind === 'crossR') s.exposed = 0.4
+    // postura armada (spec C): ele sobe pra valer = toco por blockP se você está na frente e perto;
+    // ele finta = você cai (airborne 1.5, 30% falta). Sem timing: decidido no início do movimento.
+    if (kind === 'shoot' && s.armed && inFront(s) && Math.abs(s.attX - s.defX) <= 0.9 && rng.chance(input.mods.blockP)) return finalize({ ...s, phase: 'block' })
+    if (kind === 'pumpFake' && s.armed) {
+      s = { ...s, armed: false, bitFake: true }
+      if (rng.chance(0.3)) { const p = freeThrowP(input.starOvr); return finalize({ ...s, fouled: true, phase: 'foul', freeThrows: [rng.chance(p), rng.chance(p)] }) }
+      s.airborne = 1.5
+    }
   }
   const m = s.move!
   if (m.kind === 'shoot' && s.contestDist === null && s.t - m.at >= RELEASE) {
-    s.contestDist = Math.abs(s.attX - s.defX) + (s.airborne > 0 ? 0 : 0.8)
+    s.contestDist = Math.abs(s.attX - s.defX) + (s.armed || s.airborne > 0 ? 0 : 0.8)
   }
   if (s.t - m.at >= m.dur) {
-    s = finishMove(s, m.kind, input)
-    s.move = null
+    s = finishMove(s, m.kind, input); s.move = null; s.armed = false
     if (s.phase !== 'live') return finalize(s)
   }
   return s
@@ -92,7 +100,7 @@ export function slide(s: DuelState, dir: -1 | 1, input: DuelInput): DuelState {
 // "você no ar"); a UI aplica um cooldown de 350ms no próprio botão pra evitar duplo-toque.
 export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
   if (s.phase !== 'live') return s
-  if (s.exposed > 0 && s.exposed <= input.mods.stealWindow) return finalize({ ...s, phase: 'steal' })
+  if (s.exposed > 0 && rng.chance(input.mods.stealP)) return finalize({ ...s, phase: 'steal' })
   const tries = s.stealTries + 1
   if (tries >= 2) {
     const p = freeThrowP(input.starOvr)
@@ -100,22 +108,9 @@ export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
   }
   return { ...s, stealTries: tries, airborne: 1.2, attX: clamp(s.attX + (s.attX >= s.defX ? 1.2 : -1.2), -2.5, 2.5) }
 }
-export function jump(s: DuelState, input: DuelInput, rng?: Rng): DuelState {
+export function contest(s: DuelState): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
-  const m = s.move
-  if (m?.kind === 'shoot' && s.t - m.at < RELEASE + 0.05 && Math.abs(s.attX - s.defX) <= 0.9) {
-    const hit = timingHit(s.t - m.at, RELEASE, input.mods.jumpWindow * 2)
-    if (hit !== 'miss') return finalize({ ...s, phase: 'block' })
-    return { ...s, airborne: 0.7 }
-  }
-  if (m?.kind === 'pumpFake') {
-    if (rng && rng.chance(0.3)) {
-      const p = freeThrowP(input.starOvr)
-      return finalize({ ...s, fouled: true, bitFake: true, phase: 'foul', freeThrows: [rng.chance(p), rng.chance(p)] })
-    }
-    return { ...s, airborne: 1.5, bitFake: true }
-  }
-  return { ...s, airborne: 0.7 }
+  return { ...s, armed: !s.armed }
 }
 
 export function resultOf(s: DuelState): MinigameResult {

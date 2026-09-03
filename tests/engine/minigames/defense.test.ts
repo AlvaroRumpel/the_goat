@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
-import { createDuel, inFront, jump, resultOf, slide, step, trySteal, type DuelInput, type DuelState } from '../../../src/engine/minigames/defense'
+import { contest, createDuel, inFront, resultOf, slide, step, trySteal, type DuelInput, type DuelState } from '../../../src/engine/minigames/defense'
 import { attrMods } from '../../../src/engine/minigames/common'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
@@ -43,32 +43,71 @@ describe('duelo', () => {
     expect(active).toBeGreaterThan(p.contain / p.live)
     expect(active).toBeGreaterThan(0.6)
   })
-  test('roubo dentro da janela da bola exposta = mgSteal quality 1; fora = passa por você; 2ª errada = falta', () => {
-    let s = createDuel(input()); const rng = createRng(11)
+  test('roubo com a bola exposta = chance por stealP (mgSteal quality 1); sem exposição = erro; 2ª errada = falta', () => {
+    const inp = input()
     let stole = false
-    for (let i = 0; i < 400 && s.phase === 'live'; i++) {
-      if (s.exposed > 0 && s.exposed <= input().mods.stealWindow) { s = trySteal(s, rng, input()); if (s.phase === 'steal') { stole = true; break } }
-      s = step(s, 0.05, rng, input())
+    for (let seed = 0; seed < 40 && !stole; seed++) {
+      let s = createDuel(inp); const rng = createRng(seed)
+      for (let i = 0; i < 400 && s.phase === 'live'; i++) {
+        if (s.exposed > 0 && s.stealTries === 0) { s = trySteal(s, rng, inp); if (s.phase === 'steal') { stole = true; break } }
+        s = step(s, 0.05, rng, inp)
+      }
+      if (stole) expect(resultOf(s)).toEqual({ optionId: 'mgSteal', quality: 1 })
     }
-    if (stole) expect(resultOf(s)).toEqual({ optionId: 'mgSteal', quality: 1 })
-    let f = createDuel(input()); const rng3 = createRng(12)
-    f = trySteal(f, rng3, input()); expect(f.stealTries).toBe(1); expect(f.phase).toBe('live')
-    f = trySteal(f, rng3, input()); expect(f.phase).toBe('foul'); expect(f.freeThrows).toHaveLength(2)
+    expect(stole).toBe(true)
+    let f = createDuel(inp); const rng3 = createRng(12)
+    f = trySteal(f, rng3, inp); expect(f.stealTries).toBe(1); expect(f.phase).toBe('live')
+    f = trySteal(f, rng3, inp); expect(f.phase).toBe('foul'); expect(f.freeThrows).toHaveLength(2)
     const r = resultOf(f); expect(r.optionId).toBe('mgLock'); expect(r.quality).toBeCloseTo(0.35, 5)
     expect(r.turnover).toBe(f.freeThrows![0] && f.freeThrows![1])
   })
-  test('salto no arremesso real com timing = toco; salto na finta = bitFake', () => {
-    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
-    let s = createDuel(inp); const rng = createRng(21)
-    let blocked = false, bit = false
-    for (let i = 0; i < 400 && s.phase === 'live'; i++) {
-      if (s.move?.kind === 'shoot' && Math.abs(s.t - (s.move.at + 0.45)) < 0.03 && s.airborne === 0) { s = jump(s, inp) }
-      if (s.move?.kind === 'pumpFake' && s.airborne === 0 && !bit) { s = jump(s, inp); bit = s.bitFake }
-      s = step(s, 0.05, rng, inp)
-      if (s.phase === 'block') blocked = true
+  test('exposição legível: entre as pernas 0.7s, cruzada 0.4s', () => {
+    const inp = input({ tend: { shoot: 0, drive: 0, pass: 0, side: 'left' } })
+    const seen = { legs: 0, cross: 0 }
+    for (let seed = 0; seed < 30; seed++) {
+      let s = createDuel(inp); const rng = createRng(seed)
+      for (let i = 0; i < 200 && s.phase === 'live'; i++) {
+        const before = s.move
+        s = step(s, 0.05, rng, inp)
+        // o decaimento (−dt) roda ANTES do sorteio do movimento no mesmo tick: exposed sai exato
+        if (!before && s.move?.kind === 'legs') { expect(s.exposed).toBeCloseTo(0.7, 5); seen.legs++ }
+        if (!before && (s.move?.kind === 'crossL' || s.move?.kind === 'crossR')) { expect(s.exposed).toBeCloseTo(0.4, 5); seen.cross++ }
+      }
     }
-    expect(blocked || bit).toBe(true)
-    if (blocked) expect(resultOf(s)).toEqual({ optionId: 'mgContest', quality: 1 })
+    expect(seen.legs).toBeGreaterThan(0); expect(seen.cross).toBeGreaterThan(0)
+  })
+  test('contestar (postura armada): ele sobe pra valer = toco por blockP ou mão em cima; ele finta = caiu na finta; desarma ao fim do movimento', () => {
+    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
+    let blocked = 0, bit = 0, handsUp = 0
+    for (let seed = 0; seed < 60; seed++) {
+      let s = createDuel(inp); const rng = createRng(seed)
+      for (let i = 0; i < 400 && s.phase === 'live'; i++) {
+        if (!s.armed && s.airborne === 0) s = contest(s)
+        s = step(s, 0.05, rng, inp)
+      }
+      if (s.phase === 'block') { blocked++; expect(resultOf(s)).toEqual({ optionId: 'mgContest', quality: 1 }) }
+      if (s.bitFake) bit++
+      if (s.phase === 'shot' && s.contestDist !== null && s.contestDist < 0.8) handsUp++
+    }
+    expect(blocked).toBeGreaterThan(0); expect(bit).toBeGreaterThan(0); expect(handsUp).toBeGreaterThan(0)
+    // toggle e desarme
+    let a = createDuel(inp); a = contest(a); expect(a.armed).toBe(true); a = contest(a); expect(a.armed).toBe(false)
+    a = contest(a); const rng = createRng(3)
+    while (a.phase === 'live' && a.move === null) a = step(a, 0.05, rng, inp)
+    while (a.phase === 'live' && a.move !== null) a = step(a, 0.05, rng, inp)
+    expect(a.armed).toBe(false)
+  })
+  test('finta com você armado: falta ~30% das vezes, senão só bitFake', () => {
+    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
+    let fouled = false, notFouled = false
+    for (let seed = 0; seed < 60; seed++) {
+      let s = contest(createDuel(inp)); const rng = createRng(seed)
+      for (let i = 0; i < 400 && s.phase === 'live' && !s.bitFake; i++) { if (!s.armed && s.airborne === 0) s = contest(s); s = step(s, 0.05, rng, inp) }
+      if (!s.bitFake) continue
+      if (s.phase === 'foul') { fouled = true; expect(s.fouled).toBe(true); expect(s.freeThrows).toHaveLength(2) }
+      else { notFouled = true; expect(s.airborne).toBeGreaterThan(0) }
+    }
+    expect(fouled).toBe(true); expect(notFouled).toBe(true)
   })
   test('quality do arremesso contestado > não contestado', () => {
     const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
@@ -76,20 +115,6 @@ describe('duelo', () => {
     const far = { ...near, contestDist: 1.6 }
     expect(resultOf(near).quality).toBeGreaterThan(resultOf(far).quality)
     expect(resultOf(near).optionId).toBe('mgContest'); expect(resultOf(far).optionId).toBe('mgLock')
-  })
-  test('finta: subir em cima é falta ~30% das vezes, senão só bitFake', () => {
-    // seed 7 (rng do passo) produz uma pumpFake antes do arremesso com tend.shoot=1
-    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
-    let s = createDuel(inp); const stepRng = createRng(7)
-    while (s.phase === 'live' && s.move?.kind !== 'pumpFake') s = step(s, 0.05, stepRng, inp)
-    expect(s.move?.kind).toBe('pumpFake')
-    let fouled = false, notFouled = false
-    for (let k = 0; k < 40; k++) {
-      const r = jump(s, inp, createRng(k))
-      if (r.phase === 'foul') { fouled = true; expect(r.fouled).toBe(true); expect(r.bitFake).toBe(true); expect(r.freeThrows).toHaveLength(2) }
-      else { notFouled = true; expect(r.airborne).toBe(1.5); expect(r.bitFake).toBe(true); expect(r.phase).toBe('live') }
-    }
-    expect(fouled).toBe(true); expect(notFouled).toBe(true)
   })
   test('difficulty maior = movimentos mais curtos', () => {
     const slow = run(createDuel(input()), 2, createRng(2), input({ difficulty: 0.9 })), fast = run(createDuel(input()), 2, createRng(2), input({ difficulty: 1.3 }))

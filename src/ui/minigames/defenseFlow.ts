@@ -5,24 +5,23 @@ import { createRng } from '../../engine/rng'
 import { teamById } from '../../data/teams'
 import { attrMods, difficulty, opponentFive, tendencies, type OppPlayer, type Tendencies } from '../../engine/minigames/common'
 import {
-  createDuel, jump, slide, step, trySteal,
+  createDuel, contest, slide, step, trySteal,
   type DuelInput, type DuelState, type Move,
 } from '../../engine/minigames/defense'
 import { useSwipe, type Gesture } from './useSwipe'
 
-// MURALHA — fluxo (cartão → duelo ao vivo → desfecho, laço do engine a 20 Hz, gestos) e a
-// moldura de HUD (`DuelFrame.tsx`), compartilhados pelos dois renderizadores: cena 3D
-// (`Defense.tsx`) e painel 2D sem WebGL (`DefenseFallback.tsx`). O engine (defense.ts) é a verdade; o desfecho
-// OBEDECE `outcome.success` (roubo limpo que o engine reprovou vira apito do juiz).
+// MURALHA — fluxo (cartão → duelo ao vivo → desfecho, laço do engine a 20 Hz, gestos),
+// compartilhado com o desenho 2D (`Defense.tsx`). O engine (defense.ts) é a verdade; o
+// desfecho OBEDECE `outcome.success` (roubo limpo que o engine reprovou vira apito do juiz).
 
-export const CARD_MS = 1200, END_MS = 1200, OVERLAY_MS = 800, CAM_MS = 600
+export const CARD_MS = 1200, END_MS = 1200, OVERLAY_MS = 800
 const TAP_COOLDOWN = 350                 // ruling: 2º toque logo após roubo errado = falta de graça
 const TICK_MS = 50, DT = 0.05
 
 export type Phase = 'card' | 'live' | 'end'
 
-// tela vira o eixo x: a câmera 3D olha pra +z, então o +x do mundo aparece à ESQUERDA
-export const DIR: Record<'left' | 'right', -1 | 1> = { left: 1, right: -1 }
+// top-down visto de trás do atacante: esquerda da tela = −x
+export const DIR: Record<'left' | 'right', -1 | 1> = { left: -1, right: 1 }
 export const GLYPH: Record<Move, string> = {
   hesi: '~', crossL: '←', crossR: '→', spin: '↺', legs: 'V',
   driveL: '«', driveR: '»', pumpFake: '↑?', shoot: '↑', pass: 'P',
@@ -106,7 +105,7 @@ export function useDuelFlow(props: MinigameProps): DuelFlow {
     const s = stRef.current
     if (phaseRef.current !== 'live' || s.phase !== 'live') return
     if (g === 'left' || g === 'right') { commit(slide(s, DIR[g], input)); return }
-    if (g === 'up') { commit(jump(s, input, rng)); return }
+    if (g === 'up') { commit(contest(s)); return }
     const now = performance.now()
     if (now - tapBlock.current < TAP_COOLDOWN) return
     const next = trySteal(s, rng, input)

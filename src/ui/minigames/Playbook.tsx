@@ -5,12 +5,13 @@ import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
 import { attrMods, difficulty, opponentFive, reboundWindow } from '../../engine/minigames/common'
 import {
-  applyTemplate, callScreen, COURT, createPlaybook, feint, isSettled, moveTo, openness, pass, pumpFake,
+  applyTemplate, callScreen, createPlaybook, feint, isSettled, moveTo, openness, pass, pumpFake,
   reboundTap, SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
   type PlaybookInput, type PlaybookState, type Pos, type Template,
 } from '../../engine/minigames/playbook'
 import { FreeThrows } from './FreeThrows'
 import { TimingBar } from './TimingBar'
+import { BASKET, COURT_LAYERS, D, MAG_FILTER, S, W } from './Court'
 
 // JOGADA (prancheta) — meia-quadra top-down em SVG, cesta no topo, madeira sépia e ímãs com
 // sombra (spec §8, "Direção 2 · Plano refinado"). O engine (playbook.ts) é a verdade: aqui só
@@ -19,12 +20,6 @@ import { TimingBar } from './TimingBar'
 // Falta puxada na finta de arremesso vem com `quality: -1` (sentinela): montamos FreeThrows e
 // só então despachamos — o reducer NUNCA recebe -1.
 
-const S = 100                                  // metros → unidades do viewBox
-const W = COURT.w * S, D = COURT.d * S         // 1524 × 1400
-const BASKET = { x: COURT.basket.x * S, y: COURT.basket.y * S }
-const PAINT = { x: (COURT.basket.x - COURT.paintW / 2) * S, w: COURT.paintW * S, h: COURT.paintD * S }
-const ARC_PATH = `M ${COURT.cornerX * S} 0 V ${COURT.cornerY * S} A ${COURT.arc * S} ${COURT.arc * S} 0 0 0 ${(COURT.w - COURT.cornerX) * S} ${COURT.cornerY * S} V 0`
-
 const DT = 0.05                                // 20 Hz
 const SAMPLE = 0.6                             // metros entre pontos amostrados do arrasto
 const TAP = 0.3                                // metros: abaixo disso é toque, não arrasto
@@ -32,8 +27,6 @@ const MAX_PTS = 6                              // o engine corta em 6 (setRoute)
 const HEAD_MS = 800                            // manchete
 const SHOT_MS = 500                            // bola até o aro
 const OVERLAY_MS = 800                         // desfecho por cima
-const PLANK = 84                               // largura do tabuado
-const JOINT = [520, 900, 260, 1120]            // juntas de topo, escalonadas a cada 4 tábuas
 const R_US = 56, R_THEM = 52, R_HIT = 90
 
 const TEMPLATE_IDS: Template[] = ['pnr', 'horns', 'doubleScreen', 'iso', 'fiveOut', 'transition']
@@ -46,34 +39,6 @@ const SHOT_HEAD: Record<string, string> = {
   mgLayup: 'mg.type.layup', mgDunk: 'mg.type.dunk', mgMid: 'mg.type.mid',
   mgThree: 'mg.type.three', mgAssist: 'mg.type.assist',
 }
-
-// tabuado e linhas não mudam: elementos constantes (React pula o subtree no re-render de 20Hz)
-const WOOD = (
-  <g className="mg-pb__wood">
-    {Array.from({ length: Math.ceil(W / PLANK) }, (_, i) => (
-      <rect key={i} x={i * PLANK} y={0} width={PLANK} height={D}
-        className={'mg-pb__plank' + (i % 2 ? ' mg-pb__plank--b' : '')} />
-    ))}
-    <g className="mg-pb__joint">
-      {Array.from({ length: Math.ceil(W / PLANK) }, (_, i) => (
-        <g key={i}>
-          <line x1={i * PLANK} y1={0} x2={i * PLANK} y2={D} />
-          <line x1={i * PLANK} y1={JOINT[i % 4]} x2={(i + 1) * PLANK} y2={JOINT[i % 4]} />
-        </g>
-      ))}
-    </g>
-  </g>
-)
-const LINES = (
-  <g className="mg-pb__lines">
-    <rect x={4} y={4} width={W - 8} height={D - 8} />
-    <rect x={PAINT.x} y={0} width={PAINT.w} height={PAINT.h} />
-    <circle cx={BASKET.x} cy={PAINT.h} r={180} />
-    <path d={ARC_PATH} />
-    <line x1={BASKET.x - 90} y1={BASKET.y - 37.5} x2={BASKET.x + 90} y2={BASKET.y - 37.5} />
-    <circle cx={BASKET.x} cy={BASKET.y} r={22.5} className="mg-pb__rim" />
-  </g>
-)
 
 function ballPos(s: PlaybookState): Pos {
   const f = s.ball.flying
@@ -320,13 +285,8 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
       <div className="mg-pb__stage">
         <svg ref={svgRef} className="mg-pb__board" viewBox={`0 0 ${W} ${D}`}
           onPointerDown={onBoardDown} onPointerMove={onBoardMove} onPointerUp={onBoardUp} onPointerCancel={onBoardUp}>
-          <defs>
-            <filter id="pb-mag" x="-60%" y="-60%" width="220%" height="220%">
-              <feDropShadow dx="7" dy="12" stdDeviation="9" floodColor="#1C1A16" floodOpacity="0.34" />
-            </filter>
-          </defs>
-          {WOOD}
-          {LINES}
+          {MAG_FILTER}
+          {COURT_LAYERS}
 
           <g className="mg-pb__routes">
             {st.routes.map((r, i) => {
