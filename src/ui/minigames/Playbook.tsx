@@ -28,6 +28,7 @@ const ARC_PATH = `M ${COURT.cornerX * S} 0 V ${COURT.cornerY * S} A ${COURT.arc 
 
 const DT = 0.05                                // 20 Hz
 const SAMPLE = 0.6                             // metros entre pontos amostrados do arrasto
+const TAP = 0.3                                // metros: abaixo disso é toque, não arrasto
 const MAX_PTS = 6                              // o engine corta em 6 (setRoute)
 const HEAD_MS = 800                            // manchete
 const SHOT_MS = 500                            // bola até o aro
@@ -114,6 +115,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   const [landed, setLanded] = useState(false)
   const [showResult, setShowResult] = useState(false)
   const [ftDone, setFtDone] = useState(false)
+  const [ftReady, setFtReady] = useState(false)
   // onResolve muda de identidade a cada render do pai; fora das deps dos efeitos
   const onResolveRef = useRef(onResolve)
   onResolveRef.current = onResolve
@@ -160,6 +162,13 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     return () => { clearTimeout(a); clearTimeout(b) }
   }, [st.result, foulPending])
 
+  // falta puxada: a manchete "FALTA!" fica na tela HEAD_MS antes dos lances livres entrarem
+  useEffect(() => {
+    if (!foulPending) return
+    const id = setTimeout(() => setFtReady(true), HEAD_MS)
+    return () => clearTimeout(id)
+  }, [foulPending])
+
   // ---------- entrada ----------
   const toCourt = (e: RPointerEvent): Pos | null => {
     const r = svgRef.current?.getBoundingClientRect()
@@ -167,26 +176,24 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     return { x: (e.clientX - r.left) / r.width * COURT.w, y: (e.clientY - r.top) / r.height * COURT.d }
   }
 
+  // ímã (draw E run): começa um rascunho de rota; o pointerup decide toque × arrasto
   const onMagnet = (i: number) => (e: RPointerEvent<SVGGElement>) => {
     e.stopPropagation()
     const s = ref.current
-    if (s.phase === 'run') {
-      const next = pass(s, i, rng, input, risky)
-      if (next !== s) setRisky(false)
-      commit(next)
-      return
-    }
-    if (s.phase !== 'draw') return
+    if (s.phase !== 'draw' && s.phase !== 'run') return
     const p = toCourt(e)
     if (!p) return
     svgRef.current?.setPointerCapture(e.pointerId)
     setDraft({ idx: i, pts: [{ ...s.attackers[i] }], cur: p })
   }
 
+  // quadra na fase run: rascunho com idx -1 — toque vira moveTo, arrasto é ignorado
   const onBoardDown = (e: RPointerEvent<SVGSVGElement>) => {
     if (ref.current.phase !== 'run') return
     const p = toCourt(e)
-    if (p) act(s => moveTo(s, p.x, p.y))
+    if (!p) return
+    svgRef.current?.setPointerCapture(e.pointerId)
+    setDraft({ idx: -1, pts: [p], cur: p })
   }
 
   const onBoardMove = (e: RPointerEvent<SVGSVGElement>) => {
@@ -194,22 +201,38 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     const p = toCourt(e)
     if (!p) return
     const last = draft.pts[draft.pts.length - 1]
-    const grow = draft.pts.length < MAX_PTS && Math.hypot(p.x - last.x, p.y - last.y) >= SAMPLE
+    const grow = draft.idx >= 0 && draft.pts.length < MAX_PTS && Math.hypot(p.x - last.x, p.y - last.y) >= SAMPLE
     setDraft(d => d && { idx: d.idx, pts: grow ? [...d.pts, p] : d.pts, cur: p })
   }
 
   const onBoardUp = (e: RPointerEvent<SVGSVGElement>) => {
     if (!draft) return
     if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
-    const { idx, pts } = draft
+    const { idx, pts, cur } = draft
     setDraft(null)
+    const s = ref.current
+    const dragged = pts.length >= 2 || Math.hypot(cur.x - pts[0].x, cur.y - pts[0].y) > TAP
+    const route = pts.length >= 2 ? pts : [pts[0], cur]
+    if (idx < 0) {                                    // quadra: só o toque conta (infiltração)
+      if (!dragged) act(x => moveTo(x, cur.x, cur.y))
+      return
+    }
+    if (s.phase === 'run') {
+      // arrasto = redesenha a rota ao vivo (setRoute zera o routeProgress do ímã);
+      // toque = passe pro companheiro
+      if (dragged) return void act(x => setRoute(x, idx, route))
+      const next = pass(s, idx, rng, input, risky)
+      if (next !== s) setRisky(false)
+      commit(next)
+      return
+    }
     // toque curto num ímã com rota = alterna "termina em BLOQUEIO"
-    if (pts.length < 2) {
-      if (ref.current.routes[idx].points.length >= 2) { snapshot(); act(s => toggleScreen(s, idx)) }
+    if (!dragged) {
+      if (s.routes[idx].points.length >= 2) { snapshot(); act(x => toggleScreen(x, idx)) }
       return
     }
     snapshot()
-    act(s => setRoute(s, idx, pts))
+    act(x => setRoute(x, idx, route))
   }
 
   const clearRoutes = () => {
@@ -237,7 +260,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   }
 
   // falta puxada: os lances livres decidem a quality antes do despacho
-  if (foulPending && !ftDone) return <FreeThrows lang={lang} build={build} age={age} onDone={onFreeThrows} />
+  if (foulPending && ftReady && !ftDone) return <FreeThrows lang={lang} build={build} age={age} onDone={onFreeThrows} />
 
   // ---------- render ----------
   const phase = st.phase
@@ -309,7 +332,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
                 </g>
               )
             })}
-            {draft && draft.pts.length > 0 && (
+            {draft && draft.idx >= 0 && (
               <path d={pathOf([...draft.pts, draft.cur])} className="mg-pb__route mg-pb__route--draft" />
             )}
           </g>
