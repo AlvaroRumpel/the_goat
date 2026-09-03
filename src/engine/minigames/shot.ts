@@ -1,31 +1,15 @@
 import type { Build, Rng, WatchedGameContext } from '../types'
-import { clamp01, type MinigameResult } from './index'
+import type { MinigameResult } from './index'
+import { ageMultiplier } from '../season'
+import { timingHit, type AttrMods, type OppPlayer } from './common'
 
 // ARREMESSO — física 2D pura (spec §2.6). Vista lateral: x = distância horizontal (m),
 // y = altura (m). Sem React, sem Math.random: o cenário sorteia por um Rng local injetado.
 
 export const G = 9.81
 export const RIM_H = 3.05
-export const RIM_R = 0.225
-export const RELEASE_H = 2.05
-export const RELEASE_H_CLOSE = 2.30   // bandeja/enterrada
-export const TOL = 0.55               // metros de erro que zeram a qualidade
-
-export type ShotType = 'layup' | 'mid' | 'three' | 'dunk'
-export type ShotVerdict = 'swish' | 'bank' | 'short' | 'long' | 'rimOut'
-
-export const SHOT_TYPES: readonly ShotType[] = ['layup', 'mid', 'three', 'dunk']
-export const DIST: Record<ShotType, number> = { layup: 1.5, mid: 5.0, three: 7.24, dunk: 0.6 }
-export const OPTION_ID: Record<ShotType, string> = { layup: 'mgLayup', mid: 'mgMid', three: 'mgThree', dunk: 'mgDunk' }
-// ângulo de referência da força "1.0" na UI (a enterrada só tem solução acima de ~51°)
-export const REF_ANGLE: Record<ShotType, number> = { layup: 45, mid: 45, three: 45, dunk: 60 }
 
 export const rad = (deg: number) => deg * Math.PI / 180
-export const releaseHeight = (type: ShotType) => type === 'layup' || type === 'dunk' ? RELEASE_H_CLOSE : RELEASE_H
-
-export function availableTypes(build: Build): ShotType[] {
-  return SHOT_TYPES.filter(t => t !== 'dunk' || build.attributes.physical >= 75)
-}
 
 // v tal que a bola passa pelo centro do aro: v² = g d² / (2 cos²θ (d tanθ − h)). NaN se
 // o ângulo é raso demais pra chegar na altura do aro.
@@ -37,8 +21,6 @@ export function idealSpeed(angleRad: number, d: number, releaseH: number): numbe
   const v2 = G * d * d / denom
   return Number.isFinite(v2) && v2 > 0 ? Math.sqrt(v2) : NaN
 }
-
-export const refSpeed = (type: ShotType) => idealSpeed(rad(REF_ANGLE[type]), DIST[type], releaseHeight(type))
 
 export interface Trajectory {
   pointAt: (t: number) => { x: number; y: number }
@@ -66,36 +48,102 @@ export function crossX(angleRad: number, speed: number, releaseH: number): numbe
   return t === null ? null : speed * Math.cos(angleRad) * t
 }
 
-export interface ShotEval {
-  quality: number
-  err: number          // |crossX − d| em metros (Infinity se nunca chega no aro)
-  entryAngle: number   // graus, 0 quando nunca chega
-  verdict: ShotVerdict // previsão pela física — só sabor da animação; o engine decide o acerto
+export type ShotType = 'layup' | 'floater' | 'mid' | 'stepback' | 'fadeaway' | 'three' | 'bank' | 'dunk'
+export interface ShotSpec { d: number; releaseH: number; tol: number; sep: number; optionId: string; tolKey: keyof AttrMods['tol'] }
+export const SHOTS: Record<ShotType, ShotSpec> = {
+  layup:    { d: 1.5,  releaseH: 2.3,  tol: 0.88, sep: 0,   optionId: 'mgLayup', tolKey: 'layup' },
+  floater:  { d: 2.8,  releaseH: 2.35, tol: 0.5,  sep: 0.4, optionId: 'mgLayup', tolKey: 'floater' },
+  mid:      { d: 5.0,  releaseH: 2.05, tol: 0.55, sep: 0,   optionId: 'mgMid',   tolKey: 'mid' },
+  stepback: { d: 7.6,  releaseH: 2.05, tol: 0.44, sep: 1.2, optionId: 'mgThree', tolKey: 'three' },
+  fadeaway: { d: 5.2,  releaseH: 2.15, tol: 0.47, sep: 0.8, optionId: 'mgMid',   tolKey: 'mid' },
+  three:    { d: 7.24, releaseH: 2.05, tol: 0.55, sep: 0,   optionId: 'mgThree', tolKey: 'three' },
+  bank:     { d: 4.2,  releaseH: 2.05, tol: 0.6,  sep: 0,   optionId: 'mgMid',   tolKey: 'mid' },
+  dunk:     { d: 0.6,  releaseH: 2.3,  tol: 0.3,  sep: 0,   optionId: 'mgDunk',  tolKey: 'dunk' },
+}
+const ORDER: ShotType[] = ['layup', 'floater', 'mid', 'stepback', 'fadeaway', 'three', 'bank', 'dunk']
+
+// ângulo de referência usado pra calibrar a "força 1.0" da UI por tipo (enterrada só tem
+// solução acima de ~51°, os demais usam um arco confortável de 45°).
+const REF_ANGLE: Record<ShotType, number> = { layup: 45, floater: 45, mid: 45, stepback: 45, fadeaway: 45, three: 45, bank: 45, dunk: 60 }
+export const refSpeed = (type: ShotType) => idealSpeed(rad(REF_ANGLE[type]), SHOTS[type].d, SHOTS[type].releaseH)
+
+export function availableTypes(build: Build, age: number): ShotType[] {
+  const m = ageMultiplier(age, build.attributes.physical); const a = build.attributes
+  return ORDER.filter(t =>
+    t === 'floater' ? a.finishing * m >= 60 : t === 'stepback' ? a.handles * m >= 70 : t === 'fadeaway' ? a.clutch * m >= 70 : t === 'dunk' ? a.physical * m >= 75 : true)
 }
 
-export function evaluate(type: ShotType, angleRad: number, speed: number, _build: Build): ShotEval {
-  const d = DIST[type], h0 = releaseHeight(type)
-  if (type === 'dunk') {
-    // enterrada: só a força importa — até 30% do ideal é perfeita, cai linear até 100%
-    const rel = Math.abs(speed - refSpeed(type)) / refSpeed(type)
-    const quality = rel <= 0.3 ? 1 : 1 - clamp01((rel - 0.3) / 0.7)
-    return { quality, err: rel, entryAngle: 90, verdict: quality > 0.5 ? 'rimOut' : speed < refSpeed(type) ? 'short' : 'long' }
+export interface Closeout { x: number; speed: number; handUp: boolean; arrived: boolean; handX: number; handH: number }
+export function createCloseout(rng: Rng, opts: { difficulty: number; defender: OppPlayer; sep: number }): Closeout {
+  const x = 2.5 + rng.next() * 1.5 + opts.sep
+  return { x, speed: opts.defender.speed * opts.difficulty, handUp: false, arrived: false, handX: x, handH: opts.defender.reach }
+}
+export function stepCloseout(c: Closeout, dt: number): Closeout {
+  const x = Math.max(0.3, c.x - c.speed * dt)
+  return { ...c, x, handX: x, handUp: x <= 1.2, arrived: x <= 0.5 }
+}
+
+export type Jump = 'perfect' | 'hit' | 'miss' | null
+export interface EvalOpts { closeout: Closeout | null; jump: Jump; mods: AttrMods; bankAim?: boolean }
+export interface ShotEval { quality: number; err: number; entryAngle: number; verdict: 'swish' | 'bank' | 'short' | 'long' | 'rimOut' | 'blocked'; blocked: boolean; contested: boolean }
+
+// altura da bola quando passa por x (subindo ou descendo) — null se nunca chega (vx ≤ 0)
+function heightAtX(angle: number, speed: number, releaseH: number, x: number): number | null {
+  const vx = speed * Math.cos(angle); if (vx <= 0) return null
+  const t = x / vx
+  return releaseH + speed * Math.sin(angle) * t - 0.5 * G * t * t
+}
+
+// ângulo de entrada no aro (graus) no cruzamento descendente, por conservação de energia:
+// vy_cross² = vy_lançamento² − 2g(RIM_H − releaseH). 0 se a parábola nunca alcança a altura do aro.
+function entryAngleOf(angle: number, speed: number, releaseH: number): number {
+  const vy2 = speed * speed * Math.sin(angle) ** 2 - 2 * G * (RIM_H - releaseH)
+  if (!(vy2 >= 0)) return 0
+  return Math.atan2(Math.sqrt(vy2), speed * Math.cos(angle)) * 180 / Math.PI
+}
+
+// tabela: reflete a bola num plano vertical em d+0.15 (restituição 0.7) e devolve o x onde
+// a trajetória refletida cruza a altura do aro descendo; null se não bate na tabela ou não volta.
+export function bankCrossX(angle: number, speed: number, releaseH: number, d: number): number | null {
+  const board = d + 0.15, vx = speed * Math.cos(angle), vy = speed * Math.sin(angle)
+  if (vx <= 0) return null
+  const tb = board / vx; const yb = releaseH + vy * tb - 0.5 * G * tb * tb
+  if (yb < RIM_H - 0.1 || yb > RIM_H + 1.1) return null       // não acerta a tabela na zona útil
+  const vyb = vy - G * tb; const vxr = -vx * 0.7                // reflexão: x inverte com restituição 0.7
+  // após refletir: y(t) = yb + vyb t − ½g t², x(t) = board + vxr t; cruza RIM_H descendo
+  const a = -0.5 * G, b = vyb, c = yb - RIM_H
+  const disc = b * b - 4 * a * c; if (disc < 0) return null
+  const t1 = (-b - Math.sqrt(disc)) / (2 * a), t2 = (-b + Math.sqrt(disc)) / (2 * a)
+  const t = Math.max(t1, t2); if (t <= 0) return null
+  return board + vxr * t
+}
+
+export function evaluate(type: ShotType, angle: number, speed0: number, opts: EvalOpts): ShotEval {
+  const s = SHOTS[type]; const speed = speed0 * (1 - opts.mods.fatigue * 0.5)
+  const co = opts.closeout
+  if (co?.handUp) {
+    const h = heightAtX(angle, speed, s.releaseH, co.handX)
+    if (h !== null && co.handX < s.d && h < co.handH) return { quality: 0, err: Infinity, entryAngle: 0, verdict: 'blocked', blocked: true, contested: true }
   }
-  const x = crossX(angleRad, speed, h0)
-  if (x === null) return { quality: 0, err: Infinity, entryAngle: 0, verdict: 'short' }
-  const vy = Math.sqrt(speed * speed * Math.sin(angleRad) ** 2 - 2 * G * (RIM_H - h0))
-  const entryAngle = Math.atan2(vy, speed * Math.cos(angleRad)) * 180 / Math.PI
-  const err = Math.abs(x - d)
-  let tol = TOL * (type === 'layup' ? 1.6 : 1)
-  if (entryAngle < 32) tol /= 2
-  const quality = 1 - clamp01(err / tol)
-  const verdict: ShotVerdict = err < RIM_R ? 'rimOut' : x < d ? 'short' : 'long'
-  return { quality, err, entryAngle, verdict }
+  if (type === 'dunk') {
+    const ref = refSpeed('dunk'); const q = Math.max(0, 1 - Math.max(0, Math.abs(speed - ref) / ref - 0.3) / 0.7)
+    return { quality: q, err: Math.abs(speed - ref), entryAngle: 90, verdict: q > 0.5 ? 'swish' : 'rimOut', blocked: false, contested: !!co?.arrived }
+  }
+  const cross = opts.bankAim ? bankCrossX(angle, speed, s.releaseH, s.d) : crossX(angle, speed, s.releaseH)
+  let tol = s.tol * opts.mods.tol[s.tolKey] * (opts.jump === 'perfect' ? 1.15 : opts.jump === 'miss' ? 0.7 : 1.0) * (opts.bankAim ? 1.1 : 1)
+  const contested = !!co?.arrived; if (contested) tol *= 0.6
+  if (cross === null) return { quality: 0, err: Infinity, entryAngle: 0, verdict: 'short', blocked: false, contested }
+  const err = Math.abs(cross - s.d)
+  const entry = entryAngleOf(angle, speed, s.releaseH)
+  if (entry < 32) tol *= 0.5
+  const quality = Math.max(0, 1 - err / tol)
+  const verdict = quality > 0.7 ? (opts.bankAim ? 'bank' : 'swish') : err < 0.12 ? 'rimOut' : cross < s.d ? 'short' : 'long'
+  return { quality, err, entryAngle: entry, verdict, blocked: false, contested }
 }
 
-export function resultFor(type: ShotType, quality: number): MinigameResult {
-  return { optionId: OPTION_ID[type], quality: clamp01(quality) }
-}
+export function resultFor(type: ShotType, ev: ShotEval): MinigameResult { return { optionId: SHOTS[type].optionId, quality: ev.quality } }
+export function freeThrowQuality(q: [number, number]): number { return (q[0] + q[1]) / 2 }
+export function jumpTiming(t: number, apex: number, mods: AttrMods): Jump { return timingHit(t, apex, mods.jumpWindow) }
 
 export type Backdrop = 'regular' | 'rivalry' | 'playoff' | 'finals'
 export interface ShotScenario { backdrop: Backdrop; home: boolean; crowd: number; meterSpeed: 1 | 1.25 }
