@@ -13,18 +13,19 @@ export interface DuelState {
   t: number; clock: number; attX: number; defX: number; attDist: number
   move: { kind: Move; at: number; dur: number } | null
   exposed: number; airborne: number; contain: number; live: number
-  stealTries: number; fouled: boolean; bitFake: boolean; contestDist: number | null; armed: boolean
+  stealTries: number; fouled: boolean; bitFake: boolean; contestDist: number | null; armed: number
   phase: 'live' | 'shot' | 'drive' | 'steal' | 'block' | 'foul' | 'clock' | 'done'
   log: Move[]; result?: MinigameResult; freeThrows?: [boolean, boolean]
 }
 export const CONE_HALF = 0.62
 const POSSESSION = 8
 const RELEASE = 0.45
+const ARM_DUR = 1.2                    // postura armada dura ~1.2s; CONTESTAR de novo re-arma (spec C)
 const DUR: Record<Move, number> = { hesi: 0.5, crossL: 0.45, crossR: 0.45, spin: 0.7, legs: 0.5, driveL: 0.8, driveR: 0.8, pumpFake: 0.6, shoot: 0.9, pass: 0.3 }
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
 export function createDuel(_input: DuelInput): DuelState {
-  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: false, phase: 'live', log: [] }
+  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: 0, phase: 'live', log: [] }
 }
 export function inFront(s: DuelState): boolean { return Math.abs(s.attX - s.defX) < CONE_HALF }
 
@@ -62,7 +63,7 @@ function finishMove(s: DuelState, m: Move, _input: DuelInput): DuelState {
 export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): DuelState {
   if (s0.phase !== 'live') return s0
   let s: DuelState = { ...s0, t: s0.t + dt, clock: s0.clock - dt, live: s0.live + dt }
-  s.exposed = Math.max(0, s.exposed - dt); s.airborne = Math.max(0, s.airborne - dt)
+  s.exposed = Math.max(0, s.exposed - dt); s.airborne = Math.max(0, s.airborne - dt); s.armed = Math.max(0, s.armed - dt)
   if (inFront(s) && s.airborne === 0) s.contain += dt
   if (s.clock <= 0 && s.move?.kind !== 'shoot') return finalize({ ...s, phase: 'clock' })
   if (!s.move) {
@@ -73,19 +74,19 @@ export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): Due
     if (kind === 'crossL' || kind === 'crossR') s.exposed = 0.4
     // postura armada (spec C): ele sobe pra valer = toco por blockP se você está na frente e perto;
     // ele finta = você cai (airborne 1.5, 30% falta). Sem timing: decidido no início do movimento.
-    if (kind === 'shoot' && s.armed && inFront(s) && Math.abs(s.attX - s.defX) <= 0.9 && rng.chance(input.mods.blockP)) return finalize({ ...s, phase: 'block' })
-    if (kind === 'pumpFake' && s.armed) {
-      s = { ...s, armed: false, bitFake: true }
+    if (kind === 'shoot' && s.armed > 0 && inFront(s) && Math.abs(s.attX - s.defX) <= 0.9 && rng.chance(input.mods.blockP)) return finalize({ ...s, phase: 'block' })
+    if (kind === 'pumpFake' && s.armed > 0) {
+      s = { ...s, armed: 0, bitFake: true }
       if (rng.chance(0.3)) { const p = freeThrowP(input.starOvr); return finalize({ ...s, fouled: true, phase: 'foul', freeThrows: [rng.chance(p), rng.chance(p)] }) }
       s.airborne = 1.5
     }
   }
   const m = s.move!
   if (m.kind === 'shoot' && s.contestDist === null && s.t - m.at >= RELEASE) {
-    s.contestDist = Math.abs(s.attX - s.defX) + (s.armed || s.airborne > 0 ? 0 : 0.8)
+    s.contestDist = Math.abs(s.attX - s.defX) + (s.armed > 0 ? 0 : 0.8)
   }
   if (s.t - m.at >= m.dur) {
-    s = finishMove(s, m.kind, input); s.move = null; s.armed = false
+    s = finishMove(s, m.kind, input); s.move = null
     if (s.phase !== 'live') return finalize(s)
   }
   return s
@@ -110,7 +111,7 @@ export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
 }
 export function contest(s: DuelState): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
-  return { ...s, armed: !s.armed }
+  return { ...s, armed: s.armed > 0 ? 0 : ARM_DUR }
 }
 
 export function resultOf(s: DuelState): MinigameResult {

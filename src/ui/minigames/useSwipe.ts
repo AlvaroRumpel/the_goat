@@ -26,6 +26,7 @@ export function useSwipe(ref: RefObject<HTMLElement | null>, onGesture: (g: Gest
       if (g) onGesture(g)
     }
     const key = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
       const g = e.key === 'ArrowLeft' ? 'left' : e.key === 'ArrowRight' ? 'right' : e.key === 'ArrowUp' ? 'up' : e.key === ' ' || e.key === 'Enter' ? 'tap' : null
       if (g) { e.preventDefault(); onGesture(g) }
     }

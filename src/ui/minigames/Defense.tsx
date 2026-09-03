@@ -59,7 +59,7 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
             <text x={him.x} y={him.y + R_HIM + 40} className="mg-pb__tag">{star.short}</text>
           </g>
           {st.move && <text className="mg-df__glyph" x={him.x + R_HIM + 30} y={him.y + 16}>{GLYPH[st.move.kind]}</text>}
-          <g className={'mg-pb__us' + (st.airborne > 0 ? ' mg-df__you--air' : '') + (st.armed ? ' mg-df__you--armed' : '')}>
+          <g className={'mg-pb__us' + (st.airborne > 0 ? ' mg-df__you--air' : '') + (st.armed > 0 ? ' mg-df__you--armed' : '')}>
             <circle cx={you.x} cy={you.y} r={R_YOU} className="mg-pb__mag" filter="url(#pb-mag)" />
             <text x={you.x} y={you.y + 15} className="mg-pb__num">{number ?? '★'}</text>
             <text x={you.x} y={you.y + R_YOU + 40} className="mg-pb__tag">{t(lang, 'mg.you')}</text>
@@ -74,7 +74,7 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
               <span className="mg-df-contain">{t(lang, 'mg.def.contain')}
                 <span className="mg-df-contain__track"><span className="mg-df-contain__fill" style={{ width: pct(contain) }} /></span>
               </span>
-              {st.armed && <span className="mg-df-armed">{t(lang, 'mg.def.armed')}</span>}
+              {st.armed > 0 && <span className="mg-df-armed">{t(lang, 'mg.def.armed')}</span>}
             </div>
           </div>
           {phase === 'live' && (
@@ -106,7 +106,7 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
         )}
       </div>
       <div className="mg-df-pad">
-        {KEYS.map(([g, key]) => <GestBtn key={key} flow={flow} g={g} label={t(lang, key)} on={g === 'up' && st.armed} />)}
+        {KEYS.map(([g, key]) => <GestBtn key={key} flow={flow} g={g} label={t(lang, key)} on={g === 'up' && st.armed > 0} />)}
       </div>
     </div>
   )

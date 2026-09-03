@@ -232,6 +232,7 @@ describe('isSettled (jogada parada = laço congela)', () => {
     expect(s.phase).toBe('run'); expect(isSettled(s)).toBe(true)      // chegou: parou de novo
     expect(isSettled(feint(s, createRng(99), input()))).toBe(false)    // finta corre 0.6s
     const p = pass(s, 1, createRng(99), input())
-    if (p.phase === 'run') expect(isSettled(p)).toBe(false)           // bola no ar
+    expect(p.phase).toBe('run'); expect(p.ball.flying).not.toBeNull() // passe limpo: bola no ar
+    expect(isSettled(p)).toBe(false)
   })
 })

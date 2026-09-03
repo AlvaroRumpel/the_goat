@@ -76,13 +76,13 @@ describe('duelo', () => {
     }
     expect(seen.legs).toBeGreaterThan(0); expect(seen.cross).toBeGreaterThan(0)
   })
-  test('contestar (postura armada): ele sobe pra valer = toco por blockP ou mão em cima; ele finta = caiu na finta; desarma ao fim do movimento', () => {
+  test('contestar (postura armada): ele sobe pra valer = toco por blockP ou mão em cima; ele finta = caiu na finta; decai a zero após 1.2s sem re-armar', () => {
     const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
     let blocked = 0, bit = 0, handsUp = 0
     for (let seed = 0; seed < 60; seed++) {
       let s = createDuel(inp); const rng = createRng(seed)
       for (let i = 0; i < 400 && s.phase === 'live'; i++) {
-        if (!s.armed && s.airborne === 0) s = contest(s)
+        if (s.armed === 0 && s.airborne === 0) s = contest(s)
         s = step(s, 0.05, rng, inp)
       }
       if (s.phase === 'block') { blocked++; expect(resultOf(s)).toEqual({ optionId: 'mgContest', quality: 1 }) }
@@ -90,12 +90,27 @@ describe('duelo', () => {
       if (s.phase === 'shot' && s.contestDist !== null && s.contestDist < 0.8) handsUp++
     }
     expect(blocked).toBeGreaterThan(0); expect(bit).toBeGreaterThan(0); expect(handsUp).toBeGreaterThan(0)
-    // toggle e desarme
-    let a = createDuel(inp); a = contest(a); expect(a.armed).toBe(true); a = contest(a); expect(a.armed).toBe(false)
-    a = contest(a); const rng = createRng(3)
-    while (a.phase === 'live' && a.move === null) a = step(a, 0.05, rng, inp)
-    while (a.phase === 'live' && a.move !== null) a = step(a, 0.05, rng, inp)
-    expect(a.armed).toBe(false)
+    // toggle e decaimento: arma (>0), desarma no toggle (0), re-arma e decai sozinho a 0 em 1.2s sem re-armar
+    let a = createDuel(inp); a = contest(a); expect(a.armed).toBeGreaterThan(0); a = contest(a); expect(a.armed).toBe(0)
+    a = contest(a); expect(a.armed).toBeGreaterThan(0)
+    const rng = createRng(3)
+    for (let i = 0; i < 26 && a.phase === 'live'; i++) a = step(a, 0.05, rng, inp)   // ≥ 1.3s de ticks, sem re-armar
+    expect(a.armed).toBe(0)
+  })
+  test('CONTESTAR armado no meio do movimento sobrevive até o próximo movimento dele (sem janela de 50ms no fim do movimento)', () => {
+    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
+    let hit = false
+    for (let seed = 0; seed < 60 && !hit; seed++) {
+      let s = createDuel(inp); const rng = createRng(seed)
+      while (s.phase === 'live' && s.move === null) s = step(s, 0.05, rng, inp)
+      if (s.phase !== 'live') continue
+      s = contest(s)                                       // arma UMA vez, no meio do 1º movimento — sem re-armar depois
+      for (let i = 0; i < 400 && s.phase === 'live'; i++) {
+        s = step(s, 0.05, rng, inp)
+        if (s.phase === 'block' || s.bitFake) { hit = true; break }
+      }
+    }
+    expect(hit).toBe(true)
   })
   test('finta com você armado: falta ~30% das vezes, senão só bitFake', () => {
     const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })

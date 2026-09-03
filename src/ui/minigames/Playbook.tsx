@@ -102,7 +102,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     const push = (k: string) => setHeads(h => [...h, k])
     if (next.lastScreenAt !== prev.lastScreenAt) push('mg.pb.head.screen')
     if (next.turnover && !prev.turnover) push(TURN_HEAD[next.turnover])
-    if (next.rebounds !== prev.rebounds) push('mg.pb.head.rebound')
+    if (next.rebounds !== prev.rebounds) { push('mg.pb.head.rebound'); undoRef.current = [] } // 2ª posse: nada de DESFAZER pra antes dela
     if (next.phase === 'shooting' && prev.phase !== 'shooting') push(SHOT_HEAD[next.result!.optionId] ?? 'mg.shoot')
     if (next.phase === 'done' && prev.phase !== 'done') push('mg.pb.head.foul')
   }
@@ -232,7 +232,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   }
   const undo = () => {
     const prev = undoRef.current.pop()
-    if (!prev) return
+    if (!prev || prev.phase !== ref.current.phase) return   // nunca troca de fase (ex.: draw pré-RODAR)
     ref.current = prev
     setSt(prev)
   }
@@ -360,7 +360,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
           <div className="mg-row">
             <button type="button" className="mg-btn" disabled={phase === 'read'} onClick={clearRoutes}>{t(lang, 'mg.pb.clear')}</button>
             <button type="button" className="mg-btn" disabled={phase === 'read' || undoRef.current.length === 0} onClick={undo}>{t(lang, 'mg.pb.undo')}</button>
-            <button type="button" className="mg-btn mg-btn--red" disabled={phase === 'read'} onClick={() => { act(startRun); setGo(true) }}>{t(lang, 'mg.pb.run')}</button>
+            <button type="button" className="mg-btn mg-btn--red" disabled={phase === 'read'} onClick={() => { undoRef.current = []; act(startRun); setGo(true) }}>{t(lang, 'mg.pb.run')}</button>
           </div>
         </>
       )}

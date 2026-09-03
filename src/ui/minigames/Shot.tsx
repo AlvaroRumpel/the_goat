@@ -79,7 +79,10 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
 
   // teclado: 1..8 escolhe (guarda: e.key de 1 char — ''.indexOf('') é 0)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { const i = e.key.length === 1 ? '12345678'.indexOf(e.key) : -1; if (i >= 0 && types[i]) pick(types[i]) }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
+      const i = e.key.length === 1 ? '12345678'.indexOf(e.key) : -1; if (i >= 0 && types[i]) pick(types[i])
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,12 +1,11 @@
 /* --- MURALHA (mg-defense): meia-quadra 2D da prancheta + HUD por cima (cartão, relógio, contenção, gestos) --- */
-.mg-defense { display: flex; flex-direction: column; }
+/* o tabuado do Court usa as vars da prancheta — declaradas em .mg-pb; repetir aqui */
+.mg-defense { display: flex; flex-direction: column; --pb-wood-a: #DDD0B3; --pb-wood-b: #D3C4A3; --pb-joint: #BFAE86; }
 .mg-df-stage { position: relative; width: 100%; flex: 1; min-height: 180px; display: flex; background: var(--paper); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
 .mg-df-svg { display: block; width: 100%; height: 100%; }
 .mg-df-pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--ink-3); }
 .mg-df-padbtn { min-height: 48px; padding: 12px 4px; font-size: 11px; letter-spacing: 0.04em; }
 
-/* o tabuado do Court usa as vars da prancheta — declaradas em .mg-pb; repetir aqui */
-.mg-defense { --pb-wood-a: #DDD0B3; --pb-wood-b: #D3C4A3; --pb-joint: #BFAE86; }
 .mg-df__cone { fill: rgba(28, 26, 22, 0.06); stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 4; stroke-dasharray: 18 14; }
 .mg-df__cone--on { fill: rgba(168, 35, 28, 0.22); stroke: var(--red); stroke-opacity: 1; }
 .mg-df__glyph { fill: var(--red); font-family: var(--mono); font-size: 48px; font-weight: 600; }
