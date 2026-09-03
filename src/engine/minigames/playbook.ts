@@ -7,8 +7,9 @@ import { applyScreens, clampCourt, dist, distToSegment, lerp, manTarget, moveTow
 // Quadro tático de ataque ("JOGADA") v2 — engine puro. Metros; meia-quadra, cesta no topo
 // (y = 0 é a linha de fundo). Toda aleatoriedade vem do Rng LOCAL injetado pela UI.
 // Fases: read (2s, só relógio) → draw (jogador desenha rotas/esquema, sem tempo) →
-// run (12s, ímãs seguem rotas, 5 esquemas de defesa) → rebound. pass/feint/callScreen/
-// pumpFake/shoot/reboundTap/moveTo ficam para a Task 7 — não exportar aqui.
+// run (12s, ímãs seguem rotas, 5 esquemas de defesa) → shooting/turnover/done. O rebote
+// ofensivo é resolvido na hora (reboundChance) dentro de shoot — sem fase/barra própria;
+// acerto devolve a `run` com 5s e rotas zeradas (pausado na UI até RODAR de novo).
 
 export const COURT = {
   w: 15.24, d: 14.0,
@@ -23,7 +24,7 @@ export interface Pos { x: number; y: number }
 export interface Defender extends Pos { speed: number; man: number; target: Pos }
 export type FormationId = 'fiveOut' | 'horns' | 'pnr' | 'iso'
 export type Scheme = 'man' | 'zone' | 'switch' | 'trap' | 'press'
-export type Phase = 'read' | 'draw' | 'run' | 'rebound' | 'shooting' | 'turnover' | 'done'
+export type Phase = 'read' | 'draw' | 'run' | 'shooting' | 'turnover' | 'done'
 export type Template = 'pnr' | 'horns' | 'doubleScreen' | 'iso' | 'fiveOut' | 'transition'
 export type ShotOption = 'layup-or-dunk' | 'mgMid' | 'mgThree' | 'mgAssist'
 // contrato do sentinela de falta: pumpFake marca s.result = { optionId: 'mgFreeThrow', quality: -1 } —
@@ -42,10 +43,14 @@ export interface PlaybookState {
   riskyBonusUntil: number; reboundUsed: boolean; still: number[]; lastScreenAt: number
   turnover: 'intercept' | 'strip' | 'clock' | 'charge' | null
   firstShotOpenness: number | null
+  rebounds: number
   result?: MinigameResult
 }
 
-export interface PlaybookInput { kind: WatchedGameKind; five: OppPlayer[]; mods: AttrMods; difficulty: number }
+export interface PlaybookInput {
+  kind: WatchedGameKind; five: OppPlayer[]; mods: AttrMods; difficulty: number
+  skill: Record<'layup' | 'mid' | 'three' | 'dunk', number>; reboundChance: number
+}
 
 // índice 0 = você, sempre com a bola no início (mantido do v1; base dos templates)
 export const FORMATIONS: Record<FormationId, Pos[]> = {
@@ -135,7 +140,7 @@ export function createPlaybook(rng: Rng, input: PlaybookInput): PlaybookState {
     helpUntil: 0, trapUntil: 0, trapDef: null, mismatch: false,
     feintUntil: 0, feintBonus: 0, pumpUntil: 0, pressure: 0,
     riskyBonusUntil: 0, reboundUsed: false, still: [0, 0, 0, 0, 0], lastScreenAt: -Infinity,
-    turnover: null, firstShotOpenness: null,
+    turnover: null, firstShotOpenness: null, rebounds: 0,
   }
   snapDefendersManToMan(s)
   return s
@@ -346,44 +351,46 @@ function resolveOptionId(option: ShotOption, finish?: 'layup' | 'dunk' | 'floate
   return finish === 'dunk' ? 'mgDunk' : 'mgLayup' // 'layup' e 'floater' resolvem pra mgLayup
 }
 
-export function shoot(s: PlaybookState, finish?: 'layup' | 'dunk' | 'floater'): PlaybookState {
+const ASSIST_SKILL = 0.6   // companheiro genérico
+
+function skillFor(optionId: string, input: PlaybookInput): number {
+  if (optionId === 'mgAssist') return ASSIST_SKILL
+  return optionId === 'mgLayup' ? input.skill.layup : optionId === 'mgDunk' ? input.skill.dunk : optionId === 'mgThree' ? input.skill.three : input.skill.mid
+}
+
+// spec 2026-09-03 §D: quality = min(1, skill(tipo) × abertura + 0.1 de criação). Abertura < 0.4
+// e sem rebote ainda = rebote ofensivo resolvido na hora por reboundChance (rng local):
+// acerto = 2ª posse de 5s sem rotas (pausada na UI), erro = arremesso fraco.
+export function shoot(s: PlaybookState, rng: Rng, input: PlaybookInput, finish?: 'layup' | 'dunk' | 'floater'): PlaybookState {
   if (!isLive(s)) return s
   const next = clone(s)
   const holder = next.ball.holder
   const optionId = resolveOptionId(shotOptionFor(next), finish)
+  const skill = skillFor(optionId, input)
   const eff = clamp01(openness(next, holder) + (next.riskyBonusUntil > next.t ? 0.3 : 0))
   if (eff < 0.4 && !next.reboundUsed) {
-    next.phase = 'rebound'
     next.firstShotOpenness = eff
+    next.reboundUsed = true
+    if (rng.chance(input.reboundChance)) {
+      next.clock = 5
+      next.routes = next.routes.map(() => ({ points: [], screen: false }))
+      next.routeProgress = next.routeProgress.map(() => 0)
+      next.rebounds += 1
+      return next
+    }
+    next.phase = 'shooting'
+    next.result = { optionId, quality: Math.min(1, skill * eff) }
     return next
   }
   next.phase = 'shooting'
-  // putback (spec §2.3): fórmula literal — max(primeira abertura, 0.8 × abertura do putback),
-  // sem bônus de criação, sem fator de relógio e sem fator de tipo.
-  if (next.reboundUsed) {
+  // putback (spec §2.3 v2): max(1ª abertura, 0.8 × abertura do putback), sem criação
+  if (next.reboundUsed && next.rebounds > 0) {
     next.result = { optionId, quality: Math.min(1, Math.max(next.firstShotOpenness ?? 0, 0.8 * openness(next, holder))) }
     return next
   }
   const screenedRecently = next.t - next.lastScreenAt <= 1.5
-  const typeFactor = optionId === 'mgThree' ? 0.9 : optionId === 'mgMid' ? 0.95 : 1
-  const clockFactor = next.clock < 2 ? 0.85 : 1
   const creationBonus = next.passes >= 2 || screenedRecently ? 0.1 : 0
-  next.result = { optionId, quality: Math.min(1, eff * typeFactor * clockFactor + creationBonus) }
-  return next
-}
-
-export function reboundTap(s: PlaybookState, hit: 'perfect' | 'hit' | 'miss'): PlaybookState {
-  const next = clone(s)
-  if (hit === 'miss') {
-    next.phase = 'shooting'
-    next.result = { optionId: resolveOptionId(shotOptionFor(next), 'layup'), quality: next.firstShotOpenness ?? 0 }
-    return next
-  }
-  next.phase = 'run'
-  next.clock = 5
-  next.routes = next.routes.map(() => ({ points: [], screen: false }))
-  next.routeProgress = next.routeProgress.map(() => 0)
-  next.reboundUsed = true
+  next.result = { optionId, quality: Math.min(1, skill * eff + creationBonus) }
   return next
 }
 

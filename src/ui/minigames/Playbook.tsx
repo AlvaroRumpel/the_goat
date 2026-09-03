@@ -1,22 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import type { MinigameProps } from './types'
 import type { Rng } from '../../engine/types'
 import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
-import { attrMods, difficulty, opponentFive, reboundWindow } from '../../engine/minigames/common'
+import { attrMods, difficulty, opponentFive, reboundChance } from '../../engine/minigames/common'
+import { skillOf } from '../../engine/minigames/shot'
 import {
   applyTemplate, callScreen, createPlaybook, feint, isSettled, moveTo, openness, pass, pumpFake,
-  reboundTap, SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
+  SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
   type PlaybookInput, type PlaybookState, type Pos, type Template,
 } from '../../engine/minigames/playbook'
 import { FreeThrows } from './FreeThrows'
-import { TimingBar } from './TimingBar'
 import { BASKET, COURT_LAYERS, D, MAG_FILTER, S, W } from './Court'
 
 // JOGADA (prancheta) — meia-quadra top-down em SVG, cesta no topo, madeira sépia e ímãs com
 // sombra (spec §8, "Direção 2 · Plano refinado"). O engine (playbook.ts) é a verdade: aqui só
 // entram desenho de rotas, ações ao vivo, o laço de 20Hz e o desfecho, que OBEDECE `outcome`.
-// Fases: read (2s) → draw (sem relógio) → run (12s) → rebound → shooting/turnover/done.
+// Fases: read (2s) → draw (sem relógio) → run (12s, pausa é fase de desenho: só RODAR retoma) →
+// shooting/turnover/done. Rebote ofensivo é resolvido na hora dentro de shoot, sem barra.
 // Falta puxada na finta de arremesso vem com `quality: -1` (sentinela): montamos FreeThrows e
 // só então despachamos — o reducer NUNCA recebe -1.
 
@@ -58,10 +59,14 @@ function screenMark(pts: Pos[]) {
 
 export function PlaybookGame({ seed, context, build, age, quarter, league, number, lang, onResolve, outcome }: MinigameProps) {
   const five = useMemo(() => opponentFive(league, context.opponentTeamId), [league, context.opponentTeamId])
-  const input = useMemo<PlaybookInput>(() => ({
-    kind: context.kind, five, mods: attrMods(build, age, quarter),
-    difficulty: difficulty(context.kind, five[0].ovr),
-  }), [context.kind, five, build, age, quarter])
+  const input = useMemo<PlaybookInput>(() => {
+    const mods = attrMods(build, age, quarter)
+    const sk = (tp: 'layup' | 'mid' | 'three' | 'dunk') => skillOf(build, age, tp, mods.fatigue)
+    return {
+      kind: context.kind, five, mods, difficulty: difficulty(context.kind, five[0].ovr),
+      skill: { layup: sk('layup'), mid: sk('mid'), three: sk('three'), dunk: sk('dunk') }, reboundChance: reboundChance(mods, five),
+    }
+  }, [context.kind, five, build, age, quarter])
 
   // seed local criado UMA vez (createPlaybook consome 1 call: o sorteio do esquema)
   const boot = useRef<{ rng: Rng; s0: PlaybookState } | null>(null)
@@ -80,6 +85,10 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   const [showResult, setShowResult] = useState(false)
   const [ftDone, setFtDone] = useState(false)
   const [ftReady, setFtReady] = useState(false)
+  // true = a jogada corre; RODAR liga, o tick desliga sozinho quando isSettled (spec §D: pausa é fase de desenho)
+  const [go, setGo] = useState(false)
+  const goRef = useRef(go)
+  goRef.current = go
   // onResolve muda de identidade a cada render do pai; fora das deps dos efeitos
   const onResolveRef = useRef(onResolve)
   onResolveRef.current = onResolve
@@ -93,21 +102,25 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     const push = (k: string) => setHeads(h => [...h, k])
     if (next.lastScreenAt !== prev.lastScreenAt) push('mg.pb.head.screen')
     if (next.turnover && !prev.turnover) push(TURN_HEAD[next.turnover])
-    if (next.phase === 'rebound' && prev.phase !== 'rebound') push('mg.pb.head.rebound')
+    if (next.rebounds !== prev.rebounds) push('mg.pb.head.rebound')
     if (next.phase === 'shooting' && prev.phase !== 'shooting') push(SHOT_HEAD[next.result!.optionId] ?? 'mg.shoot')
     if (next.phase === 'done' && prev.phase !== 'done') push('mg.pb.head.foul')
   }
   const act = (fn: (s: PlaybookState) => PlaybookState) => commit(fn(ref.current))
   const snapshot = () => { undoRef.current = [...undoRef.current.slice(-19), ref.current] }
 
-  // ---------- laço de 20Hz (read conta os 2s; run roda a posse) ----------
-  // jogada parada (isSettled) = tick pulado: relógio, defesa e pressão congelam até a próxima decisão
+  // ---------- laço de 20Hz (read conta os 2s; run roda a posse enquanto `go`) ----------
+  // jogada parada (isSettled) = go desliga: relógio, defesa e pressão congelam até RODAR de novo
   useEffect(() => {
-    if (st.phase !== 'read' && st.phase !== 'run') return
-    const id = setInterval(() => { if (!isSettled(ref.current)) act(s => step(s, DT, rng, input)) }, DT * 1000)
+    if (st.phase !== 'read' && !(st.phase === 'run' && go)) return
+    const id = setInterval(() => {
+      const next = step(ref.current, DT, rng, input)
+      commit(next)
+      if (next.phase === 'run' && isSettled(next)) setGo(false)
+    }, DT * 1000)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st.phase, rng, input])
+  }, [st.phase, go, rng, input])
 
   // ---------- manchete: fila de 0.8s ----------
   useEffect(() => {
@@ -154,9 +167,9 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     setDraft({ idx: i, pts: [{ ...s.attackers[i] }], cur: p })
   }
 
-  // quadra na fase run: rascunho com idx -1 — toque vira moveTo, arrasto é ignorado
+  // quadra na fase run (ao vivo): rascunho com idx -1 — toque vira moveTo, arrasto é ignorado
   const onBoardDown = (e: RPointerEvent<SVGSVGElement>) => {
-    if (ref.current.phase !== 'run') return
+    if (ref.current.phase !== 'run' || !goRef.current) return
     const p = toCourt(e)
     if (!p) return
     svgRef.current?.setPointerCapture(e.pointerId)
@@ -180,6 +193,12 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     const s = ref.current
     const dragged = pts.length >= 2 || Math.hypot(cur.x - pts[0].x, cur.y - pts[0].y) > TAP
     const route = pts.length >= 2 ? pts : [pts[0], cur]
+    if (s.phase === 'run' && !goRef.current) {              // pausado: só desenho (spec D)
+      if (idx < 0) return
+      if (dragged) { snapshot(); return void act(x => setRoute(x, idx, route)) }
+      if (s.routes[idx].points.length >= 2) { snapshot(); act(x => toggleScreen(x, idx)) }
+      return
+    }
     if (idx < 0) {                                    // quadra: só o toque conta (infiltração)
       if (!dragged) act(x => moveTo(x, cur.x, cur.y))
       return
@@ -218,10 +237,6 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     setSt(prev)
   }
 
-  // estável: TimingBar guarda o onTap nas deps do listener de teclado
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const onReboundTap = useCallback((hit: 'perfect' | 'hit' | 'miss') => act(s => reboundTap(s, hit)), [])
-
   const onFreeThrows = (q: number) => {
     if (resolved.current) return
     resolved.current = true
@@ -237,12 +252,13 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   const phase = st.phase
   const drawing = phase === 'read' || phase === 'draw'
   const running = phase === 'run'
-  const live = running && !st.ball.flying
+  const paused = running && !go
+  const live = running && !st.ball.flying && go   // ações ao vivo (finta/bloqueio/passe/infiltração)
+  const canShoot = running && !st.ball.flying      // ARREMESSAR funciona também na pausa
   const holder = st.ball.holder
   const opt = shotOptionFor(st)
   const open = st.ball.flying ? 0 : openness(st, holder)
-  const phaseKey = phase === 'read' ? 'read' : phase === 'draw' ? 'draw' : phase === 'rebound' ? 'rebound'
-    : running && isSettled(st) ? 'paused' : 'run'
+  const phaseKey = phase === 'read' ? 'read' : phase === 'draw' ? 'draw' : paused ? 'paused' : 'run'
   const ball = ballPos(st)
 
   // bola no arremesso: vai ao aro em 500ms; depois obedece `outcome` (entra / quica pra fora)
@@ -328,57 +344,54 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
         {heads[0] && <div className="mg-headline">{t(lang, heads[0])}</div>}
       </div>
 
-      {drawing && (
+      {(drawing || paused) && (
         <>
-          <p className="mg-pb__hint">{t(lang, 'mg.pb.drawHint')}</p>
-          <div className="mg-pb__chips">
-            {TEMPLATE_IDS.map(tpl => (
-              <button key={tpl} type="button" className="mg-btn mg-pb__chip" disabled={phase === 'read'}
-                onClick={() => { snapshot(); act(s => applyTemplate(s, tpl)) }}>
-                {t(lang, 'mg.pb.template.' + tpl)}
-              </button>
-            ))}
-          </div>
+          <p className="mg-pb__hint">{t(lang, paused ? 'mg.pb.pauseHint' : 'mg.pb.drawHint')}</p>
+          {drawing && (
+            <div className="mg-pb__chips">
+              {TEMPLATE_IDS.map(tpl => (
+                <button key={tpl} type="button" className="mg-btn mg-pb__chip" disabled={phase === 'read'}
+                  onClick={() => { snapshot(); act(s => applyTemplate(s, tpl)) }}>
+                  {t(lang, 'mg.pb.template.' + tpl)}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mg-row">
             <button type="button" className="mg-btn" disabled={phase === 'read'} onClick={clearRoutes}>{t(lang, 'mg.pb.clear')}</button>
             <button type="button" className="mg-btn" disabled={phase === 'read' || undoRef.current.length === 0} onClick={undo}>{t(lang, 'mg.pb.undo')}</button>
-            <button type="button" className="mg-btn mg-btn--red" disabled={phase === 'read'} onClick={() => act(startRun)}>{t(lang, 'mg.pb.run')}</button>
+            <button type="button" className="mg-btn mg-btn--red" disabled={phase === 'read'} onClick={() => { act(startRun); setGo(true) }}>{t(lang, 'mg.pb.run')}</button>
           </div>
         </>
       )}
 
       {running && (
         <>
-          <div className="mg-row">
-            <button type="button" className="mg-btn" disabled={!live} onClick={() => act(s => feint(s, rng, input))}>{t(lang, 'mg.pb.act.feint')}</button>
-            <button type="button" className="mg-btn" disabled={!live} onClick={() => act(callScreen)}>{t(lang, 'mg.pb.act.screen')}</button>
-            <button type="button" className="mg-btn" disabled={!live} onClick={() => act(s => pumpFake(s, rng, input))}>{t(lang, 'mg.pb.act.pump')}</button>
-            <button type="button" className={'mg-btn' + (risky ? ' mg-pb__armed' : '')} aria-pressed={risky}
-              disabled={!live} onClick={() => setRisky(r => !r)}>{t(lang, 'mg.pb.act.risky')}</button>
-          </div>
+          {!paused && (
+            <div className="mg-row">
+              <button type="button" className="mg-btn" disabled={!live} onClick={() => act(s => feint(s, rng, input))}>{t(lang, 'mg.pb.act.feint')}</button>
+              <button type="button" className="mg-btn" disabled={!live} onClick={() => act(callScreen)}>{t(lang, 'mg.pb.act.screen')}</button>
+              <button type="button" className="mg-btn" disabled={!live} onClick={() => act(s => pumpFake(s, rng, input))}>{t(lang, 'mg.pb.act.pump')}</button>
+              <button type="button" className={'mg-btn' + (risky ? ' mg-pb__armed' : '')} aria-pressed={risky}
+                disabled={!live} onClick={() => setRisky(r => !r)}>{t(lang, 'mg.pb.act.risky')}</button>
+            </div>
+          )}
           <div className="mg-row">
             {opt === 'layup-or-dunk' ? (
               <>
-                <button type="button" className="mg-btn mg-btn--red" disabled={!live} onClick={() => act(s => shoot(s, 'layup'))}>{t(lang, 'mg.type.layup')}</button>
-                <button type="button" className="mg-btn" disabled={!live} onClick={() => act(s => shoot(s, 'floater'))}>{t(lang, 'mg.shot.type.floater')}</button>
-                {canDunk && <button type="button" className="mg-btn" disabled={!live} onClick={() => act(s => shoot(s, 'dunk'))}>{t(lang, 'mg.type.dunk')}</button>}
+                <button type="button" className="mg-btn mg-btn--red" disabled={!canShoot} onClick={() => act(s => shoot(s, rng, input, 'layup'))}>{t(lang, 'mg.type.layup')}</button>
+                <button type="button" className="mg-btn" disabled={!canShoot} onClick={() => act(s => shoot(s, rng, input, 'floater'))}>{t(lang, 'mg.shot.type.floater')}</button>
+                {canDunk && <button type="button" className="mg-btn" disabled={!canShoot} onClick={() => act(s => shoot(s, rng, input, 'dunk'))}>{t(lang, 'mg.type.dunk')}</button>}
               </>
             ) : (
-              <button type="button" className={'mg-btn mg-btn--red' + (opt === 'mgThree' ? ' mg-btn--warm' : '')} disabled={!live}
-                onClick={() => act(s => shoot(s))}>
+              <button type="button" className={'mg-btn mg-btn--red' + (opt === 'mgThree' ? ' mg-btn--warm' : '')} disabled={!canShoot}
+                onClick={() => act(s => shoot(s, rng, input))}>
                 {t(lang, 'mg.shoot')}
                 <span className="mg-pb__btn-sub">{t(lang, opt === 'mgAssist' ? 'mg.type.assist' : opt === 'mgThree' ? 'mg.type.three' : 'mg.type.mid')}</span>
               </button>
             )}
           </div>
         </>
-      )}
-
-      {phase === 'rebound' && (
-        <div className="mg-pb__rebound">
-          <TimingBar periodMs={1100} window={{ center: 0.5, half: reboundWindow(input.mods, five) }} running
-            label={t(lang, 'mg.pb.phase.rebound')} onTap={onReboundTap} />
-        </div>
       )}
 
       {res && (
