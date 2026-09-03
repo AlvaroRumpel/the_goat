@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
 import type { MinigameProps } from './types'
 import type { Rng } from '../../engine/types'
 import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
-import { attrMods, difficulty, opponentFive } from '../../engine/minigames/common'
+import { attrMods, difficulty, opponentFive, reboundWindow } from '../../engine/minigames/common'
 import { freeThrowQuality } from '../../engine/minigames/shot'
 import {
   applyTemplate, callScreen, COURT, createPlaybook, feint, moveTo, openness, pass, pumpFake,
@@ -251,6 +251,10 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     setSt(prev)
   }
 
+  // estável: TimingBar guarda o onTap nas deps do listener de teclado
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const onReboundTap = useCallback((hit: 'perfect' | 'hit' | 'miss') => act(s => reboundTap(s, hit)), [])
+
   const onFreeThrows = (q: [number, number]) => {
     if (resolved.current) return
     resolved.current = true
@@ -260,7 +264,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   }
 
   // falta puxada: os lances livres decidem a quality antes do despacho
-  if (foulPending && ftReady && !ftDone) return <FreeThrows lang={lang} build={build} age={age} onDone={onFreeThrows} />
+  if (foulPending && ftReady && !ftDone) return <FreeThrows lang={lang} build={build} age={age} quarter={quarter} onDone={onFreeThrows} />
 
   // ---------- render ----------
   const phase = st.phase
@@ -409,8 +413,8 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
 
       {phase === 'rebound' && (
         <div className="mg-pb__rebound">
-          <TimingBar periodMs={1100} window={{ center: 0.5, half: input.mods.boxWindow }} running
-            label={t(lang, 'mg.pb.phase.rebound')} onTap={hit => act(s => reboundTap(s, hit))} />
+          <TimingBar periodMs={1100} window={{ center: 0.5, half: reboundWindow(input.mods, five) }} running
+            label={t(lang, 'mg.pb.phase.rebound')} onTap={onReboundTap} />
         </div>
       )}
 

@@ -1,22 +1,6 @@
 import { useEffect, type RefObject } from 'react'
 import * as THREE from 'three'
 
-let probed: boolean | null = null
-// `thegoat:noWebgl = '1'` força o fallback 2D (teste manual/e2e). A sondagem real custa um
-// canvas: feita uma vez e guardada, porque o roteamento chama isto a cada render do painel.
-export function hasWebGL(): boolean {
-  try { if (localStorage.getItem('thegoat:noWebgl') === '1') return false } catch { /* sem storage */ }
-  if (probed === null) {
-    try {
-      const c = document.createElement('canvas')
-      probed = !!(c.getContext('webgl2') || c.getContext('webgl'))
-    } catch {
-      probed = false
-    }
-  }
-  return probed
-}
-
 export interface SceneCtx {
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
@@ -66,7 +50,8 @@ export function useThreeScene(
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    const vis = () => { running = !document.hidden; if (running) { last = performance.now(); raf = requestAnimationFrame(tick) } }
+    // cancela SEMPRE antes de decidir: sem isto, um hide→show enfileira um 2º rAF (loop dobrado)
+    const vis = () => { cancelAnimationFrame(raf); running = !document.hidden; if (running) { last = performance.now(); raf = requestAnimationFrame(tick) } }
     document.addEventListener('visibilitychange', vis)
     return () => {
       running = false
@@ -74,6 +59,7 @@ export function useThreeScene(
       ro.disconnect()
       document.removeEventListener('visibilitychange', vis)
       cleanup?.()
+      renderer.forceContextLoss()
       renderer.dispose()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

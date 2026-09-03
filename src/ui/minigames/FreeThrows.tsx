@@ -12,13 +12,14 @@ const POWER_MS = 1400, ANGLE_MS = 1200
 const POWER_MAX = 1.6
 const FT: keyof typeof SHOTS = 'mid'      // 5.0m ≈ linha do lance livre (4.57m)
 
-export function FreeThrows({ lang, build, age, onDone }: {
+export function FreeThrows({ lang, build, age, quarter, onDone }: {
   lang: Lang
   build: Build
   age: number
+  quarter: number
   onDone(q: [number, number]): void
 }) {
-  const mods = useMemo(() => attrMods(build, age), [build, age])
+  const mods = useMemo(() => attrMods(build, age, quarter), [build, age, quarter])
   const [shot, setShot] = useState(0)                       // 0 ou 1
   const [stage, setStage] = useState<0 | 1>(0)
   const [, setFrame] = useState(0)

@@ -154,6 +154,18 @@ describe('ações', () => {
     const again = reboundTap(r, 'hit'); expect(again.phase).toBe('run'); expect(again.clock).toBe(5)
     const miss = reboundTap(r, 'miss'); expect(miss.phase).toBe('shooting'); expect(miss.result!.quality).toBeCloseTo(r.firstShotOpenness!, 5)
   })
+  test('putback (spec §2.3): quality = max(1ª abertura, 0.8 × abertura do putback), sem bônus, ≤ 1', () => {
+    let tight = live(11, 'iso'); tight = { ...tight, passes: 4, defenders: tight.defenders.map(d => ({ ...d, x: tight.attackers[0].x + 0.4, y: tight.attackers[0].y })) }
+    const r = shoot(tight)
+    expect(r.phase).toBe('rebound')
+    const second = { ...reboundTap(r, 'hit'), defenders: r.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
+    expect(second.reboundUsed).toBe(true)
+    const put = shoot(second)
+    expect(put.phase).toBe('shooting')
+    const expected = Math.max(r.firstShotOpenness!, 0.8 * openness(second, second.ball.holder))
+    expect(put.result!.quality).toBeCloseTo(expected, 5)   // 0.8 puro: sem tipo, relógio nem criação
+    expect(put.result!.quality).toBeLessThanOrEqual(1)
+  })
   test('bônus de criação: 2 passes antes do arremesso somam 0.1', () => {
     let s = live(7); s = { ...s, defenders: s.defenders.map(d => ({ ...d, x: 0.5, y: 13.5 })) }
     const solo = shoot(s).result!.quality

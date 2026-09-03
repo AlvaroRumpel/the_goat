@@ -67,4 +67,3 @@
   opacity: 0.7; margin-left: 6px; }
 .mg-pb__rebound { display: flex; flex-direction: column; gap: 6px; padding: 10px; margin-top: 1px;
   background: var(--ink); }
-.mg-pb__rebound .mg-timing { height: 44px; }

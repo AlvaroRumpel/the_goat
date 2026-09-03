@@ -69,3 +69,12 @@ export function timingHit(t: number, center: number, halfWidth: number): 'perfec
   return d <= halfWidth * 0.25 ? 'perfect' : d <= halfWidth ? 'hit' : 'miss'
 }
 export function freeThrowP(ovr: number): number { return clamp(0.62 + (ovr - 60) * 0.006, 0.4, 0.92) }
+
+// janela do rebote ofensivo (spec §2.3): seu box-out contra o reboteiro deles —
+// tag `rebounder`, senão o maior ovr entre C/PF, senão o primeiro do five.
+export function reboundWindow(mods: AttrMods, five: OppPlayer[]): number {
+  const r = five.find(p => p.tags.includes('rebounder'))
+    ?? five.filter(p => p.pos === 'C' || p.pos === 'PF').sort((a, b) => b.ovr - a.ovr)[0]
+    ?? five[0]
+  return clamp(mods.boxWindow * (1 - (r.ovr - 75) / 100), 0.05, 0.3)
+}

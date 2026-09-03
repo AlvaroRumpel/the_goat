@@ -28,7 +28,6 @@ export type Template = 'pnr' | 'horns' | 'doubleScreen' | 'iso' | 'fiveOut' | 't
 export type ShotOption = 'layup-or-dunk' | 'mgMid' | 'mgThree' | 'mgAssist'
 // contrato do sentinela de falta: pumpFake marca s.result = { optionId: 'mgFreeThrow', quality: -1 } —
 // a UI roda FreeThrows e substitui quality antes de despachar; nunca enviar -1 pro reducer.
-export interface FoulResult { foul: true }
 
 export interface Route { points: Pos[]; screen: boolean }
 
@@ -358,13 +357,18 @@ export function shoot(s: PlaybookState, finish?: 'layup' | 'dunk' | 'floater'): 
     next.firstShotOpenness = eff
     return next
   }
+  next.phase = 'shooting'
+  // putback (spec §2.3): fórmula literal — max(primeira abertura, 0.8 × abertura do putback),
+  // sem bônus de criação, sem fator de relógio e sem fator de tipo.
+  if (next.reboundUsed) {
+    next.result = { optionId, quality: Math.min(1, Math.max(next.firstShotOpenness ?? 0, 0.8 * openness(next, holder))) }
+    return next
+  }
   const screenedRecently = next.t - next.lastScreenAt <= 1.5
   const typeFactor = optionId === 'mgThree' ? 0.9 : optionId === 'mgMid' ? 0.95 : 1
   const clockFactor = next.clock < 2 ? 0.85 : 1
   const creationBonus = next.passes >= 2 || screenedRecently ? 0.1 : 0
-  const quality = eff < 0.4 ? eff : Math.min(1, eff * typeFactor * clockFactor + creationBonus)
-  next.phase = 'shooting'
-  next.result = { optionId, quality }
+  next.result = { optionId, quality: Math.min(1, eff * typeFactor * clockFactor + creationBonus) }
   return next
 }
 
@@ -384,6 +388,7 @@ export function reboundTap(s: PlaybookState, hit: 'perfect' | 'hit' | 'miss'): P
 }
 
 export function moveTo(s: PlaybookState, x: number, y: number): PlaybookState {
+  if (!isLive(s)) return s
   const next = clone(s)
   const holder = next.ball.holder
   const dest = clampCourt({ x, y }, COURT)

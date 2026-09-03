@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { minigameFor, minigameSeed, type MinigameResult } from '../../engine/minigames'
 import { opponentStar } from '../../engine/minigames/common'
 import { PlaybookGame } from './Playbook'
-import { ShotGame } from './Shot'
 import { ShotFallback } from './ShotFallback'
-import { DefenseGame } from './Defense'
 import { DefenseFallback } from './DefenseFallback'
-import { hasWebGL } from './three/useThreeScene'
+import { hasWebGL } from './three/webgl'
+
+// three.js só entra no bundle de quem abre arremesso/muralha com WebGL (chunk próprio)
+const ShotGame = lazy(() => import('./Shot').then(m => ({ default: m.ShotGame })))
+const DefenseGame = lazy(() => import('./Defense').then(m => ({ default: m.DefenseGame })))
 
 const HOLD_MS = 1400
 
@@ -79,20 +81,22 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
       </div>
       <div style={{ fontSize: 15, lineHeight: 1.4 }}>{t(lang, moment.situationKey, moment.params)}</div>
       <div className="mg-frame__hint">{t(lang, 'mg.hint.' + kind)}</div>
-      <Comp
-        key={idx}
-        seed={seedRef.current!.seed}
-        context={pending.context}
-        build={state.build!}
-        age={state.age}
-        quarter={Math.min(4, Math.floor(moment.at / 12) + 1)}
-        league={state.league!}
-        number={state.career.number}
-        lastName={state.career.lastName}
-        lang={lang}
-        onResolve={onResolve}
-        outcome={outcome}
-      />
+      <Suspense fallback={<div className="mg" style={{ minHeight: 200 }} />}>
+        <Comp
+          key={idx}
+          seed={seedRef.current!.seed}
+          context={pending.context}
+          build={state.build!}
+          age={state.age}
+          quarter={Math.min(4, Math.floor(moment.at / 12) + 1)}
+          league={state.league!}
+          number={state.career.number}
+          lastName={state.career.lastName}
+          lang={lang}
+          onResolve={onResolve}
+          outcome={outcome}
+        />
+      </Suspense>
       {holding === null && (
         <button type="button" onClick={() => dispatch({ type: 'SKIP_GAME' })}
           className="mono-label" style={{ background: 'none', border: 0, color: 'var(--on-ink-dim)', textAlign: 'center', cursor: 'pointer' }}>
