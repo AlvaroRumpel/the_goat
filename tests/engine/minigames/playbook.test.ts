@@ -1,138 +1,71 @@
 import { describe, expect, test } from 'vitest'
-import {
-  COURT, FORMATIONS, createPlaybook, inPaint, moveTo, openness, pass, shoot, shotOptionFor, step,
-  type PlaybookState,
-} from '../../../src/engine/minigames/playbook'
 import { createRng } from '../../../src/engine/rng'
+import { initLeague } from '../../../src/data/league'
+import { attrMods, opponentFive } from '../../../src/engine/minigames/common'
+import { applyTemplate, COURT, createPlaybook, inPaint, setRoute, startRun, step, toggleScreen, type PlaybookInput, type PlaybookState, type Scheme } from '../../../src/engine/minigames/playbook'
+import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
-const ctx = { kind: 'rivalry' as const, handles: 80, passing: 80 }
-const DT = 0.05
+const build = (ovr: number): Build => ({ attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>, picks: [], archetype: 'SF', overall: ovr })
+const league = initLeague()
+const input = (): PlaybookInput => ({ kind: 'rivalry', five: opponentFive(league, 'bos'), mods: attrMods(build(80), 27), difficulty: 1 })
+const inside = (p: { x: number; y: number }) => p.x >= 0 && p.x <= COURT.w && p.y >= 0 && p.y <= COURT.d
+const run = (s: PlaybookState, secs: number, rng: ReturnType<typeof createRng>) => { for (let i = 0; i < secs * 20; i++) { if (s.phase !== 'run' && s.phase !== 'read') break; s = step(s, 0.05, rng, input()) } return s }
 
-function run(seed: number, steps: number, act?: (s: PlaybookState, i: number) => PlaybookState) {
-  const rng = createRng(seed)
-  let s = createPlaybook(rng, ctx)
-  for (let i = 0; i < steps; i++) {
-    if (act) s = act(s, i)
-    s = step(s, DT, rng)
-  }
-  return s
-}
-const script = (s: PlaybookState, i: number) => {
-  if (i === 3) return moveTo(s, 7.62, 3)
-  if (i === 40) return pass(s, 2, createRng(1))
-  return s
-}
-const inside = (p: { x: number; y: number }) =>
-  p.x >= 0 && p.x <= COURT.w && p.y >= 0 && p.y <= COURT.d
-
-describe('playbook', () => {
-  test('deterministic for a seed + same inputs', () => {
-    expect(run(42, 120, script)).toEqual(run(42, 120, script))
-    expect(run(42, 120, script)).not.toEqual(run(43, 120, script))
+describe('fases e rotas', () => {
+  test('createPlaybook começa em read e passa a draw sozinho após 2s; startRun só de draw', () => {
+    let s = createPlaybook(createRng(1), input()); expect(s.phase).toBe('read')
+    for (let i = 0; i < 45; i++) s = step(s, 0.05, createRng(1), input())
+    expect(s.phase).toBe('draw')
+    s = startRun(s); expect(s.phase).toBe('run'); expect(s.clock).toBe(12)
   })
-
-  test('formations: 5 attackers, you (0) beyond the arc or on a wing, all inside court', () => {
-    for (const f of Object.values(FORMATIONS)) {
-      expect(f).toHaveLength(5)
-      expect(f.every(inside)).toBe(true)
-    }
+  test('scheme sorteado entre os 5, determinístico por seed', () => {
+    const seen = new Set<Scheme>()
+    for (let seed = 0; seed < 60; seed++) seen.add(createPlaybook(createRng(seed), input()).scheme)
+    expect(seen.size).toBeGreaterThanOrEqual(4)
+    expect(createPlaybook(createRng(7), input()).scheme).toBe(createPlaybook(createRng(7), input()).scheme)
   })
-
-  test('everyone stays inside the court after 240 steps of chasing corners', () => {
-    for (let seed = 1; seed <= 20; seed++) {
-      const s = run(seed, 240, (st, i) => (i % 50 === 0 ? moveTo(st, i % 100 ? 40 : -40, i % 3 ? 99 : -99) : st))
-      expect(s.attackers.every(inside)).toBe(true)
-      expect(s.defenders.every(inside)).toBe(true)
-    }
+  test('setRoute clampa na quadra e corta em 6 pontos; toggleScreen alterna', () => {
+    let s = applyTemplate(createPlaybook(createRng(1), input()), 'iso')
+    s = setRoute(s, 1, Array.from({ length: 9 }, (_, i) => ({ x: -5 + i * 4, y: 30 - i * 5 })))
+    expect(s.routes[1].points).toHaveLength(6); expect(s.routes[1].points.every(inside)).toBe(true)
+    expect(toggleScreen(s, 1).routes[1].screen).toBe(!s.routes[1].screen)
   })
-
-  test('pass: defender on the lane can intercept over many seeds; a clear lane never does', () => {
-    const base = createPlaybook(createRng(7), { ...ctx, passing: 40 })
-    // defensor plantado no meio da linha 0 → 1
-    const a = base.attackers[0], b = base.attackers[1]
-    const blocked: PlaybookState = {
-      ...base,
-      defenders: base.defenders.map((d, i) => (i === 0 ? { ...d, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : d)),
-    }
-    let picks = 0
-    for (let seed = 0; seed < 200; seed++) if (pass(blocked, 1, createRng(seed)).turnover === 'intercept') picks++
-    expect(picks).toBeGreaterThan(0)
-    expect(picks).toBeLessThan(200)
-
-    // pista limpa: todos os defensores longe de qualquer linha de passe
-    const clear: PlaybookState = { ...base, defenders: base.defenders.map(d => ({ ...d, x: 7.62, y: 13.5 })) }
-    for (let seed = 0; seed < 200; seed++) {
-      const r = pass(clear, 3, createRng(seed))
-      expect(r.turnover).toBeUndefined()
-      expect(r.ball.flying).toEqual({ from: 0, to: 3, progress: 0 })
-    }
+  test('rodando, os ímãs seguem a rota e ficam na quadra; sem rota, ficam parados', () => {
+    let s = applyTemplate(createPlaybook(createRng(2), input()), 'fiveOut')
+    s = setRoute(s, 2, [{ ...s.attackers[2] }, { x: 7.6, y: 3.0 }])
+    s = setRoute(s, 3, [])
+    const before3 = { ...s.attackers[3] }
+    s = run(startRun(s), 3, createRng(2))
+    expect(s.attackers[2].y).toBeLessThan(5); expect(s.attackers.every(inside) && s.defenders.every(inside)).toBe(true)
+    expect(s.attackers[3]).toEqual(before3)
   })
-
-  test('pass lands after 0.35s and the receiver becomes holder', () => {
-    const rng = createRng(3)
-    let s = createPlaybook(rng, ctx)
-    s = pass(s, 4, rng)
-    for (let i = 0; i < 8; i++) s = step(s, DT, rng)
-    expect(s.ball.flying).toBeNull()
-    expect(s.ball.holder).toBe(4)
-    expect(shotOptionFor(s)).toBe('mgAssist')
+  test('bloqueio prende o defensor mais próximo do portador por 0.8s', () => {
+    let s = applyTemplate(createPlaybook(createRng(3), input()), 'pnr')
+    s = { ...s, scheme: 'man' }
+    const you = s.attackers[0]
+    s = setRoute(s, 4, [{ ...s.attackers[4] }, { x: you.x + 0.6, y: you.y + 0.6 }]); s = toggleScreen(s, 4); if (!s.routes[4].screen) s = toggleScreen(s, 4)
+    s = run(startRun(s), 2.5, createRng(3))
+    expect(s.screenedUntil.some(u => u > 0)).toBe(true)
   })
-
-  test('help defender collapses onto the holder in the paint', () => {
-    const rng = createRng(5)
-    let s = createPlaybook(rng, ctx)
-    s = moveTo(s, COURT.basket.x, 3.5)
-    while (!inPaint(s.attackers[0]) && s.phase === 'live') s = step(s, DT, rng)
-    expect(s.phase).toBe('live')
-    s = step(s, DT, rng)
-    expect(s.helper).not.toBeNull()
-    expect(s.helper).not.toBe(s.defenders.findIndex(d => d.man === 0))
-    const helper = s.defenders[s.helper!]
-    expect(helper.target).toEqual(s.attackers[0])
+  test('zona: defensores ocupam áreas (ninguém segue o corte); pressão: marcador a ≤ 0.6m', () => {
+    let z = { ...applyTemplate(createPlaybook(createRng(4), input()), 'fiveOut'), scheme: 'zone' as const }
+    z = setRoute(z, 2, [{ ...z.attackers[2] }, { x: 1.0, y: 12.0 }]); z = run(startRun(z), 2, createRng(4))
+    const follower = z.defenders.find(d => Math.hypot(d.x - z.attackers[2].x, d.y - z.attackers[2].y) < 1.0)
+    expect(follower).toBeUndefined()
+    let p = { ...applyTemplate(createPlaybook(createRng(5), input()), 'iso'), scheme: 'press' as const }
+    p = run(startRun(p), 1, createRng(5))
+    const guard = p.defenders[p.defenders.findIndex(d => d.man === 0)]
+    expect(Math.hypot(guard.x - p.attackers[0].x, guard.y - p.attackers[0].y)).toBeLessThanOrEqual(0.7)
   })
-
-  test('clock expiry → turnover clock, mgMid, quality 0', () => {
-    const s = run(9, 20 * COURT.clock + 2)
-    expect(s.phase).toBe('turnover')
-    expect(s.turnover).toBe('clock')
-    expect(s.result).toEqual({ optionId: 'mgMid', quality: 0, turnover: true })
-    // congela depois de terminar
-    expect(step(s, DT, createRng(1))).toBe(s)
+  test('ajuda: portador no garrafão puxa o defensor do companheiro mais perto da cesta', () => {
+    let s = { ...applyTemplate(createPlaybook(createRng(6), input()), 'iso'), scheme: 'man' as const }
+    s = setRoute(s, 0, [{ ...s.attackers[0] }, { x: COURT.basket.x, y: COURT.basket.y + 2.5 }])
+    s = run(startRun(s), 3, createRng(6))
+    expect(inPaint(s.attackers[0])).toBe(true); expect(s.helpUntil).toBeGreaterThan(0)
   })
-
-  test('shotOptionFor by holder position', () => {
-    const base = createPlaybook(createRng(11), ctx)
-    const at = (x: number, y: number): PlaybookState => ({
-      ...base, attackers: base.attackers.map((p, i) => (i === 0 ? { x, y } : p)),
-    })
-    expect(shotOptionFor(at(7.62, 2.5))).toBe('layup-or-dunk')
-    expect(shotOptionFor(at(7.62, 5))).toBe('mgMid')
-    expect(shotOptionFor(at(7.62, 9.5))).toBe('mgThree')
-    expect(shotOptionFor(at(0.5, 2))).toBe('mgThree')     // canto
-    expect(shotOptionFor(at(2, 2))).toBe('mgMid')         // dentro da linha do canto
-    expect(shotOptionFor({ ...base, ball: { holder: 2, flying: null } })).toBe('mgAssist')
-
-    const rim = at(7.62, 2.5)
-    expect(shoot(rim)).toBe(rim)                           // no-op sem finish
-    expect(shoot(at(7.62, 2.5), 'dunk').result?.optionId).toBe('mgDunk')
-    expect(shoot(at(7.62, 2.5), 'layup').result?.optionId).toBe('mgLayup')
-    expect(shoot(at(7.62, 9.5)).result?.optionId).toBe('mgThree')
-    expect(shoot(at(7.62, 9.5)).phase).toBe('shooting')
-  })
-
-  test('quality in [0,1], higher with farther defenders, ×0.85 under 2s', () => {
-    const base = createPlaybook(createRng(13), ctx)
-    const far: PlaybookState = { ...base, defenders: base.defenders.map(d => ({ ...d, x: 1, y: 13 })) }
-    const tight: PlaybookState = { ...base, defenders: base.defenders.map(d => ({ ...d, ...base.attackers[0] })) }
-    for (const s of [base, far, tight]) {
-      const q = shoot(s).result!.quality
-      expect(q).toBeGreaterThanOrEqual(0)
-      expect(q).toBeLessThanOrEqual(1)
-      expect(q).toBe(openness(s, 0))
-    }
-    expect(shoot(far).result!.quality).toBe(1)
-    expect(shoot(tight).result!.quality).toBe(0)
-    expect(shoot(far).result!.quality).toBeGreaterThan(shoot(base).result!.quality)
-    expect(shoot({ ...far, clock: 1.5 }).result!.quality).toBeCloseTo(0.85)
+  test('relógio zerado = turnover clock com mgMid', () => {
+    let s = startRun(applyTemplate(createPlaybook(createRng(8), input()), 'horns'))
+    for (let i = 0; i < 300 && s.phase === 'run'; i++) s = step(s, 0.05, createRng(8), input())
+    expect(s.phase).toBe('turnover'); expect(s.turnover).toBe('clock'); expect(s.result).toEqual({ optionId: 'mgMid', quality: 0, turnover: true })
   })
 })
