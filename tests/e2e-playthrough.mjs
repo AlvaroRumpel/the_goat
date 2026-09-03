@@ -688,26 +688,69 @@ async function main() {
     if (mgCount !== 1 || optionCount !== 0) exitCode = 1
     await arcadePage.screenshot({ path: `${SHOTS_DIR}/20-arcade-minigame.png` })
 
-    // play the first moment if it's the reaction defense (keyboard); otherwise just
-    // hand the rest to the auto policy — the point here is the wiring, not the skill.
+    // Play the first moment's minigame to its outcome — one branch per kind (§2-4 of the
+    // arcade v2 spec). Skill isn't the point here, wiring and rendering are: the wall
+    // (mg-defense) gets alternating slide gestures, the playbook (mg-pb) rolls the default
+    // routes and takes whatever shot the ball-handler has, the 3D shot (mg-shot) picks a
+    // type, switches to the meter, and taps twice to lock aim + once to release the jump.
     if (await arcadePage.locator('.mg-defense').count() > 0) {
-      for (let k = 0; k < 10; k++) { await arcadePage.keyboard.press('ArrowLeft'); await arcadePage.waitForTimeout(450) }
-      await arcadePage.waitForSelector('.mg-result', { timeout: 10000 }).catch(() => {})
-      const resolved = await arcadePage.locator('.mg-result').count()
-      console.log(`[assert] modo arcade: defense minigame resolved with an outcome overlay: ${resolved === 1}`)
-      if (resolved !== 1) exitCode = 1
-      await arcadePage.screenshot({ path: `${SHOTS_DIR}/21-arcade-outcome.png` })
-      await arcadePage.waitForTimeout(1600)
+      log('arcade minigame: muralha (duelo 1x1) — alternating ArrowLeft/ArrowRight for 9s')
+      for (let k = 0; k < 30; k++) {
+        await arcadePage.keyboard.press(k % 2 === 0 ? 'ArrowLeft' : 'ArrowRight')
+        await arcadePage.waitForTimeout(300)
+      }
+    } else if (await arcadePage.locator('.mg-pb').count() > 0) {
+      log('arcade minigame: prancheta (playbook) — RODAR then shoot')
+      await arcadePage.locator('button', { hasText: 'RODAR' }).click()
+      await arcadePage.waitForTimeout(1000)
+      const shootBtn = arcadePage.locator('button', { hasText: 'ARREMESSAR' })
+      if (await shootBtn.count() > 0) await shootBtn.click()
+      else await arcadePage.locator('button', { hasText: 'BANDEJA' }).click()
+    } else if (await arcadePage.locator('.mg-shot').count() > 0) {
+      log('arcade minigame: arremesso 3D — type, medidor, 2 taps to lock + 1 to jump')
+      await arcadePage.locator('.mg-sh-pickbtn').first().click()
+      await arcadePage.locator('button', { hasText: 'MEDIDOR' }).click()
+      await arcadePage.waitForTimeout(150)
+      await arcadePage.keyboard.press('Space') // power
+      await arcadePage.waitForTimeout(150)
+      await arcadePage.keyboard.press('Space') // angle -> jump phase
+      await arcadePage.waitForTimeout(150)
+      await arcadePage.keyboard.press('Space') // jump timing -> release
     }
-    const sim = arcadePage.locator('button', { hasText: 'SIMULAR O RESTO DO JOGO' })
-    if (await sim.count() === 0) {
-      // between moments the panel is hidden while the clock runs — skip the feed first
+
+    // The `.mg-result` overlay is short-lived (~600-800ms) — wait for it right after the
+    // last input, and accept the arcade having already reached gameResult (PLACAR FINAL)
+    // as an alternative success signal in case the overlay window was missed.
+    let resolved = false
+    try {
+      await arcadePage.waitForSelector('.mg-result', { timeout: 15000 })
+      resolved = true
+    } catch {
+      resolved = await arcadePage.locator('text=PLACAR FINAL').count() > 0
+    }
+    console.log(`[assert] modo arcade: first minigame resolved with an outcome overlay (or gameResult): ${resolved}`)
+    if (!resolved) exitCode = 1
+    await arcadePage.screenshot({ path: `${SHOTS_DIR}/21-arcade-outcome.png` })
+
+    // ArcadePanel holds the outcome for HOLD_MS (1400ms) before releasing — either to the
+    // next moment, or (on the last moment) it dispatches FINISH_GAME straight to gameResult.
+    await arcadePage.waitForTimeout(1600)
+    if (await arcadePage.locator('text=PLACAR FINAL').count() > 0) {
+      console.log('[assert] modo arcade: game ended after the first moment, landed on PLACAR FINAL: true')
+    } else {
+      log('modo arcade: next moment — skip the feed to reach it, then simulate the rest')
       await arcadePage.locator('.game-plays').click().catch(() => {})
       await arcadePage.waitForSelector('.mg', { timeout: 20000 }).catch(() => {})
+      const sim = arcadePage.locator('button', { hasText: 'SIMULAR O RESTO DO JOGO' })
+      if (await sim.count() === 0) {
+        // between moments the panel is hidden while the clock runs — skip the feed again
+        await arcadePage.locator('.game-plays').click().catch(() => {})
+        await arcadePage.waitForSelector('.mg', { timeout: 20000 }).catch(() => {})
+      }
+      await arcadePage.locator('button', { hasText: 'SIMULAR O RESTO DO JOGO' }).click()
+      await arcadePage.waitForSelector('text=PLACAR FINAL', { timeout: 10000 })
+      console.log('[assert] modo arcade: SKIP_GAME from a minigame lands on gameResult: true')
     }
-    await arcadePage.locator('button', { hasText: 'SIMULAR O RESTO DO JOGO' }).click()
-    await arcadePage.waitForSelector('text=PLACAR FINAL', { timeout: 10000 })
-    console.log('[assert] modo arcade: SKIP_GAME from a minigame lands on gameResult: true')
 
     await arcadeContext.close()
 
