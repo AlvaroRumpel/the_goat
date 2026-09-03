@@ -1,35 +1,70 @@
-/* --- minigame JOGADA (quadro tático) — prefixo mg-pb- --- */
-.mg-pb__top { display: flex; justify-content: space-between; align-items: center; gap: 12px;
+/* --- minigame JOGADA (prancheta) — prefixo mg-pb-. Madeira sépia + tinta + ímãs vermelhos
+   (spec §8, "Direção 2 · Plano refinado"). --- */
+.mg-pb {
+  --pb-wood-a: #DDD0B3;   /* tábua clara */
+  --pb-wood-b: #D3C4A3;   /* tábua escura */
+  --pb-joint: #BFAE86;    /* junta do tabuado */
+}
+
+.mg-pb__top { display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 8px 10px; background: var(--ink); color: var(--on-ink); }
 .mg-pb__clock { font-family: var(--mono); font-size: 16px; font-weight: 500; letter-spacing: 0.08em;
   color: var(--accent-warm); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mg-pb__clock--low { color: var(--red-soft); }
 .mg-pb__clock-label, .mg-pb__open-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--on-ink-dim); }
-.mg-pb__open { flex: 1; max-width: 160px; display: flex; flex-direction: column; gap: 3px; }
+.mg-pb__open { flex: 1; max-width: 140px; display: flex; flex-direction: column; gap: 3px; }
 .mg-pb__open .bar { background: var(--ink-3); }
 .mg-pb__open .bar__fill { display: block; background: var(--on-ink); transition: width 100ms linear; }
 .mg-pb__open .bar__fill--bad { background: var(--red); }
 
-.mg-pb__board { cursor: crosshair; }
-.mg-pb__floor { fill: var(--paper-3); }
-.mg-pb__lines { fill: none; stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 6; }
-.mg-pb__lines .mg-pb__rim { stroke: var(--red); stroke-opacity: 1; stroke-width: 8; }
-.mg-pb__path { stroke: var(--ink); stroke-width: 5; stroke-dasharray: 24 18; fill: var(--ink); }
-.mg-pb__def { fill: var(--ink); }
+/* --- prancheta --- */
+.mg-pb__stage { position: relative; }
+.mg-pb__board { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+.mg-pb__plank { fill: var(--pb-wood-a); }
+.mg-pb__plank--b { fill: var(--pb-wood-b); }
+.mg-pb__joint { stroke: var(--pb-joint); stroke-width: 3; }
+.mg-pb__lines { fill: none; stroke: var(--ink); stroke-opacity: 0.8; stroke-width: 6; }
+.mg-pb__lines .mg-pb__rim { stroke: var(--red); stroke-opacity: 1; stroke-width: 9; }
+
+/* rota desenhada à mão: tracejado vermelho + marca de bloqueio no fim */
+.mg-pb__route { fill: none; stroke: var(--red); stroke-width: 12; stroke-dasharray: 30 20;
+  stroke-linecap: round; stroke-linejoin: round; }
+.mg-pb__route--draft { stroke-opacity: 0.55; }
+.mg-pb__screen { stroke: var(--red); stroke-width: 14; stroke-linecap: round; }
+
+/* ímãs: disco com sombra projetada; vermelho = nós, tinta = eles */
 .mg-pb__mag { fill: var(--red); }
-.mg-pb__mag--holder { stroke: var(--ink); stroke-width: 8; }
+.mg-pb__mag--holder { stroke: var(--ink); stroke-width: 9; }
+.mg-pb__mag--them { fill: var(--ink); }
 .mg-pb__hit { fill: transparent; }
-.mg-pb__att--mate { cursor: pointer; }
-.mg-pb__num { font-family: var(--mono); font-size: 40px; font-weight: 500; fill: var(--on-red);
+.mg-pb__us--live { cursor: pointer; }
+.mg-pb__num { font-family: var(--mono); font-size: 46px; font-weight: 600; fill: var(--on-red);
   text-anchor: middle; pointer-events: none; }
-.mg-pb__tag { font-family: var(--mono); font-size: 30px; letter-spacing: 0.2em; fill: var(--ink);
+.mg-pb__num--them { fill: var(--on-ink); font-size: 42px; }
+.mg-pb__tag { font-family: var(--mono); font-size: 30px; letter-spacing: 0.14em; fill: var(--ink);
   text-anchor: middle; pointer-events: none; }
-.mg-pb__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 4; pointer-events: none; }
+.mg-pb__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 5; pointer-events: none; }
 .mg-pb__ball--shot { transition: transform 500ms ease-in; }
 .mg-pb__ball--bounce { transition: transform 300ms ease-out; }
 
+/* manchete de jornal por cima da prancheta */
+.mg-headline { position: absolute; left: 0; right: 0; top: 34%; padding: 0 8px; text-align: center;
+  font-family: var(--black); font-size: clamp(28px, 9vw, 40px); line-height: 1.05; letter-spacing: 0.01em;
+  color: var(--red); text-shadow: 0 2px 0 var(--paper), 0 3px 0 var(--paper), 0 6px 14px rgba(28, 26, 22, 0.35);
+  pointer-events: none; }
+
+/* --- controles --- */
+.mg-pb__hint { margin: 0; padding: 7px 10px; background: var(--paper-3); font-size: 11px;
+  line-height: 1.35; color: var(--body-dim); }
+.mg-pb__chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--ink-3);
+  margin-top: 1px; }
+.mg-pb__chip { min-height: 44px; padding: 8px 3px; font-size: 10px; letter-spacing: 0.02em; }
 .mg-pb .mg-row { margin-top: 1px; }
-.mg-pb .mg-btn { min-height: 44px; }
+.mg-pb .mg-btn { min-height: 44px; padding: 12px 4px; font-size: 11px; letter-spacing: 0.03em; }
+.mg-pb__armed { background: var(--accent-warm); color: var(--ink); }
 .mg-pb__btn-sub { font-family: var(--mono); font-weight: 500; font-size: 10px; letter-spacing: 0.16em;
   opacity: 0.7; margin-left: 6px; }
+.mg-pb__rebound { display: flex; flex-direction: column; gap: 6px; padding: 10px; margin-top: 1px;
+  background: var(--ink); }
+.mg-pb__rebound .mg-timing { height: 44px; }
