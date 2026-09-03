@@ -16,6 +16,7 @@ export interface MinigameProps {
   age: number                  // idade nesta temporada (repertório e mods de atributo)
   quarter: number              // 1-4, pelo minuto do momento (fadiga do 4Q)
   league: LeagueState          // pra achar o quinteto/defensor do adversário
+  teamId: string                // seu time (companheiros reais da prancheta)
   number: number | null        // camisa do jogador (rótulo do "você")
   lastName: string             // sobrenome nas costas da camisa
   lang: Lang

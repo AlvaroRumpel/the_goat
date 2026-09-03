@@ -3,7 +3,7 @@ import type { MinigameProps } from './types'
 import type { Rng } from '../../engine/types'
 import { createRng } from '../../engine/rng'
 import { t } from '../../i18n'
-import { attrMods, difficulty, opponentFive, reboundChance } from '../../engine/minigames/common'
+import { attrMods, difficulty, opponentFive, reboundChance, teammates } from '../../engine/minigames/common'
 import { skillOf } from '../../engine/minigames/shot'
 import {
   applyTemplate, callScreen, createPlaybook, feint, isSettled, moveTo, openness, pass, planPass, pumpFake,
@@ -33,7 +33,6 @@ const BOUNCE_MS = 300                          // rebote: do aro até quem pegou
 const PASS_WHENS: PassWhen[] = ['early', 'mid', 'late']
 
 const TEMPLATE_IDS: Template[] = ['pnr', 'horns', 'doubleScreen', 'iso', 'fiveOut', 'transition']
-const MATE_NUM = [4, 11, 23, 33]               // camisas dos companheiros (você usa a sua)
 const TURN_HEAD: Record<NonNullable<PlaybookState['turnover']>, string> = {
   intercept: 'mg.pb.head.intercept', strip: 'mg.pb.head.steal',
   charge: 'mg.pb.head.charge', clock: 'mg.pb.turnover.clock',
@@ -59,16 +58,18 @@ function screenMark(pts: Pos[]) {
   return { x1: (b.x + px) * S, y1: (b.y + py) * S, x2: (b.x - px) * S, y2: (b.y - py) * S }
 }
 
-export function PlaybookGame({ seed, context, build, age, quarter, league, number, lang, onResolve, outcome }: MinigameProps) {
+export function PlaybookGame({ seed, context, build, age, quarter, league, teamId, number, lang, onResolve, outcome }: MinigameProps) {
   const five = useMemo(() => opponentFive(league, context.opponentTeamId), [league, context.opponentTeamId])
+  const mates = useMemo(() => teammates(league, teamId, number), [league, teamId, number])
   const input = useMemo<PlaybookInput>(() => {
     const mods = attrMods(build, age, quarter)
     const sk = (tp: 'layup' | 'mid' | 'three' | 'dunk') => skillOf(build, age, tp, mods.fatigue)
     return {
       kind: context.kind, five, mods, difficulty: difficulty(context.kind, five[0].ovr),
       skill: { layup: sk('layup'), mid: sk('mid'), three: sk('three'), dunk: sk('dunk') }, reboundChance: reboundChance(mods, five),
+      mates,
     }
-  }, [context.kind, five, build, age, quarter])
+  }, [context.kind, five, mates, build, age, quarter])
 
   // seed local criado UMA vez (createPlaybook consome 1 call: o sorteio do esquema)
   const boot = useRef<{ rng: Rng; s0: PlaybookState } | null>(null)
@@ -364,8 +365,8 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
               {phase !== 'read' && <circle cx={p.x * S} cy={p.y * S} r={R_HIT} className="mg-pb__hit" />}
               <circle cx={p.x * S} cy={p.y * S} r={R_US} filter="url(#pb-mag)"
                 className={'mg-pb__mag' + (i === holder ? ' mg-pb__mag--holder' : '')} />
-              <text x={p.x * S} y={p.y * S + 15} className="mg-pb__num">{i === st.you ? (number ?? '★') : MATE_NUM[i - 1]}</text>
-              {i === st.you && <text x={p.x * S} y={p.y * S + R_US + 40} className="mg-pb__tag">{t(lang, 'mg.you')}</text>}
+              <text x={p.x * S} y={p.y * S + 15} className="mg-pb__num">{i === st.you ? (number ?? '★') : mates[i - 1].number}</text>
+              <text x={p.x * S} y={p.y * S + R_US + 40} className="mg-pb__tag">{i === st.you ? t(lang, 'mg.you') : mates[i - 1].short}</text>
             </g>
           ))}
 

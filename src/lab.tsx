@@ -33,6 +33,7 @@ function Lab() {
   const [kind, setKind] = useState<MinigameKind>('playbook')
   const [seed, setSeed] = useState(1)
   const [teamId, setTeamId] = useState('bos')
+  const [myTeamId, setMyTeamId] = useState('lal')
   const [gameKind, setGameKind] = useState<WatchedGameKind>('rivalry')
   const [quarter, setQuarter] = useState(4)
   const [age, setAge] = useState(27)
@@ -70,6 +71,11 @@ function Lab() {
             {TEAMS.map(tm => <option key={tm.id} value={tm.id}>{tm.city} {tm.name} · {tm.strength}</option>)}
           </select>
         </label>
+        <label>Meu time
+          <select value={myTeamId} onChange={e => setMyTeamId(e.target.value)}>
+            {TEAMS.map(tm => <option key={tm.id} value={tm.id}>{tm.city} {tm.name} · {tm.strength}</option>)}
+          </select>
+        </label>
         <label>Tipo de jogo
           <select value={gameKind} onChange={e => setGameKind(e.target.value as WatchedGameKind)}>
             {KINDS.map(k => <option key={k} value={k}>{k}</option>)}
@@ -99,7 +105,7 @@ function Lab() {
         <ErrorBoundary>
           <div className="game-decision mg-frame lab__frame">
             <Game key={`${kind}-${run}`} seed={seed} context={{ kind: gameKind, opponentTeamId: teamId }} build={build} age={age}
-              quarter={quarter} league={league} number={23} lastName="TESTE" lang={lang} onResolve={onResolve} outcome={outcome} />
+              quarter={quarter} league={league} teamId={myTeamId} number={23} lastName="TESTE" lang={lang} onResolve={onResolve} outcome={outcome} />
           </div>
         </ErrorBoundary>
       </main>

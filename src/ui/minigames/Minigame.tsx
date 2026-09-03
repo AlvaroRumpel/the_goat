@@ -81,6 +81,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
           age={state.age}
           quarter={Math.min(4, Math.floor(moment.at / 12) + 1)}
           league={state.league!}
+          teamId={state.pendingPlayoffs?.finalOffer.teamId ?? state.currentOffer!.teamId}
           number={state.career.number}
           lastName={state.career.lastName}
           lang={lang}
