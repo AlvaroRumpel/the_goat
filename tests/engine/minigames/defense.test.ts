@@ -15,7 +15,7 @@ describe('duelo', () => {
     const a = run(createDuel(input()), 8, createRng(5)), b = run(createDuel(input()), 8, createRng(5))
     expect(a).toEqual(b)
   })
-  test('termina sempre (arremesso, infiltração, passe ou relógio) em ≤ 9s, com resultado mg*', () => {
+  test('termina sempre (arremesso, infiltração, passe ou relógio) em ≤ 9.5s, com resultado mg* — relógio deixa o arremesso em andamento terminar', () => {
     for (let seed = 0; seed < 100; seed++) {
       const s = run(createDuel(input()), 12, createRng(seed))
       expect(s.phase).not.toBe('live')
@@ -30,13 +30,17 @@ describe('duelo', () => {
     expect(sh.shots).toBeGreaterThan(pm.shots); expect(pm.passes).toBeGreaterThan(sh.passes)
   })
   test('sombrear certo mantém contenção alta; parado, a cruzada tira você da frente', () => {
-    let s = createDuel(input()); const rng = createRng(3)
+    // tend.drive alto + seed 0: produz cruzadas/infiltrações logo cedo (log: crossL, hesi,
+    // crossL, crossL, legs, driveR) — a política passiva sai do cone e nunca mais volta,
+    // a ativa sempre desliza de volta pro cone no tick seguinte.
+    const inp = input({ tend: { drive: 0.6, shoot: 0.2, pass: 0.2, side: 'right' } })
+    let s = createDuel(inp); const rng = createRng(0)
     // política: a cada tick, deslize pro lado do atacante se saiu do cone
-    for (let i = 0; i < 160 && s.phase === 'live'; i++) { if (!inFront(s)) s = slide(s, s.attX > s.defX ? 1 : -1, input()); s = step(s, 0.05, rng, input()) }
+    for (let i = 0; i < 160 && s.phase === 'live'; i++) { if (!inFront(s)) s = slide(s, s.attX > s.defX ? 1 : -1, inp); s = step(s, 0.05, rng, inp) }
     const active = s.contain / s.live
-    let p = createDuel(input()); const rng2 = createRng(3)
-    for (let i = 0; i < 160 && p.phase === 'live'; i++) p = step(p, 0.05, rng2, input())
-    expect(active).toBeGreaterThanOrEqual(p.contain / p.live)
+    let p = createDuel(inp); const rng2 = createRng(0)
+    for (let i = 0; i < 160 && p.phase === 'live'; i++) p = step(p, 0.05, rng2, inp)
+    expect(active).toBeGreaterThan(p.contain / p.live)
     expect(active).toBeGreaterThan(0.6)
   })
   test('roubo dentro da janela da bola exposta = mgSteal quality 1; fora = passa por você; 2ª errada = falta', () => {
@@ -72,6 +76,20 @@ describe('duelo', () => {
     const far = { ...near, contestDist: 1.6 }
     expect(resultOf(near).quality).toBeGreaterThan(resultOf(far).quality)
     expect(resultOf(near).optionId).toBe('mgContest'); expect(resultOf(far).optionId).toBe('mgLock')
+  })
+  test('finta: subir em cima é falta ~30% das vezes, senão só bitFake', () => {
+    // seed 7 (rng do passo) produz uma pumpFake antes do arremesso com tend.shoot=1
+    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
+    let s = createDuel(inp); const stepRng = createRng(7)
+    while (s.phase === 'live' && s.move?.kind !== 'pumpFake') s = step(s, 0.05, stepRng, inp)
+    expect(s.move?.kind).toBe('pumpFake')
+    let fouled = false, notFouled = false
+    for (let k = 0; k < 40; k++) {
+      const r = jump(s, inp, createRng(k))
+      if (r.phase === 'foul') { fouled = true; expect(r.fouled).toBe(true); expect(r.bitFake).toBe(true); expect(r.freeThrows).toHaveLength(2) }
+      else { notFouled = true; expect(r.airborne).toBe(1.5); expect(r.bitFake).toBe(true); expect(r.phase).toBe('live') }
+    }
+    expect(fouled).toBe(true); expect(notFouled).toBe(true)
   })
   test('difficulty maior = movimentos mais curtos', () => {
     const slow = run(createDuel(input()), 2, createRng(2), input({ difficulty: 0.9 })), fast = run(createDuel(input()), 2, createRng(2), input({ difficulty: 1.3 }))

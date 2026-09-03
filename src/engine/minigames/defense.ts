@@ -63,7 +63,7 @@ export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): Due
   let s: DuelState = { ...s0, t: s0.t + dt, clock: s0.clock - dt, live: s0.live + dt }
   s.exposed = Math.max(0, s.exposed - dt); s.airborne = Math.max(0, s.airborne - dt)
   if (inFront(s) && s.airborne === 0) s.contain += dt
-  if (s.clock <= 0) return finalize({ ...s, phase: 'clock' })
+  if (s.clock <= 0 && s.move?.kind !== 'shoot') return finalize({ ...s, phase: 'clock' })
   if (!s.move) {
     const kind = pickMove(s, rng, input)
     s.move = { kind, at: s.t, dur: DUR[kind] / input.difficulty }
@@ -87,6 +87,9 @@ export function slide(s: DuelState, dir: -1 | 1, input: DuelInput): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
   return { ...s, defX: clamp(s.defX + dir * 0.9 * input.mods.speed, -2.5, 2.5) }
 }
+// sem guarda de `airborne` aqui de propósito: a 2ª tentativa errada precisa contar como
+// falta mesmo logo após a 1ª (que seta airborne=1.2 como cooldown de contenção, não
+// "você no ar"); a UI aplica um cooldown de 350ms no próprio botão pra evitar duplo-toque.
 export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
   if (s.phase !== 'live') return s
   if (s.exposed > 0 && s.exposed <= input.mods.stealWindow) return finalize({ ...s, phase: 'steal' })
@@ -97,7 +100,7 @@ export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
   }
   return { ...s, stealTries: tries, airborne: 1.2, attX: clamp(s.attX + (s.attX >= s.defX ? 1.2 : -1.2), -2.5, 2.5) }
 }
-export function jump(s: DuelState, input: DuelInput): DuelState {
+export function jump(s: DuelState, input: DuelInput, rng?: Rng): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
   const m = s.move
   if (m?.kind === 'shoot' && s.t - m.at < RELEASE + 0.05 && Math.abs(s.attX - s.defX) <= 0.9) {
@@ -105,7 +108,13 @@ export function jump(s: DuelState, input: DuelInput): DuelState {
     if (hit !== 'miss') return finalize({ ...s, phase: 'block' })
     return { ...s, airborne: 0.7 }
   }
-  if (m?.kind === 'pumpFake') return { ...s, airborne: 1.5, bitFake: true }
+  if (m?.kind === 'pumpFake') {
+    if (rng && rng.chance(0.3)) {
+      const p = freeThrowP(input.starOvr)
+      return finalize({ ...s, fouled: true, bitFake: true, phase: 'foul', freeThrows: [rng.chance(p), rng.chance(p)] })
+    }
+    return { ...s, airborne: 1.5, bitFake: true }
+  }
   return { ...s, airborne: 0.7 }
 }
 
