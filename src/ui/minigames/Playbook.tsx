@@ -6,9 +6,9 @@ import { t } from '../../i18n'
 import { attrMods, difficulty, opponentFive, reboundChance } from '../../engine/minigames/common'
 import { skillOf } from '../../engine/minigames/shot'
 import {
-  applyTemplate, callScreen, createPlaybook, feint, isSettled, moveTo, openness, pass, pumpFake,
+  applyTemplate, callScreen, createPlaybook, feint, isSettled, moveTo, openness, pass, planPass, pumpFake,
   SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
-  type PlaybookInput, type PlaybookState, type Pos, type Template,
+  type PassWhen, type PlaybookInput, type PlaybookState, type Pos, type Template,
 } from '../../engine/minigames/playbook'
 import { FreeThrows } from './FreeThrows'
 import { BASKET, COURT_LAYERS, D, MAG_FILTER, S, W } from './Court'
@@ -29,6 +29,8 @@ const HEAD_MS = 800                            // manchete
 const SHOT_MS = 500                            // bola até o aro
 const OVERLAY_MS = 800                         // desfecho por cima
 const R_US = 56, R_THEM = 52, R_HIT = 90
+const BOUNCE_MS = 300                          // rebote: do aro até quem pegou
+const PASS_WHENS: PassWhen[] = ['early', 'mid', 'late']
 
 const TEMPLATE_IDS: Template[] = ['pnr', 'horns', 'doubleScreen', 'iso', 'fiveOut', 'transition']
 const MATE_NUM = [4, 11, 23, 33]               // camisas dos companheiros (você usa a sua)
@@ -85,6 +87,10 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
   const [showResult, setShowResult] = useState(false)
   const [ftDone, setFtDone] = useState(false)
   const [ftReady, setFtReady] = useState(false)
+  // PASSAR: 'pick' = esperando o toque no companheiro; número = alvo escolhido, esperando CEDO/NORMAL/TARDE
+  const [passPick, setPassPick] = useState<'pick' | number | null>(null)
+  // rebote: bola vai ao aro (SHOT_MS) e quica até quem pegou (BOUNCE_MS)
+  const [rb, setRb] = useState<'rim' | 'bounce' | null>(null)
   // true = a jogada corre; RODAR liga, o tick desliga sozinho quando isSettled (spec §D: pausa é fase de desenho)
   const [go, setGo] = useState(false)
   const goRef = useRef(go)
@@ -102,7 +108,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     const push = (k: string) => setHeads(h => [...h, k])
     if (next.lastScreenAt !== prev.lastScreenAt) push('mg.pb.head.screen')
     if (next.turnover && !prev.turnover) push(TURN_HEAD[next.turnover])
-    if (next.rebounds !== prev.rebounds) { push('mg.pb.head.rebound'); undoRef.current = [] } // 2ª posse: nada de DESFAZER pra antes dela
+    if (next.rebounds !== prev.rebounds) { push('mg.pb.head.rebound'); undoRef.current = []; setRb('rim') } // 2ª posse: nada de DESFAZER pra antes dela
     if (next.phase === 'shooting' && prev.phase !== 'shooting') push(SHOT_HEAD[next.result!.optionId] ?? 'mg.shoot')
     if (next.phase === 'done' && prev.phase !== 'done') push('mg.pb.head.foul')
   }
@@ -121,6 +127,13 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st.phase, go, rng, input])
+
+  // ---------- rebote: aro → quem pegou ----------
+  useEffect(() => {
+    if (!rb) return
+    const id = setTimeout(() => setRb(rb === 'rim' ? 'bounce' : null), rb === 'rim' ? SHOT_MS : BOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [rb])
 
   // ---------- manchete: fila de 0.8s ----------
   useEffect(() => {
@@ -193,6 +206,8 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     const s = ref.current
     const dragged = pts.length >= 2 || Math.hypot(cur.x - pts[0].x, cur.y - pts[0].y) > TAP
     const route = pts.length >= 2 ? pts : [pts[0], cur]
+    // PASSAR: toque num companheiro escolhe o alvo (draw e pausa)
+    if (passPick === 'pick' && idx > 0 && idx !== s.ball.holder && !dragged && (s.phase === 'draw' || (s.phase === 'run' && !goRef.current))) { setPassPick(idx); return }
     if (s.phase === 'run' && !goRef.current) {              // pausado: só desenho (spec D)
       if (idx < 0) return
       if (dragged) { snapshot(); return void act(x => setRoute(x, idx, route)) }
@@ -228,7 +243,12 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
       s = setRoute(s, i, [])
       if (s.routes[i].screen) s = toggleScreen(s, i)
     }
-    commit(s)
+    commit(planPass(s, null))
+    setPassPick(null)
+  }
+  const plan = (when: PassWhen) => {
+    if (typeof passPick !== 'number') return
+    snapshot(); act(s => planPass(s, passPick, when)); setPassPick(null)
   }
   const undo = () => {
     const prev = undoRef.current.pop()
@@ -269,7 +289,11 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
     ballCls += ' mg-pb__ball--shot'
     if (landed && outcome && !outcome.success) { ballAt = { x: BASKET.x + 140, y: BASKET.y + 260 }; ballCls += ' mg-pb__ball--bounce' }
     else if (landed && outcome?.success) ballAt = { x: BASKET.x, y: BASKET.y + 40 }
-  } else if (!st.ball.flying) ballAt = { x: ballAt.x + 30, y: ballAt.y - 30 }
+  } else if (rb === 'rim') { ballAt = { x: BASKET.x, y: BASKET.y }; ballCls += ' mg-pb__ball--shot' }
+  else if (rb === 'bounce') { ballAt = { x: ballAt.x + 30, y: ballAt.y - 30 }; ballCls += ' mg-pb__ball--bounce' }
+  else if (!st.ball.flying) ballAt = { x: ballAt.x + 30, y: ballAt.y - 30 }
+  const pp = st.plannedPass ? { a: st.attackers[holder], b: st.attackers[st.plannedPass.to] } : null
+  const hintKey = passPick === 'pick' ? 'mg.pb.passHint' : typeof passPick === 'number' ? 'mg.pb.passWhen' : paused ? 'mg.pb.pauseHint' : 'mg.pb.drawHint'
 
   const resultText = () => {
     if (!outcome) return null
@@ -318,6 +342,12 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
             {draft && draft.idx >= 0 && (
               <path d={pathOf([...draft.pts, draft.cur])} className="mg-pb__route mg-pb__route--draft" />
             )}
+            {pp && (
+              <g>
+                <line x1={pp.a.x * S} y1={pp.a.y * S} x2={pp.b.x * S} y2={pp.b.y * S} className="mg-pb__plan" />
+                <text x={(pp.a.x + pp.b.x) / 2 * S} y={(pp.a.y + pp.b.y) / 2 * S - 20} className="mg-pb__plan-tag">{t(lang, 'mg.pb.pass.' + st.plannedPass!.when)}</text>
+              </g>
+            )}
           </g>
 
           {st.defenders.map((d, i) => (
@@ -346,21 +376,33 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, numbe
 
       {(drawing || paused) && (
         <>
-          <p className="mg-pb__hint">{t(lang, paused ? 'mg.pb.pauseHint' : 'mg.pb.drawHint')}</p>
-          {drawing && (
+          <p className="mg-pb__hint">{t(lang, hintKey)}</p>
+          {typeof passPick === 'number' ? (
+            <div className="mg-row">
+              {PASS_WHENS.map(w => (
+                <button key={w} type="button" className="mg-btn mg-btn--warm" onClick={() => plan(w)}>{t(lang, 'mg.pb.pass.' + w)}</button>
+              ))}
+            </div>
+          ) : drawing && (
             <div className="mg-pb__chips">
               {TEMPLATE_IDS.map(tpl => (
                 <button key={tpl} type="button" className="mg-btn mg-pb__chip" disabled={phase === 'read'}
-                  onClick={() => { snapshot(); act(s => applyTemplate(s, tpl)) }}>
+                  onClick={() => { snapshot(); act(s => applyTemplate(s, tpl)); setPassPick(null) }}>
                   {t(lang, 'mg.pb.template.' + tpl)}
                 </button>
               ))}
             </div>
           )}
           <div className="mg-row">
+            {st.plannedPass ? (
+              <button type="button" className="mg-btn mg-pb__armed" onClick={() => { snapshot(); act(s => planPass(s, null)) }}>{t(lang, 'mg.pb.act.planCancel')}</button>
+            ) : (
+              <button type="button" className={'mg-btn' + (passPick !== null ? ' mg-pb__armed' : '')} aria-pressed={passPick !== null} disabled={phase === 'read'}
+                onClick={() => setPassPick(p => p === null ? 'pick' : null)}>{t(lang, 'mg.pb.act.plan')}</button>
+            )}
             <button type="button" className="mg-btn" disabled={phase === 'read'} onClick={clearRoutes}>{t(lang, 'mg.pb.clear')}</button>
             <button type="button" className="mg-btn" disabled={phase === 'read' || undoRef.current.length === 0} onClick={undo}>{t(lang, 'mg.pb.undo')}</button>
-            <button type="button" className="mg-btn mg-btn--red" disabled={phase === 'read'} onClick={() => { undoRef.current = []; act(startRun); setGo(true) }}>{t(lang, 'mg.pb.run')}</button>
+            <button type="button" className="mg-btn mg-btn--red" disabled={phase === 'read'} onClick={() => { undoRef.current = []; setPassPick(null); act(startRun); setGo(true) }}>{t(lang, 'mg.pb.run')}</button>
           </div>
         </>
       )}
