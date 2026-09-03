@@ -1,123 +1,80 @@
 import { describe, expect, test } from 'vitest'
 import { createRng } from '../../../src/engine/rng'
-import {
-  attackerOffset, createSequence, describeBeat, evaluateBeat, resultOf, WINDOW_MS,
-  type Beat, type BeatResult,
-} from '../../../src/engine/minigames/defense'
+import { createDuel, inFront, jump, resultOf, slide, step, trySteal, type DuelInput, type DuelState } from '../../../src/engine/minigames/defense'
+import { attrMods } from '../../../src/engine/minigames/common'
+import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
-const beat = (kind: Beat['kind']): Beat => ({ kind, delayMs: 500 })
-const W = 650
-
-describe('createSequence', () => {
-  test('4..6 beats, last is shoot, delays 350..900 (200 seeds)', () => {
-    for (let seed = 0; seed < 200; seed++) {
-      const { beats } = createSequence(createRng(seed), 'rivalry')
-      expect(beats.length).toBeGreaterThanOrEqual(4)
-      expect(beats.length).toBeLessThanOrEqual(6)
-      expect(beats[beats.length - 1].kind).toBe('shoot')
-      expect(beats.slice(0, -1).every(b => b.kind !== 'shoot')).toBe(true)
-      for (const b of beats) {
-        expect(b.delayMs).toBeGreaterThanOrEqual(350)
-        expect(b.delayMs).toBeLessThanOrEqual(900)
-      }
-    }
-  })
-  test('no two identical lateral beats adjacent; at most one expose; hesi when len >= 5', () => {
-    let exposes = 0
-    for (let seed = 0; seed < 200; seed++) {
-      const { beats } = createSequence(createRng(seed), 'seedRace')
-      for (let i = 1; i < beats.length; i++) {
-        const a = beats[i - 1].kind, b = beats[i].kind
-        if (a === 'left' || a === 'right') expect(b).not.toBe(a)
-      }
-      const n = beats.filter(b => b.kind === 'expose').length
-      expect(n).toBeLessThanOrEqual(1)
-      exposes += n
-      if (beats.length >= 5) expect(beats.some(b => b.kind === 'hesi')).toBe(true)
-    }
-    expect(exposes).toBeGreaterThan(120) // p=0.8 de 200
-  })
-  test('windowMs by kind', () => {
-    expect(createSequence(createRng(1), 'rivalry').windowMs).toBe(650)
-    expect(createSequence(createRng(1), 'special').windowMs).toBe(650)
-    expect(createSequence(createRng(1), 'playoff').windowMs).toBe(560)
-    expect(createSequence(createRng(1), 'finals').windowMs).toBe(480)
-    expect(WINDOW_MS.seedRace).toBe(650)
-  })
-  test('deterministic per seed', () => {
-    for (let seed = 0; seed < 20; seed++) {
-      expect(createSequence(createRng(seed), 'finals')).toEqual(createSequence(createRng(seed), 'finals'))
-    }
-    expect(createSequence(createRng(3), 'finals')).not.toEqual(createSequence(createRng(4), 'finals'))
-  })
+const build = (ovr: number): Build => ({ attributes: Object.fromEntries(SLOT_ORDER.map(s => [s, ovr])) as Record<SlotId, number>, picks: [], archetype: 'SF', overall: ovr })
+const input = (over: Partial<DuelInput> = {}): DuelInput => ({
+  tend: { shoot: 0.4, drive: 0.35, pass: 0.25, side: 'right' }, difficulty: 1, mods: attrMods(build(80), 27), starOvr: 85, ...over,
 })
+const run = (s: DuelState, secs: number, rng = createRng(1), inp = input()) => { for (let i = 0; i < secs * 20; i++) { if (s.phase !== 'live') break; s = step(s, 0.05, rng, inp) } return s }
 
-describe('evaluateBeat', () => {
-  test('lateral: same direction inside window = hit, outside = late, none = late, wrong = miss', () => {
-    expect(evaluateBeat(beat('left'), 'left', 300, W).verdict).toBe('hit')
-    expect(evaluateBeat(beat('left'), 'left', 700, W).verdict).toBe('late')
-    expect(evaluateBeat(beat('right'), null, null, W).verdict).toBe('late')
-    expect(evaluateBeat(beat('right'), 'left', 100, W).verdict).toBe('miss')
+describe('duelo', () => {
+  test('determinístico por seed', () => {
+    const a = run(createDuel(input()), 8, createRng(5)), b = run(createDuel(input()), 8, createRng(5))
+    expect(a).toEqual(b)
   })
-  test('hesi: any input = miss, no input = hit', () => {
-    expect(evaluateBeat(beat('hesi'), 'left', 100, W).verdict).toBe('miss')
-    expect(evaluateBeat(beat('hesi'), 'steal', 100, W).verdict).toBe('miss')
-    expect(evaluateBeat(beat('hesi'), null, null, W).verdict).toBe('hit')
-  })
-  test('expose: steal inside = hit, steal late = late, no input = hit (neutral)', () => {
-    expect(evaluateBeat(beat('expose'), 'steal', 200, W).verdict).toBe('hit')
-    expect(evaluateBeat(beat('expose'), 'steal', 900, W).verdict).toBe('late')
-    expect(evaluateBeat(beat('expose'), null, null, W).verdict).toBe('hit')
-  })
-  test('shoot: contest inside = hit contested, no input = hit not contested, late contest = late', () => {
-    expect(evaluateBeat(beat('shoot'), 'contest', 200, W)).toMatchObject({ verdict: 'hit', contested: true })
-    expect(evaluateBeat(beat('shoot'), null, null, W)).toMatchObject({ verdict: 'hit', contested: false })
-    expect(evaluateBeat(beat('shoot'), 'contest', 800, W)).toMatchObject({ verdict: 'late', contested: false })
-    expect(evaluateBeat(beat('shoot'), 'left', 100, W).verdict).toBe('miss')
-  })
-})
-
-describe('resultOf', () => {
-  const hit = (kind: BeatResult['kind'], input: BeatResult['input'] = null): BeatResult => ({ kind, input, verdict: 'hit' })
-  test('steal on expose inside window -> mgSteal quality 1', () => {
-    expect(resultOf([hit('left', 'left'), hit('expose', 'steal')])).toEqual({ optionId: 'mgSteal', quality: 1 })
-  })
-  test('steal elsewhere / late -> mgSteal quality 0', () => {
-    expect(resultOf([{ kind: 'hesi', input: 'steal', verdict: 'miss' }])).toEqual({ optionId: 'mgSteal', quality: 0 })
-    expect(resultOf([{ kind: 'expose', input: 'steal', verdict: 'late' }])).toEqual({ optionId: 'mgSteal', quality: 0 })
-  })
-  test('contested shoot -> mgContest with hits/total', () => {
-    const log: BeatResult[] = [hit('left', 'left'), { kind: 'right', input: 'left', verdict: 'miss' },
-      { kind: 'shoot', input: 'contest', verdict: 'hit', contested: true }]
-    expect(resultOf(log)).toEqual({ optionId: 'mgContest', quality: 2 / 3 })
-  })
-  test('no steal, no contest -> mgLock with hits/total', () => {
-    const log: BeatResult[] = [hit('left', 'left'), hit('hesi'), { kind: 'right', input: null, verdict: 'late' },
-      { kind: 'shoot', input: null, verdict: 'hit', contested: false }]
-    expect(resultOf(log)).toEqual({ optionId: 'mgLock', quality: 0.75 })
-  })
-  test('quality always in [0,1] over random play', () => {
-    const rng = createRng(77)
-    const inputs: BeatResult['input'][] = [null, 'left', 'right', 'contest', 'steal']
-    for (let seed = 0; seed < 200; seed++) {
-      const { beats, windowMs } = createSequence(createRng(seed), 'playoff')
-      const log: BeatResult[] = []
-      for (const b of beats) {
-        const input = rng.pick(inputs)
-        log.push(evaluateBeat(b, input, input ? rng.int(0, 1000) : null, windowMs))
-        if (input === 'steal') break
-      }
-      const r = resultOf(log)
-      expect(r.quality).toBeGreaterThanOrEqual(0)
-      expect(r.quality).toBeLessThanOrEqual(1)
-      expect(['mgSteal', 'mgContest', 'mgLock']).toContain(r.optionId)
+  test('termina sempre (arremesso, infiltração, passe ou relógio) em ≤ 9s, com resultado mg*', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const s = run(createDuel(input()), 12, createRng(seed))
+      expect(s.phase).not.toBe('live')
+      expect(s.result?.optionId).toMatch(/^mg(Lock|Contest|Steal)$/)
+      expect(s.result!.quality).toBeGreaterThanOrEqual(0); expect(s.result!.quality).toBeLessThanOrEqual(1)
+      expect(s.t).toBeLessThanOrEqual(9.5)
     }
   })
-})
-
-test('describeBeat / attackerOffset', () => {
-  expect(describeBeat('expose')).toBe('mg.def.beat.expose')
-  expect(attackerOffset('left')).toBe(-1)
-  expect(attackerOffset('right')).toBe(1)
-  expect(attackerOffset('shoot')).toBe(0)
+  test('shooter arremessa mais que playmaker, que passa mais', () => {
+    const count = (tend: DuelInput['tend']) => { let shots = 0, passes = 0; for (let seed = 0; seed < 80; seed++) { const s = run(createDuel(input({ tend })), 12, createRng(seed), input({ tend })); if (s.phase === 'shot') shots++; if (s.log.at(-1) === 'pass') passes++ } return { shots, passes } }
+    const sh = count({ shoot: 0.6, drive: 0.2, pass: 0.2, side: 'left' }), pm = count({ shoot: 0.3, drive: 0.25, pass: 0.45, side: 'left' })
+    expect(sh.shots).toBeGreaterThan(pm.shots); expect(pm.passes).toBeGreaterThan(sh.passes)
+  })
+  test('sombrear certo mantém contenção alta; parado, a cruzada tira você da frente', () => {
+    let s = createDuel(input()); const rng = createRng(3)
+    // política: a cada tick, deslize pro lado do atacante se saiu do cone
+    for (let i = 0; i < 160 && s.phase === 'live'; i++) { if (!inFront(s)) s = slide(s, s.attX > s.defX ? 1 : -1, input()); s = step(s, 0.05, rng, input()) }
+    const active = s.contain / s.live
+    let p = createDuel(input()); const rng2 = createRng(3)
+    for (let i = 0; i < 160 && p.phase === 'live'; i++) p = step(p, 0.05, rng2, input())
+    expect(active).toBeGreaterThanOrEqual(p.contain / p.live)
+    expect(active).toBeGreaterThan(0.6)
+  })
+  test('roubo dentro da janela da bola exposta = mgSteal quality 1; fora = passa por você; 2ª errada = falta', () => {
+    let s = createDuel(input()); const rng = createRng(11)
+    let stole = false
+    for (let i = 0; i < 400 && s.phase === 'live'; i++) {
+      if (s.exposed > 0 && s.exposed <= input().mods.stealWindow) { s = trySteal(s, rng, input()); if (s.phase === 'steal') { stole = true; break } }
+      s = step(s, 0.05, rng, input())
+    }
+    if (stole) expect(resultOf(s)).toEqual({ optionId: 'mgSteal', quality: 1 })
+    let f = createDuel(input()); const rng3 = createRng(12)
+    f = trySteal(f, rng3, input()); expect(f.stealTries).toBe(1); expect(f.phase).toBe('live')
+    f = trySteal(f, rng3, input()); expect(f.phase).toBe('foul'); expect(f.freeThrows).toHaveLength(2)
+    const r = resultOf(f); expect(r.optionId).toBe('mgLock'); expect(r.quality).toBeCloseTo(0.35, 5)
+    expect(r.turnover).toBe(f.freeThrows![0] && f.freeThrows![1])
+  })
+  test('salto no arremesso real com timing = toco; salto na finta = bitFake', () => {
+    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
+    let s = createDuel(inp); const rng = createRng(21)
+    let blocked = false, bit = false
+    for (let i = 0; i < 400 && s.phase === 'live'; i++) {
+      if (s.move?.kind === 'shoot' && Math.abs(s.t - (s.move.at + 0.45)) < 0.03 && s.airborne === 0) { s = jump(s, inp) }
+      if (s.move?.kind === 'pumpFake' && s.airborne === 0 && !bit) { s = jump(s, inp); bit = s.bitFake }
+      s = step(s, 0.05, rng, inp)
+      if (s.phase === 'block') blocked = true
+    }
+    expect(blocked || bit).toBe(true)
+    if (blocked) expect(resultOf(s)).toEqual({ optionId: 'mgContest', quality: 1 })
+  })
+  test('quality do arremesso contestado > não contestado', () => {
+    const inp = input({ tend: { shoot: 1, drive: 0, pass: 0, side: 'left' } })
+    const near = { ...createDuel(inp), phase: 'shot' as const, contain: 6, live: 8, contestDist: 0.3 }
+    const far = { ...near, contestDist: 1.6 }
+    expect(resultOf(near).quality).toBeGreaterThan(resultOf(far).quality)
+    expect(resultOf(near).optionId).toBe('mgContest'); expect(resultOf(far).optionId).toBe('mgLock')
+  })
+  test('difficulty maior = movimentos mais curtos', () => {
+    const slow = run(createDuel(input()), 2, createRng(2), input({ difficulty: 0.9 })), fast = run(createDuel(input()), 2, createRng(2), input({ difficulty: 1.3 }))
+    expect(fast.log.length).toBeGreaterThanOrEqual(slow.log.length)
+  })
 })
