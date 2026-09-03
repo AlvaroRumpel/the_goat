@@ -8,16 +8,20 @@
 .mg-sh__paper { fill: var(--paper); }
 .mg-sh__plank { fill: #DDD0B3; }
 .mg-sh__plank--b { fill: #D3C4A3; }
-.mg-sh__floor { stroke: var(--ink); stroke-width: 1.5; }
-.mg-sh__rig, .mg-sh__board { stroke: var(--ink); stroke-width: 2; }
-.mg-sh__rim { stroke: var(--red); stroke-width: 3; }
-.mg-sh__net { fill: none; stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 1; }
-.mg-sh__fig { stroke: var(--red); stroke-width: 2.5; fill: none; stroke-linecap: round; }
-.mg-sh__fig circle { fill: var(--red); }
+.mg-sh__floor { stroke: var(--ink); stroke-width: 1.2; }
+/* tabela/aro/suporte em metros reais; traços finos (o viewBox é ampliado 2–4×) */
+.mg-sh__rig { fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linejoin: round; }
+.mg-sh__base { fill: var(--ink); }
+.mg-sh__board { stroke: var(--ink); stroke-width: 2.4; }
+.mg-sh__bracket { stroke: var(--ink); stroke-width: 1; }
+.mg-sh__rim { stroke: var(--red); stroke-width: 1.6; stroke-linecap: round; }
+.mg-sh__net { fill: none; stroke: var(--ink); stroke-opacity: 0.55; stroke-width: 0.5; }
+.mg-sh__fig { stroke: var(--red); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.mg-sh__fig circle { fill: var(--red); stroke: none; }
 .mg-sh__fig--them { stroke: var(--ink); }
 .mg-sh__fig--them circle { fill: var(--ink); }
-.mg-sh__tag { stroke: none; fill: var(--ink); font-family: var(--mono); font-size: 7px; letter-spacing: 0.1em; }
-.mg-sh__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 1; }
+.mg-sh__tag { stroke: none; fill: var(--ink); font-family: var(--mono); font-size: 6.5px; letter-spacing: 0.1em; }
+.mg-sh__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 0.8; }
 .mg-sh__guide { fill: var(--ink); opacity: 0.45; }
 
 .mg-sh-hud { position: absolute; inset: 8px 10px auto 10px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }

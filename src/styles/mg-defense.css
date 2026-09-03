@@ -8,14 +8,14 @@
   align-items: center; justify-content: center; gap: 3px; }
 .mg-df-padbtn__key { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: var(--accent-warm); }
 .mg-pb__armed .mg-df-padbtn__key { color: var(--ink); }
-/* ímãs/bola posicionados por transform: o tick de 20 Hz vira deslize contínuo; no drive ele vai à cesta */
+/* ímãs/bola posicionados por transform: o tick de 20 Hz vira deslize contínuo (drive interpolado no engine) */
 .mg-df__pos { transition: transform 60ms linear; }
-.mg-df__pos--drive { transition-duration: 600ms; transition-timing-function: ease-in; }
 @media (prefers-reduced-motion: reduce) { .mg-df__pos { transition: none; } }
 
 .mg-df__cone { fill: rgba(28, 26, 22, 0.06); stroke: var(--ink); stroke-opacity: 0.5; stroke-width: 4; stroke-dasharray: 18 14; }
 .mg-df__cone--on { fill: rgba(168, 35, 28, 0.22); stroke: var(--red); stroke-opacity: 1; }
 .mg-df__glyph { fill: var(--red); font-family: var(--mono); font-size: 48px; font-weight: 600; }
+.mg-df__glyph-name { fill: var(--red); font-family: var(--mono); font-size: 20px; letter-spacing: 0.1em; }
 .mg-df__you--air .mg-pb__mag { stroke: var(--ink); stroke-width: 9; stroke-dasharray: 22 14; }
 .mg-df__you--armed .mg-pb__mag { stroke: var(--accent-warm); stroke-width: 12; }
 .mg-df__ball--loose { fill: var(--accent-warm); stroke: var(--red); stroke-width: 8; }
@@ -51,8 +51,12 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
 .mg-df-ready { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--on-ink-dim); }
 
-/* legenda das teclas: faixa rasteira de leitura (o alvo de toque é o palco inteiro; A/D W S) */
-.mg-df-gest { margin-top: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
+/* legenda dos glifos dele (o que o movimento ao lado do ímã significa) + legenda das teclas: faixas rasteiras */
+.mg-df-legend { margin-top: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; }
+.mg-df-legend span { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 22px; padding: 2px 3px;
+  background: rgba(28, 26, 22, 0.42); font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; color: var(--body-dim); white-space: nowrap; }
+.mg-df-legend b { color: var(--red); font-size: 12px; font-weight: 600; }
+.mg-df-gest { margin-top: 1px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; }
 .mg-df-gest span { display: flex; align-items: center; justify-content: center; text-align: center;
   min-height: 34px; padding: 3px; background: rgba(28, 26, 22, 0.42); font-family: var(--mono);
   font-size: 10px; letter-spacing: 0.04em; color: var(--body-dim); }

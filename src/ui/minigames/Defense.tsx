@@ -4,7 +4,7 @@ import { t } from '../../i18n'
 import { CONE_HALF, inFront, type DuelState } from '../../engine/minigames/defense'
 import { COURT } from '../../engine/minigames/playbook'
 import type { Gesture } from './useSwipe'
-import { clamp01, GLYPH, useDuelFlow, type DuelFlow } from './defenseFlow'
+import { clamp01, GLYPH, MOVES, useDuelFlow, type DuelFlow } from './defenseFlow'
 import { COURT_LAYERS, D, MAG_FILTER, S, W } from './Court'
 
 // MURALHA 2D (spec 2026-09-03 §C): meia-quadra da prancheta vista de cima, cesta no topo.
@@ -58,19 +58,20 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
           {COURT_LAYERS}
           <path className={'mg-df__cone' + (cover ? ' mg-df__cone--on' : '')}
             d={`M ${you.x - 18} ${you.y} L ${him.x - CONE_HALF * S} ${him.y} L ${him.x + CONE_HALF * S} ${him.y} L ${you.x + 18} ${you.y} Z`} />
-          {/* ímãs por transform + transição CSS: o tick de 20 Hz vira deslize contínuo; no drive ele vai à cesta em 600 ms */}
-          <g className={'mg-pb__them mg-df__pos' + (st.phase === 'drive' ? ' mg-df__pos--drive' : '')} style={at(him)}>
+          {/* ímãs por transform + transição CSS de 60 ms: o tick de 20 Hz vira deslize contínuo (o drive também é interpolado no engine) */}
+          <g className="mg-pb__them mg-df__pos" style={at(him)}>
             <circle r={R_HIM} className="mg-pb__mag mg-pb__mag--them" filter="url(#pb-mag)" />
             <text y={14} className="mg-pb__num mg-pb__num--them">{star.short.slice(0, 2)}</text>
             <text y={R_HIM + 40} className="mg-pb__tag">{star.short}</text>
             {st.move && <text className="mg-df__glyph" x={R_HIM + 30} y={16}>{GLYPH[st.move.kind]}</text>}
+            {st.move && <text className="mg-df__glyph-name" x={R_HIM + 30} y={44}>{t(lang, 'mg.def.move.' + st.move.kind)}</text>}
           </g>
           <g className={'mg-pb__us mg-df__pos' + (st.airborne > 0 ? ' mg-df__you--air' : '') + (st.armed > 0 ? ' mg-df__you--armed' : '')} style={at(you)}>
             <circle r={R_YOU} className="mg-pb__mag" filter="url(#pb-mag)" />
             <text y={15} className="mg-pb__num">{number ?? '★'}</text>
             <text y={R_YOU + 40} className="mg-pb__tag">{t(lang, 'mg.you')}</text>
           </g>
-          <circle className={'mg-pb__ball mg-df__pos' + (st.exposed > 0 ? ' mg-df__ball--loose' : '') + (st.phase === 'drive' ? ' mg-df__pos--drive' : '')} style={at(ball)} r={st.exposed > 0 ? 34 : 26} />
+          <circle className={'mg-pb__ball mg-df__pos' + (st.exposed > 0 ? ' mg-df__ball--loose' : '')} style={at(ball)} r={st.exposed > 0 ? 34 : 26} />
         </svg>
         <div className="mg-df-hud">
           <div className="mg-df-top">
@@ -83,6 +84,11 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
               {st.armed > 0 && <span className="mg-df-armed">{t(lang, 'mg.def.armed')}</span>}
             </div>
           </div>
+          {phase === 'live' && (
+            <div className="mg-df-legend" aria-label={t(lang, 'mg.def.legend')}>
+              {MOVES.map(m => <span key={m}><b>{GLYPH[m]}</b>{t(lang, 'mg.def.move.' + m)}</span>)}
+            </div>
+          )}
           {phase === 'live' && (
             <div className="mg-df-gest">
               <span>{t(lang, 'mg.def.keys.slide')}</span><span>{t(lang, 'mg.def.keys.steal')}</span><span>{t(lang, 'mg.def.keys.arm')}</span>

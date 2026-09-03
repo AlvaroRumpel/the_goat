@@ -26,6 +26,7 @@ export const GLYPH: Record<Move, string> = {
   hesi: '~', crossL: '←', crossR: '→', spin: '↺', legs: 'V',
   driveL: '«', driveR: '»', pumpFake: '↑?', shoot: '↑', pass: 'P',
 }
+export const MOVES = Object.keys(GLYPH) as Move[]
 
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 

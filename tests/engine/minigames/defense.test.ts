@@ -138,11 +138,36 @@ describe('duelo', () => {
         s = step(s, 0.05, rng, input())
         if (s.phase === 'live') {
           expect(Math.abs(s.attX - prev.attX)).toBeLessThanOrEqual(0.35)
-          expect(s.attDist).toBeLessThanOrEqual(prev.attDist); expect(s.attDist).toBeGreaterThanOrEqual(4)
+          expect(s.attDist).toBeLessThanOrEqual(prev.attDist); if (!s.rush) expect(s.attDist).toBeGreaterThanOrEqual(4)
         }
         prev = s
       }
     }
+  })
+  test('drive vencido: ele vai à cesta CONTÍNUO (attDist cai ≤ 0.4 m por tick até 1.2) e só então phase drive', () => {
+    const inp = input({ tend: { shoot: 0, drive: 1, pass: 0, side: 'right' } })
+    let seen = false
+    for (let seed = 0; seed < 40 && !seen; seed++) {
+      let s = { ...createDuel(inp), defX: -2.5 }; const rng = createRng(seed); let prev = s
+      for (let i = 0; i < 300 && s.phase === 'live'; i++) {
+        s = step(s, 0.05, rng, inp)
+        expect(prev.attDist - s.attDist).toBeLessThanOrEqual(0.4)
+        if (s.phase === 'live' && s.attDist < 4) seen = true
+        prev = s
+      }
+      if (s.phase === 'drive') expect(s.attDist).toBeCloseTo(1.2, 5)
+    }
+    expect(seen).toBe(true)
+  })
+  test('roubo errado: ele sai de você sem saltar (|Δx| por tick ≤ 0.35)', () => {
+    const inp = input({ tend: { shoot: 0, drive: 0, pass: 0, side: 'left' } })
+    let s = createDuel(inp); const rng = createRng(7)
+    const x0 = s.attX
+    s = trySteal(s, rng, inp); expect(s.phase).toBe('live')
+    expect(Math.abs(s.attX - x0)).toBeLessThanOrEqual(0.35)
+    let p = s, moved = 0
+    for (let i = 0; i < 10 && p.phase === 'live'; i++) { const n = step(p, 0.05, rng, inp); expect(Math.abs(n.attX - p.attX)).toBeLessThanOrEqual(0.35); p = n; moved = Math.abs(p.attX - x0) }
+    expect(moved).toBeGreaterThan(0.8)
   })
   test('slide: segurar move a 3.2 m/s × speed; burst para sozinho em 0.3s; dir 0 para; no ar não desliza', () => {
     const inp = input(); const v = 3.2 * inp.mods.speed

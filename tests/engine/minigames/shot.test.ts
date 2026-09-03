@@ -3,8 +3,8 @@ import { createRng } from '../../../src/engine/rng'
 import { initLeague } from '../../../src/data/league'
 import { opponentFive } from '../../../src/engine/minigames/common'
 import {
-  aimNoise, createScene, flightPoint, freeThrowQuality, idealSpeed, launchFromPull, rad, RIM_H, shotQuality,
-  simulateShot, skillOf, trajectory, type ShotScene,
+  aimNoise, BALL_R, ballPath, BOARD_X, createScene, flightPoint, freeThrowQuality, idealSpeed, launchFromPull, rad, RIM_H, RIM_R,
+  shotQuality, simulateShot, skillOf, stageFlight, trajectory, type ShotScene,
 } from '../../../src/engine/minigames/shot'
 import { SLOT_ORDER, type Build, type SlotId } from '../../../src/engine/types'
 
@@ -88,5 +88,52 @@ describe('estilingue', () => {
   test('trajectory (lance livre) sai da altura de saída e chega ao aro', () => {
     const v = idealSpeed(rad(45), 4.57, 2.05); const tr = trajectory(rad(45), v, 2.05)
     expect(tr.pointAt(0).y).toBeCloseTo(2.05, 6); expect(tr.pointAt(tr.tEnd).x).toBeCloseTo(4.57, 3)
+  })
+})
+
+// ---- física do desfecho (bola de verdade: aro, tabela, chão, mão) ----
+const throughHoop = (sc: ShotScene, path: Array<{ x: number; y: number }>) =>
+  path.some((p, i) => i > 0 && path[i - 1].y >= RIM_H && p.y < RIM_H && Math.abs(p.x - sc.d) < RIM_R - BALL_R)
+describe('desfecho físico', () => {
+  test('stageFlight: acerto obedece o outcome — erro geométrico "long" vira arco pelo centro e a bola passa pelo aro', () => {
+    const sc = scene()
+    const f = simulateShot(sc, { angle: rad(50), speed: idealSpeed(rad(50), sc.d + 0.3, sc.releaseH) })
+    expect(f.fate).toBe('long')
+    const g = stageFlight(sc, f, true)
+    expect(Math.abs(g.err)).toBeLessThan(0.02); expect(g.vy).toBe(f.vy); expect(g.h0).toBe(f.h0)
+    expect(throughHoop(sc, ballPath(sc, g, true))).toBe(true)
+  })
+  test('stageFlight: erro obedece o outcome — geometria "in" vira bola no aro e ela NUNCA passa pelo aro', () => {
+    const sc = scene()
+    const f = simulateShot(sc, { angle: rad(50), speed: idealSpeed(rad(50), sc.d, sc.releaseH) })
+    expect(f.fate).toBe('in')
+    const g = stageFlight(sc, f, false)
+    expect(Math.abs(g.err)).toBeGreaterThanOrEqual(0.15)
+    expect(throughHoop(sc, ballPath(sc, g, false))).toBe(false)
+  })
+  test('ballPath: nunca atravessa a tabela nem o chão; forte demais bate na tabela e volta', () => {
+    const sc = scene()
+    const f = stageFlight(sc, simulateShot(sc, { angle: rad(50), speed: idealSpeed(rad(50), sc.d + 0.6, sc.releaseH) }), false)
+    const path = ballPath(sc, f, false)
+    let back = false
+    for (let i = 1; i < path.length; i++) {
+      const p = path[i]
+      expect(p.y).toBeGreaterThanOrEqual(BALL_R - 1e-6)
+      if (p.y > RIM_H - 0.3 && p.y < RIM_H + 0.75) expect(p.x + BALL_R).toBeLessThanOrEqual(sc.d + BOARD_X + 1e-6)
+      if (p.x < path[i - 1].x - 1e-4) back = true
+    }
+    expect(back).toBe(true)
+  })
+  test('ballPath: toco = a bola não passa da mão dele e cai no chão; todo voo termina parado no chão', () => {
+    const sc = scene()
+    const b = simulateShot(sc, { angle: rad(20), speed: 10 }); expect(b.fate).toBe('blocked')
+    const path = ballPath(sc, b, false)
+    expect(Math.max(...path.map(p => p.x))).toBeLessThanOrEqual(sc.gap + BALL_R + 0.05)
+    expect(path.at(-1)!.y).toBeCloseTo(BALL_R, 1)
+    // acerto sorteado (p mínimo 5 %) em cima de um toco geométrico: arco ideal, sem a mão, passa pelo aro
+    const lucky = stageFlight(sc, b, true); expect(lucky.fate).toBe('in')
+    expect(throughHoop(sc, ballPath(sc, lucky, true))).toBe(true)
+    const ok = ballPath(sc, stageFlight(sc, simulateShot(sc, { angle: rad(50), speed: idealSpeed(rad(50), sc.d, sc.releaseH) }), true), true)
+    expect(ok.at(-1)!.y).toBeLessThan(RIM_H - 1); expect(ok.length).toBeLessThanOrEqual(60 * 4)
   })
 })

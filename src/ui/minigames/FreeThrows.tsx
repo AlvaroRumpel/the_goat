@@ -2,16 +2,22 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Build } from '../../engine/types'
 import type { Lang } from '../../i18n'
 import { t } from '../../i18n'
-import { freeThrowQuality, idealSpeed, rad, RIM_H, trajectory } from '../../engine/minigames/shot'
+import { ballPath, freeThrowQuality, idealSpeed, rad, RIM_H, simulateShot, type ShotScene } from '../../engine/minigames/shot'
+import { Ball, Figure, Floor, H, Hoop, M, py } from './shotScene'
 
-// LANCES LIVRES (spec B): dois toques em ARREMESSAR, cada um anima a bola; quality =
-// skill(três) sem defensor. Sem medidor, sem timing. Usado pela prancheta na falta puxada.
+// LANCES LIVRES (spec B): dois toques em ARREMESSAR, cada um anima a bola (arco ideal, passa
+// pela rede, quica); quality = skill(três) sem defensor. Sem medidor, sem timing. Usado pela
+// prancheta na falta puxada.
 
-const M = 30, X0 = 60, GY = 150, W = 300, H = 170
+const X0 = 1.6 * M, W = X0 + 6.4 * M
 const px = (xm: number) => X0 + xm * M
-const py = (h: number) => Math.min(GY, Math.max(2, GY - h * M))
 const FT_D = 4.57, FT_H = 2.05 // linha do lance livre; altura de saída parada
-export const FLIGHT_MS = 900
+const PATH_HZ = 60
+// cena sem defensor (reach −1 = mão nunca no caminho); `who` só precisa de `reach` aqui
+const FT_SCENE = { d: FT_D, releaseH: FT_H, gap: 0, who: { reach: -1 }, kind: 'mid', optionId: 'mgMid' } as ShotScene
+const FT_FULL = ballPath(FT_SCENE, simulateShot(FT_SCENE, { angle: rad(50), speed: idealSpeed(rad(50), FT_D, FT_H) }), true, PATH_HZ)
+const FT_PATH = FT_FULL.slice(0, FT_FULL.findIndex(p => p.y < RIM_H - 0.6) + PATH_HZ / 2)   // até 0.5 s depois da rede
+export const FLIGHT_MS = FT_PATH.length / PATH_HZ * 1000
 
 export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Build; age: number; onDone(q: number): void }) {
   const q = useMemo(() => freeThrowQuality(build, age), [build, age])
@@ -39,24 +45,17 @@ export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Bu
   }, [flying])
 
   const tap = () => { if (flying || shot >= 2) return; setShot(s => s + 1); t0.current = performance.now(); now.current = t0.current; setFlying(true) }
-  const tr = trajectory(rad(45), idealSpeed(rad(45), FT_D, FT_H), FT_H)
-  const p = flying ? Math.min(1, (now.current - t0.current) / FLIGHT_MS) : 0
-  const ball = flying ? tr.pointAt(p * tr.tEnd) : { x: 0.35, y: 1.15 }
-  const hoop = px(FT_D), rimY = py(RIM_H)
+  const ball = flying ? FT_PATH[Math.min(FT_PATH.length - 1, Math.floor((now.current - t0.current) / 1000 * PATH_HZ))] : { x: 0, y: FT_H }
 
   return (
     <div className="mg mg-shot mg-ft">
       <div className="mg-sh-stage">
         <svg className="mg-sh-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <rect className="mg-sh__paper" x={0} y={0} width={W} height={H} />
-          <line className="mg-sh__floor" x1={0} y1={GY} x2={W} y2={GY} />
-          <line className="mg-sh__board" x1={hoop + 0.15 * M} y1={rimY - 1.05 * M} x2={hoop + 0.15 * M} y2={rimY + 0.3 * M} />
-          <line className="mg-sh__rim" x1={hoop - 0.32 * M} y1={rimY} x2={hoop + 0.15 * M} y2={rimY} />
-          <g className="mg-sh__fig">
-            <line x1={X0} y1={GY} x2={X0 - 6} y2={py(0.95)} /><line x1={X0} y1={GY} x2={X0 + 6} y2={py(0.95)} />
-            <line x1={X0} y1={py(0.95)} x2={X0} y2={py(1.8)} /><circle cx={X0} cy={py(1.85)} r={5} />
-          </g>
-          <circle className="mg-sh__ball" cx={px(ball.x)} cy={py(ball.y)} r={5} />
+          <Floor w={W} />
+          <Hoop x={px(FT_D)} />
+          <Figure x={px(-0.3)} dir={1} hand={{ x: px(0), y: py(FT_H) }} label="" />
+          <Ball x={px(ball.x)} y={py(ball.y)} />
         </svg>
       </div>
       <div className="mg-sh-bar">

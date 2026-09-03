@@ -82,6 +82,67 @@ export function simulateShot(scene: ShotScene, l: Launch): Flight {
 // quality = precisão geométrica × (0.6 + 0.4 skill): skill já entrou no ruído; aqui só encosta
 export function shotQuality(f: Flight, skill: number): number { return f.accuracy * (0.6 + 0.4 * skill) }
 
+// ---- desfecho físico (animação): a bola de verdade — aro, tabela, chão, mão ----
+export const BALL_R = 0.12, RIM_R = 0.225, BOARD_X = 0.375   // tabela 0.15 m atrás do aro
+export const BOARD_LO = RIM_H - 0.3, BOARD_HI = RIM_H + 0.75
+const SIM_DT = 1 / 240, SIM_MAX = 3.5
+
+// A animação OBEDECE o outcome mexendo só em vx (a quality já foi calculada): acerto → cruza o aro
+// no centro; erro com geometria "in" → ±0.16 m = bate no aro. Acerto sem arco até o aro (toco,
+// bola curta demais — p mínimo de 5 %) vira arco ideal limpo, sem a mão no caminho.
+export function stageFlight(scene: ShotScene, f: Flight, success: boolean): Flight {
+  if (!success) {
+    if (f.fate !== 'in') return f
+    const err = f.err >= 0 ? 0.16 : -0.16
+    return { ...f, vx: (scene.d + err) / f.tEnd, err }
+  }
+  if (f.fate === 'blocked' || !Number.isFinite(f.err)) {
+    const clear = { ...scene, who: { ...scene.who, reach: -1 } }
+    const ang = rad(scene.d < 3 ? 65 : 48)          // arco limpo (ápice antes do aro em qualquer d/altura)
+    return simulateShot(clear, { angle: ang, speed: idealSpeed(ang, scene.d, f.h0) })
+  }
+  return { ...f, vx: scene.d / f.tEnd, err: 0 }
+}
+
+// Sim 240 Hz amostrada a `hz`: gravidade, tabela (parede), aro (dois pontos, círculo × ponto,
+// e = 0.5), chão (e = 0.5, atrito), mão dele (parede em x = gap, só quando o engine disse toco).
+// Passa pelo aro só no acerto (a rede freia); no erro o aro "cospe" — nunca cai dentro.
+// ponytail: no acerto ignora o aro (arco raso pode raspar a frente visualmente); bola sempre passa limpa.
+export function ballPath(scene: ShotScene, f: Flight, success: boolean, hz = 60): Array<{ x: number; y: number }> {
+  let x = 0, y = f.h0, vx = f.vx, vy = f.vy, t = 0, through = false, handHit = false
+  const out = [{ x, y }]
+  const bx = scene.d + BOARD_X
+  const rimPts = [scene.d - RIM_R, scene.d + RIM_R]
+  const every = Math.max(1, Math.round(1 / hz / SIM_DT))
+  for (let i = 1; t < SIM_MAX; i++) {
+    const py = y
+    vy -= G * SIM_DT; x += vx * SIM_DT; y += vy * SIM_DT; t += SIM_DT
+    if (f.fate === 'blocked' && !handHit && x + BALL_R >= scene.gap) { handHit = true; x = scene.gap - BALL_R; vx = -Math.abs(vx) * 0.25; vy = Math.min(vy, 0) }
+    if (vx > 0 && x + BALL_R > bx && y > BOARD_LO && y < BOARD_HI) { x = bx - BALL_R; vx = -vx * 0.6 }
+    if (!success && !through) {
+      for (const rx of rimPts) {
+        const dx = x - rx, dy = y - RIM_H, dist = Math.hypot(dx, dy)
+        if (dist < BALL_R && dist > 1e-9) {
+          const nx = dx / dist, ny = dy / dist, vn = vx * nx + vy * ny
+          if (vn < 0) { vx -= 1.5 * vn * nx; vy -= 1.5 * vn * ny }
+          x = rx + nx * BALL_R; y = RIM_H + ny * BALL_R
+        }
+      }
+    }
+    if (!through && py >= RIM_H && y < RIM_H && Math.abs(x - scene.d) < RIM_R - BALL_R) {
+      if (success) { through = true; vx *= 0.3; vy *= 0.6 }
+      else { y = RIM_H; vy = -vy * 0.4; vx += (x >= scene.d ? 1 : -1) * 1.2 }
+    }
+    if (y < BALL_R) {
+      y = BALL_R
+      if (Math.abs(vy) < 0.4) { vy = 0; vx *= 0.985 } else { vy = -vy * 0.5; vx *= 0.7 }
+    }
+    if (i % every === 0) out.push({ x, y })
+    if (y <= BALL_R + 1e-9 && vy === 0 && Math.abs(vx) < 0.05) break
+  }
+  return out
+}
+
 // ---- parábola automática (lance livre) ----
 // v tal que a bola passa pelo centro do aro: v² = g d² / (2 cos²θ (d tanθ − h)). NaN se raso demais.
 export function idealSpeed(angleRad: number, d: number, releaseH: number): number {

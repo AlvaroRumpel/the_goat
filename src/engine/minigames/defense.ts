@@ -13,6 +13,7 @@ export interface DuelState {
   t: number; clock: number; attX: number; defX: number; attDist: number
   defVx: number; slideUntil: number          // você desliza por velocidade: segurar (∞) ou burst (t + BURST)
   move: { kind: Move; at: number; dur: number; fromX: number; toX: number } | null   // ele interpola fromX → toX
+  rush: { at: number; from: number } | null  // drive vencido: attDist interpola from → 1.2 (sem teleporte) e vira phase 'drive'
   exposed: number; airborne: number; contain: number; live: number
   stealTries: number; fouled: boolean; bitFake: boolean; contestDist: number | null; armed: number
   phase: 'live' | 'shot' | 'drive' | 'steal' | 'block' | 'foul' | 'clock' | 'done'
@@ -26,12 +27,15 @@ export const SLIDE_SPEED = 3.2         // m/s do seu deslize (× mods.speed)
 export const BURST = 0.3               // s: swipe = deslize curto
 const APPROACH = 0.45                  // m/s: ele vem devagar em direção à cesta…
 const MIN_DIST = 4.0                   // …até aqui (o drive é que o leva ao aro)
+const RUSH_DUR = 0.6                   // s (÷ difficulty): do ponto do drive até o aro
+const RIM_DIST = 1.2
+const EVADE = 0.3                      // s: roubo errado = ele sai de você num movimento curto
 const DUR: Record<Move, number> = { hesi: 0.5, crossL: 0.45, crossR: 0.45, spin: 0.7, legs: 0.5, driveL: 0.8, driveR: 0.8, pumpFake: 0.6, shoot: 0.9, pass: 0.3 }
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k
 
 export function createDuel(_input: DuelInput): DuelState {
-  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, defVx: 0, slideUntil: 0, move: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: 0, phase: 'live', log: [] }
+  return { t: 0, clock: POSSESSION, attX: 0, defX: 0, attDist: 7.5, defVx: 0, slideUntil: 0, move: null, rush: null, exposed: 0, airborne: 0, contain: 0, live: 0, stealTries: 0, fouled: false, bitFake: false, contestDist: null, armed: 0, phase: 'live', log: [] }
 }
 export function inFront(s: DuelState): boolean { return Math.abs(s.attX - s.defX) < CONE_HALF }
 
@@ -67,7 +71,7 @@ function finishMove(s: DuelState, m: Move, _input: DuelInput): DuelState {
     case 'driveL': case 'driveR': {
       const dir = m === 'driveR' ? 1 : -1
       const beaten = !inFront(s) || s.airborne > 0
-      if (beaten) return { ...s, attX: clamp(s.attX + dir * 0.3, -2.5, 2.5), attDist: 1.2, phase: 'drive' }
+      if (beaten) return { ...s, attX: clamp(s.attX + dir * 0.3, -2.5, 2.5), rush: { at: s.t, from: s.attDist } }
       return s
     }
     case 'pass': return { ...s, phase: 'done' }
@@ -87,6 +91,11 @@ export function step(s0: DuelState, dt: number, rng: Rng, input: DuelInput): Due
   // ele: avança devagar; o movimento em curso interpola attX
   s.attDist = Math.max(MIN_DIST, 7.5 - APPROACH * s.live)
   if (s.move) s.attX = lerp(s.move.fromX, s.move.toX, clamp01((s.t - s.move.at) / s.move.dur))
+  if (s.rush) {
+    const k = clamp01((s.t - s.rush.at) / (RUSH_DUR / input.difficulty))
+    s.attDist = lerp(s.rush.from, RIM_DIST, k)
+    return k >= 1 ? finalize({ ...s, phase: 'drive' }) : s
+  }
   if (inFront(s) && s.airborne === 0) s.contain += dt
   if (s.clock <= 0 && s.move?.kind !== 'shoot') return finalize({ ...s, phase: 'clock' })
   if (!s.move) {
@@ -131,7 +140,9 @@ export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
     const p = freeThrowP(input.starOvr)
     return finalize({ ...s, stealTries: tries, fouled: true, phase: 'foul', freeThrows: [rng.chance(p), rng.chance(p)] })
   }
-  return { ...s, stealTries: tries, airborne: 1.2, attX: clamp(s.attX + (s.attX >= s.defX ? 1.2 : -1.2), -2.5, 2.5) }
+  const kind: Move = s.attX >= s.defX ? 'crossR' : 'crossL'
+  const toX = clamp(s.attX + (kind === 'crossR' ? 1.2 : -1.2), -2.5, 2.5)
+  return { ...s, stealTries: tries, airborne: 1.2, move: { kind, at: s.t, dur: EVADE, fromX: s.attX, toX }, log: [...s.log, kind] }
 }
 export function contest(s: DuelState): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
