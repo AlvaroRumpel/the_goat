@@ -6,7 +6,7 @@
   padding: 10px max(12px, calc((100vw - 920px) / 2)) calc(10px + var(--ad-h)); gap: 8px; }
 .mg-frame .mg { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* "Está pronto?": regras antes do minigame montar */
-.mg.mg-ready { justify-content: center; gap: 12px; padding: 22px 18px; background: var(--ink); color: var(--on-ink); }
+.mg.mg-ready { flex: 0 0 auto; overflow: visible; touch-action: auto; justify-content: center; gap: 12px; padding: 22px 18px; background: var(--ink); color: var(--on-ink); }
 .mg-ready__title { margin: 0; font-family: var(--black); font-size: clamp(34px, 8vw, 52px); line-height: 1; letter-spacing: 0.01em; color: var(--on-ink); }
 .mg-ready__rules { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 9px; font-size: 14px; line-height: 1.45; color: var(--on-ink); }
 .mg-ready__rules li::marker { font-family: var(--mono); color: var(--accent-warm); }
