@@ -1,5 +1,7 @@
 # The GOAT
 
+[![CI](https://github.com/AlvaroRumpel/the_goat/actions/workflows/ci.yml/badge.svg)](https://github.com/AlvaroRumpel/the_goat/actions/workflows/ci.yml)
+
 NBA career game that runs in the browser. You steal attributes from legends during the draft, each pick with a price, then play up to two decades of seasons in a 30-team league with awards, trades and playoffs. Retire and get a verdict on your legacy.
 
 Free, no sign-up, saves in the browser. Portuguese and English. Play at [thegoatgame.app](https://thegoatgame.app).
