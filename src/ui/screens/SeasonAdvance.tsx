@@ -64,7 +64,7 @@ export function SeasonAdvanceBody({ state }: { state: GameState }) {
         </div>
         {recent.slice(0, reveal.shown).reverse().map((g, i) => (
           <div key={g.gameIndex} style={{ display: 'flex', gap: 10, alignItems: 'baseline', opacity: 1 - i * 0.1025 }}>
-            <span className="mono" style={{ fontSize: 12, width: 30, flexShrink: 0 }}>J{g.gameIndex}</span>
+            <span className="mono" style={{ fontSize: 12, width: 30, flexShrink: 0 }}>{t(lang, 'advance.gameAbbr', { n: g.gameIndex })}</span>
             <span className="headline" style={{ fontSize: 12, color: g.won ? undefined : 'var(--red)' }}>
               {t(lang, g.won ? 'advance.win' : 'advance.loss')}
             </span>

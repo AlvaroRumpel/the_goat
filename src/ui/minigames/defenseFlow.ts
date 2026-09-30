@@ -130,6 +130,7 @@ export function useDuelFlow(props: MinigameProps): DuelFlow {
     const side = (k: string) => k === 'a' || k === 'A' || k === 'ArrowLeft' ? 'left' : k === 'd' || k === 'D' || k === 'ArrowRight' ? 'right' : null
     const down = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.target instanceof HTMLButtonElement && (e.key === ' ' || e.key === 'Enter')) return   // botão focado (ex.: SIMULAR) ativa normal
       const sd = side(e.key)
       if (sd) { e.preventDefault(); if (!held.has(sd)) { held.add(sd); hold(dirOf()) } return }
       if (e.repeat) return
@@ -137,8 +138,14 @@ export function useDuelFlow(props: MinigameProps): DuelFlow {
       else if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); gesture('tap') }
     }
     const up = (e: KeyboardEvent) => { const sd = side(e.key); if (sd && held.delete(sd)) hold(dirOf()) }
+    // alt-tab com A/D seguradas: o keyup nunca chega — solta tudo ao perder o foco
+    const drop = () => { if (held.size) { held.clear(); hold(0) } }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
+    window.addEventListener('blur', drop); document.addEventListener('visibilitychange', drop)
+    return () => {
+      window.removeEventListener('keydown', down); window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', drop); document.removeEventListener('visibilitychange', drop)
+    }
   }, [phase, gesture, hold])
 
   return { props, stRef, S: stRef.current, phase, showResult, star, tend, team, stageRef, endAt, outRef, gesture, hold }

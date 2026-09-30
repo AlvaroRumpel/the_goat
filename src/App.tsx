@@ -15,7 +15,11 @@ import { AdSlot } from './ui/components/AdSlot'
 export default function App() {
   const [state, dispatch] = useReducer(gameReducer, undefined, () => {
     const saved = loadState()
-    if (!saved) return initialState('pt')
+    // ?lang=en|pt (links das páginas estáticas) manda sobre o save; sem ele, pt.
+    const q = new URLSearchParams(window.location.search).get('lang')
+    const urlLang = q === 'en' || q === 'pt' ? q : null
+    if (!saved) return initialState(urlLang ?? 'pt')
+    if (urlLang) saved.lang = urlLang
     if (saved.phase === 'home') return saved
     // boot sempre na Home; nada é persistido até o primeiro dispatch (spec §4)
     const midSetup = saved.phase === 'setupMode' || saved.phase === 'setupIdentity'
@@ -26,6 +30,7 @@ export default function App() {
   const p = state.phase
   // A1: a seção SEO estática do index.html só aparece na Home
   useEffect(() => { document.body.dataset.phase = p }, [p])
+  useEffect(() => { document.documentElement.lang = state.lang === 'pt' ? 'pt-BR' : 'en' }, [state.lang])
   const screen =
     p === 'home' ? <Home state={state} dispatch={dispatch} /> :
     p === 'setupMode' || p === 'setupIdentity' ? <Setup state={state} dispatch={dispatch} /> :
@@ -38,7 +43,8 @@ export default function App() {
     <Season state={state} dispatch={dispatch} />
   return (
     <>
-      {screen}
+      {/* hub aberto = tela de baixo inerte (sem foco/tab por trás do overlay) */}
+      <div style={{ display: 'contents' }} inert={state.hubOpen}>{screen}</div>
       {state.hubOpen && <Hub state={state} dispatch={dispatch} />}
       <AdSlot slot="bar" />
     </>

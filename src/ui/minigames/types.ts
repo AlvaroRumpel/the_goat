@@ -20,6 +20,8 @@ export interface MinigameProps {
   number: number | null        // camisa do jogador (rótulo do "você")
   lastName: string             // sobrenome nas costas da camisa
   lang: Lang
-  onResolve: (result: MinigameResult) => void
+  // holdMs: quanto o pai deve segurar o minigame montado após o resolve (≥ 1.4s; o ARREMESSO
+  // manda a duração da animação do voo + faixa do desfecho)
+  onResolve: (result: MinigameResult, holdMs?: number) => void
   outcome: MomentOutcome | null
 }

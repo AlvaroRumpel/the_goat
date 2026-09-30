@@ -90,9 +90,9 @@ describe('duelo', () => {
       if (s.phase === 'shot' && s.contestDist !== null && s.contestDist < 0.8) handsUp++
     }
     expect(blocked).toBeGreaterThan(0); expect(bit).toBeGreaterThan(0); expect(handsUp).toBeGreaterThan(0)
-    // toggle e decaimento: arma (>0), desarma no toggle (0), re-arma e decai sozinho a 0 em 1.2s sem re-armar
-    let a = createDuel(inp); a = contest(a); expect(a.armed).toBeGreaterThan(0); a = contest(a); expect(a.armed).toBe(0)
-    a = contest(a); expect(a.armed).toBeGreaterThan(0)
+    // re-arme e decaimento: arma (>0), CONTESTAR de novo renova (nunca desarma) e decai sozinho a 0 em 1.2s sem re-armar
+    let a = createDuel(inp); a = contest(a); expect(a.armed).toBeGreaterThan(0)
+    a = { ...a, armed: 0.3 }; a = contest(a); expect(a.armed).toBeCloseTo(1.2, 5)
     const rng = createRng(3)
     for (let i = 0; i < 26 && a.phase === 'live'; i++) a = step(a, 0.05, rng, inp)   // ≥ 1.3s de ticks, sem re-armar
     expect(a.armed).toBe(0)
@@ -168,6 +168,15 @@ describe('duelo', () => {
     let p = s, moved = 0
     for (let i = 0; i < 10 && p.phase === 'live'; i++) { const n = step(p, 0.05, rng, inp); expect(Math.abs(n.attX - p.attX)).toBeLessThanOrEqual(0.35); p = n; moved = Math.abs(p.attX - x0) }
     expect(moved).toBeGreaterThan(0.8)
+  })
+  test('roubo errado não cancela arremesso/infiltração/passe em curso; com rush ativo não há roubo', () => {
+    const inp = input()
+    const base = createDuel(inp)
+    const mv = { kind: 'shoot' as const, at: 0, dur: 0.9, fromX: 0, toX: 0 }
+    const s = trySteal({ ...base, move: mv }, createRng(12), inp)
+    expect(s.phase).toBe('live'); expect(s.stealTries).toBe(1); expect(s.airborne).toBeGreaterThan(0); expect(s.move).toEqual(mv)
+    const r = { ...base, rush: { at: 0, from: 5 }, exposed: 0.5 }
+    expect(trySteal(r, createRng(12), inp)).toBe(r)
   })
   test('slide: segurar move a 3.2 m/s × speed; burst para sozinho em 0.3s; dir 0 para; no ar não desliza', () => {
     const inp = input(); const v = 3.2 * inp.mods.speed

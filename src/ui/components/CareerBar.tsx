@@ -13,7 +13,9 @@ export function CareerBar({ state, dispatch, heavy }: Props) {
   if (!teamId) return null
   const { career } = state
   const rings = career.seasons.filter(s => s.awards.includes('ring')).length
-  const n = career.seasons.length + 1
+  // seasonResult/verdict: a temporada já foi empurrada em career.seasons — não somar 1
+  const finished = state.phase === 'seasonResult' || state.phase === 'verdict'
+  const n = career.seasons.length + (finished ? 0 : 1)
   const team = teamId.toUpperCase()
   const meta = career.name
     ? t(lang, 'bar.metaId', { name: shortName(career), number: career.number ?? '—', n, team })

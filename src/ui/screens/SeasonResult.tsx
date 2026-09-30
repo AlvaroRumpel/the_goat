@@ -24,7 +24,9 @@ export function SeasonResult({ state, dispatch }: Props) {
   const lang = state.lang
   const season = state.career.seasons.at(-1)!
   const outcome = state.seasonOutcome!
-  const year = 2026 + state.career.seasons.length
+  // a temporada que acabou já está em career.seasons: ela é 2026 + (len − 1); a próxima, +1
+  const year = 2026 + state.career.seasons.length - 1
+  const nextYear = year + 1
   const championTeam = teamById(outcome.championTeamId)
   const [view, setView] = useState<'ceremony' | 'balance'>('ceremony')
   const mvpId = outcome.winners.mvp
@@ -45,7 +47,7 @@ export function SeasonResult({ state, dispatch }: Props) {
   const bannerBits = [
     highlightAwards.length > 0 ? highlightAwards.map(a => t(lang, 'award.' + a)).join(' + ') : null,
     season.playoffRun !== 'missed' && season.seed != null && playerConf
-      ? t(lang, 'result.confPos', { seed: season.seed, conf: t(lang, 'standings.' + playerConf) })
+      ? t(lang, 'result.confPos', { seed: season.seed, conf: t(lang, 'standings.' + playerConf).toUpperCase() })
       : null,
   ].filter(Boolean)
 
@@ -125,14 +127,15 @@ export function SeasonResult({ state, dispatch }: Props) {
             </div>
           )}
 
-          {state.keyGameResults.length > 0 && (
+          {(state.keyGameResults.length > 0 || state.playoffGameResults.length > 0) && (
             <>
               <div className="mono-label">{t(lang, 'result.lived')}</div>
               <div className="result__keygames">
-                {state.keyGameResults.map((r, i) => (
+                {[...state.keyGameResults.map(r => ({ r, playoff: false })), ...state.playoffGameResults.map(r => ({ r, playoff: true }))].map(({ r, playoff }, i) => (
                   <div key={i} className="result__keygame-row">
                     <span style={{ fontWeight: 700, color: r.won ? undefined : 'var(--red)' }}>
                       {t(lang, r.won ? 'keygames.win' : 'keygames.loss')} · {resultScoreText(r)}
+                      {playoff && <span className="mono" style={{ fontWeight: 400, color: 'var(--dim)' }}> · {t(lang, 'result.playoffTag')}</span>}
                     </span>
                     <span className="mono">{r.playerPts} {t(lang, 'stat.pts')}</span>
                   </div>
@@ -151,14 +154,14 @@ export function SeasonResult({ state, dispatch }: Props) {
         <div className="result__right">
           <div className="mono-label">{t(lang, 'result.leagueTrajectory')}</div>
           <StandingsTop4 standings={outcome.standings} playerTeamId={season.finalTeamId} lang={lang} />
-          <RaceBars races={outcome.races} lang={lang} />
+          <RaceBars races={outcome.races} lang={lang} final />
           <TrajectoryBars state={state} />
         </div>
 
         <div className="result__footer">
           <AdSlot slot="pause" />
           <button type="button" className="btn btn--ink" onClick={() => { interstitialAt('seasonEnd'); dispatch({ type: 'ADVANCE' }) }}>
-            {t(lang, 'result.advance', { year })}
+            {t(lang, 'result.advance', { year: nextYear })}
           </button>
           <button type="button" className="btn btn--outline result__view-career" onClick={() => dispatch({ type: 'OPEN_HUB' })}>
             {t(lang, 'result.viewCareer')}

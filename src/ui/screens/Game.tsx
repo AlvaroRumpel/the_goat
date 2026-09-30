@@ -55,6 +55,9 @@ function GameHeader({ state }: { state: GameState }) {
           {t(lang, 'game.series', { us: pp.seriesUs, them: pp.seriesThem })} · {t(lang, 'game.number', { n: gameNumber })}
         </div>
       )}
+      {pp.lastSeriesOpponentId && (
+        <div className="hint">{t(lang, 'game.seriesWon', { team: pp.lastSeriesOpponentId.toUpperCase() })}</div>
+      )}
     </div>
   )
 }
@@ -117,6 +120,7 @@ function MomentPanel({ state, dispatch }: Props) {
       if (state.hubOpen) return
       if (!reveal.done) return
       if (!moment || arcade) return
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return   // Ctrl+1 = troca de aba, não decisão
       const i = ['1', '2', '3'].indexOf(e.key)
       if (i >= 0 && moment.options[i]) dispatch({ type: 'DECIDE_MOMENT', optionId: moment.options[i].id })
     }

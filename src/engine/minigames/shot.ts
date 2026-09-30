@@ -33,12 +33,12 @@ export function freeThrowQuality(build: Build, age: number): number { return ski
 
 // ---- cena (3 rng calls: d, releaseH, gap) ----
 export interface ShotScene { d: number; releaseH: number; gap: number; who: OppPlayer; kind: ShotKind; optionId: string }
-export function createScene(rng: Rng, five: OppPlayer[], build: Build, age: number): ShotScene {
+export function createScene(rng: Rng, five: OppPlayer[], _build: Build, _age: number): ShotScene {
   const d = 1.2 + rng.next() * 7.3
   const releaseH = 1.9 + rng.next() * 0.7
   const gap = Math.min(d - 0.4, 0.8 + rng.next() * 1.6)
-  const phys = build.attributes.physical * ageMultiplier(age, build.attributes.physical)
-  const kind: ShotKind = d < FINISH_D ? (phys >= 75 && d < 1.0 ? 'dunk' : 'layup') : d < ARC ? 'mid' : 'three'
+  // 'dunk' fica só na prancheta (botão ENTERRAR): estilingue a ≥ 1.2 m é sempre bandeja
+  const kind: ShotKind = d < FINISH_D ? 'layup' : d < ARC ? 'mid' : 'three'
   return { d, releaseH, gap, who: bestDefender(five), kind, optionId: OPTION[kind] }
 }
 

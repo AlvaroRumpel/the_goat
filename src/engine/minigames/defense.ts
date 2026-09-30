@@ -133,20 +133,24 @@ export function slide(s: DuelState, dir: -1 | 0 | 1, input: DuelInput, hold = fa
 // falta mesmo logo após a 1ª (que seta airborne=1.2 como cooldown de contenção, não
 // "você no ar"); a UI aplica um cooldown de 350ms no próprio botão pra evitar duplo-toque.
 export function trySteal(s: DuelState, rng: Rng, input: DuelInput): DuelState {
-  if (s.phase !== 'live') return s
+  if (s.phase !== 'live' || s.rush) return s        // já bateu você: tarde demais pra roubar
   if (s.exposed > 0 && rng.chance(input.mods.stealP)) return finalize({ ...s, phase: 'steal' })
   const tries = s.stealTries + 1
   if (tries >= 2) {
     const p = freeThrowP(input.starOvr)
     return finalize({ ...s, stealTries: tries, fouled: true, phase: 'foul', freeThrows: [rng.chance(p), rng.chance(p)] })
   }
+  // arremesso/infiltração/passe em curso seguem (o erro só custa o cooldown); senão ele sai de você num movimento curto
+  if (s.move && KEEP_ON_STEAL.has(s.move.kind)) return { ...s, stealTries: tries, airborne: 1.2 }
   const kind: Move = s.attX >= s.defX ? 'crossR' : 'crossL'
   const toX = clamp(s.attX + (kind === 'crossR' ? 1.2 : -1.2), -2.5, 2.5)
   return { ...s, stealTries: tries, airborne: 1.2, move: { kind, at: s.t, dur: EVADE, fromX: s.attX, toX }, log: [...s.log, kind] }
 }
+const KEEP_ON_STEAL = new Set<Move>(['shoot', 'driveL', 'driveR', 'pass'])
+// CONTESTAR de novo enquanto armado só renova a postura (spec C: "re-arme"), nunca desarma
 export function contest(s: DuelState): DuelState {
   if (s.phase !== 'live' || s.airborne > 0) return s
-  return { ...s, armed: s.armed > 0 ? 0 : ARM_DUR }
+  return { ...s, armed: ARM_DUR }
 }
 
 export function resultOf(s: DuelState): MinigameResult {

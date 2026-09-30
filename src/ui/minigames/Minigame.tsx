@@ -7,7 +7,7 @@ import { PlaybookGame } from './Playbook'
 import { ShotGame } from './Shot'
 import { DefenseGame } from './Defense'
 
-const HOLD_MS = 1400
+const HOLD_MS = 1800   // faixa de desfecho (aparece a ~800ms na prancheta/muralha) fica visível ≥ 1s
 
 // Painel de decisão do modo arcade: no lugar das 2-3 opções, o minigame do momento.
 // Fluxo: minigame chama onResolve → DECIDE_MOMENT (engine resolve com exec) → o painel
@@ -22,6 +22,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
   const idx = holding ?? pending.momentIndex
   const moment = pending.moments[idx]
   const outcome = pending.outcomes[idx] ?? null
+  const holdMs = useRef(HOLD_MS)                                  // o minigame pode pedir mais (animação do voo)
   const seedRef = useRef<{ idx: number; seed: number } | null>(null)
   if (moment && seedRef.current?.idx !== idx) seedRef.current = { idx, seed: minigameSeed(state.seed, state.rngCalls) }
   const firstGame = state.career.seasons.length === 0 && state.keyGameResults.length === 0
@@ -32,7 +33,7 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
     const id = setTimeout(() => {
       setHolding(null)
       if (lastMoment) dispatch({ type: 'FINISH_GAME' })
-    }, HOLD_MS)
+    }, holdMs.current)
     return () => clearTimeout(id)
   }, [holding, lastMoment, dispatch])
 
@@ -43,8 +44,9 @@ export function ArcadePanel({ state, dispatch, active }: { state: GameState; dis
 
   // estável: os minigames guardam esta função em ref e um novo objeto por render reiniciaria
   // os efeitos deles (laço de rAF/intervalo) a cada frame
-  const onResolve = useCallback((r: MinigameResult) => {
+  const onResolve = useCallback((r: MinigameResult, hold?: number) => {
     if (holding !== null) return
+    holdMs.current = Math.max(HOLD_MS, hold ?? 0)
     setHolding(idx)
     dispatch({ type: 'DECIDE_MOMENT', optionId: r.optionId, exec: { quality: r.quality, turnover: r.turnover } })
   }, [holding, idx, dispatch])

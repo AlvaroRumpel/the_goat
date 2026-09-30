@@ -23,6 +23,7 @@ export function Home({ state, dispatch }: Props) {
               key={l}
               type="button"
               className={`chip${lang === l ? ' chip--on' : ''}`}
+              aria-pressed={lang === l}
               onClick={() => dispatch({ type: 'SET_LANG', lang: l })}
             >
               {t(lang, `lang.${l}`)}
@@ -82,6 +83,7 @@ export function Home({ state, dispatch }: Props) {
             <button
               type="button"
               className={`chip${state.timePressure ? ' chip--on' : ''}`}
+              aria-pressed={state.timePressure}
               onClick={() => dispatch({ type: 'TOGGLE_TIME_PRESSURE' })}
             >
               {t(lang, state.timePressure ? 'settings.on' : 'settings.off')}

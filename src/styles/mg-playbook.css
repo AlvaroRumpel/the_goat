@@ -47,6 +47,7 @@
 .mg-pb__ball { fill: var(--accent-warm); stroke: var(--ink); stroke-width: 5; pointer-events: none; }
 .mg-pb__ball--shot { transition: transform 500ms ease-in; }
 .mg-pb__ball--bounce { transition: transform 300ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .mg-pb__open .bar__fill, .mg-pb__ball--shot, .mg-pb__ball--bounce { transition: none; } }
 
 /* manchete de jornal por cima da prancheta */
 .mg-headline { position: absolute; left: 0; right: 0; top: 34%; padding: 0 8px; text-align: center;

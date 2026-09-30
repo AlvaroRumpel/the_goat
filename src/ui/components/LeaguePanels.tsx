@@ -4,7 +4,8 @@ import type { AwardRace, TeamStanding } from '../../engine/types'
 import type { GameState } from '../../state'
 
 export function sortStandings(entries: TeamStanding[]): TeamStanding[] {
-  return [...entries].sort((a, b) => b.wins - a.wins || a.teamId.localeCompare(b.teamId))
+  // seed manda (desempate da liga); sem seed (fora dos playoffs) cai em vitórias
+  return [...entries].sort((a, b) => (a.seed ?? 99) - (b.seed ?? 99) || b.wins - a.wins || a.teamId.localeCompare(b.teamId))
 }
 
 function StandingsRow({ entry, isPlayer, scale }: { entry: TeamStanding; isPlayer: boolean; scale: number }) {
@@ -110,8 +111,8 @@ export function StandingsTop4(props: { standings: TeamStanding[]; playerTeamId: 
 }
 
 // corrida de prêmios condensada: uma barra por award, líder cheio + 2º normalizado.
-export function RaceBars(props: { races: AwardRace[]; lang: Lang }) {
-  const { races, lang } = props
+export function RaceBars(props: { races: AwardRace[]; lang: Lang; final?: boolean }) {
+  const { races, lang, final } = props
   return (
     <div className="result__races">
       {races.map(race => {
@@ -120,7 +121,7 @@ export function RaceBars(props: { races: AwardRace[]; lang: Lang }) {
         return (
           <div key={race.award} className="result__race">
             <div className="mono-label">
-              {t(lang, 'award.' + race.award)} — {leader ? (leader.id === 'you' ? t(lang, 'races.you') : leader.name) : t(lang, 'races.none')}
+              {t(lang, 'award.' + race.award)} — {leader ? (leader.id === 'you' ? t(lang, 'races.you') : leader.name) : t(lang, final ? 'races.noneFinal' : 'races.none')}
             </div>
             {leader && (
               <div className="bar"><div className="bar__fill" style={{ width: '100%' }} /></div>

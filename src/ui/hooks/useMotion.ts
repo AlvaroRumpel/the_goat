@@ -7,19 +7,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // Número que sobe até `target` (rAF, ease-out). Ao mudar o alvo, parte do valor atual.
 export function useCountUp(target: number, ms = 600): number {
   const [value, setValue] = useState(0)
-  const fromRef = useRef(0)
+  const shownRef = useRef(0)   // último valor exibido — alvo novo no meio parte daqui, não do alvo velho
   useEffect(() => {
-    const from = fromRef.current
-    if (ms <= 0 || from === target) { fromRef.current = target; setValue(target); return }
+    const from = shownRef.current
+    if (ms <= 0 || from === target) { shownRef.current = target; setValue(target); return }
     const start = performance.now()
     let id = 0
     const tick = () => {
       const k = Math.min(1, (performance.now() - start) / ms)
       const e = 1 - (1 - k) * (1 - k)
       const v = Math.round(from + (target - from) * e)
+      shownRef.current = v
       setValue(v)
       if (k < 1) id = requestAnimationFrame(tick)
-      else fromRef.current = target
     }
     id = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(id)

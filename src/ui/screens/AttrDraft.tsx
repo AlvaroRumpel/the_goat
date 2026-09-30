@@ -245,7 +245,7 @@ function DraftDone({ state, dispatch }: Props) {
         <div className="hint">
           {lowSlots.length === 0
             ? t(lang, 'draft.done.lowNone')
-            : t(lang, 'draft.done.low', {
+            : t(lang, lowSlots.length === 1 ? 'draft.done.low1' : 'draft.done.low', {
                 n: lowSlots.length,
                 list: lowSlots.map(slot => t(lang, 'slot.' + slot)).join(' · '),
               })}

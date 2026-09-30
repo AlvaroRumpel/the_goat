@@ -10,8 +10,10 @@ import {
   SCHEME_SIGNAL, setRoute, shoot, shotOptionFor, startRun, step, toggleScreen,
   type PassWhen, type PlaybookInput, type PlaybookState, type Pos, type Template,
 } from '../../engine/minigames/playbook'
+import { ageMultiplier } from '../../engine/season'
 import { FreeThrows } from './FreeThrows'
 import { BASKET, COURT_LAYERS, D, MAG_FILTER, S, W } from './Court'
+import { fmt1 } from './fmt'
 
 // JOGADA (prancheta) — meia-quadra top-down em SVG, cesta no topo, madeira sépia e ímãs com
 // sombra (spec §8, "Direção 2 · Plano refinado"). O engine (playbook.ts) é a verdade: aqui só
@@ -199,6 +201,12 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, teamI
     setDraft(d => d && { idx: d.idx, pts: grow ? [...d.pts, p] : d.pts, cur: p })
   }
 
+  // cancelamento (toque perdido, alt-tab): rascunho meio-desenhado vai fora
+  const onBoardCancel = (e: RPointerEvent<SVGSVGElement>) => {
+    if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
+    setDraft(null)
+  }
+
   const onBoardUp = (e: RPointerEvent<SVGSVGElement>) => {
     if (!draft) return
     if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
@@ -207,8 +215,8 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, teamI
     const s = ref.current
     const dragged = pts.length >= 2 || Math.hypot(cur.x - pts[0].x, cur.y - pts[0].y) > TAP
     const route = pts.length >= 2 ? pts : [pts[0], cur]
-    // PASSAR: toque num companheiro escolhe o alvo (draw e pausa)
-    if (passPick === 'pick' && idx > 0 && idx !== s.ball.holder && !dragged && (s.phase === 'draw' || (s.phase === 'run' && !goRef.current))) { setPassPick(idx); return }
+    // PASSAR: toque num companheiro (qualquer ímã, inclusive você quando outro tem a bola) escolhe o alvo (draw e pausa)
+    if (passPick === 'pick' && idx >= 0 && idx !== s.ball.holder && !dragged && (s.phase === 'draw' || (s.phase === 'run' && !goRef.current))) { setPassPick(idx); return }
     if (s.phase === 'run' && !goRef.current) {              // pausado: só desenho (spec D)
       if (idx < 0) return
       if (dragged) { snapshot(); return void act(x => setRoute(x, idx, route)) }
@@ -304,7 +312,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, teamI
   }
   const res = showResult ? resultText() : null
   const bad = !!outcome && (!outcome.success || outcome.injury)
-  const canDunk = build.attributes.physical >= 75
+  const canDunk = build.attributes.physical * ageMultiplier(age, build.attributes.physical) >= 75   // mesma régua do createScene
 
   return (
     <div className="mg mg-pb">
@@ -312,7 +320,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, teamI
         <span className="mono-label mono-label--red">{t(lang, 'mg.pb.phase.' + phaseKey)}</span>
         {!drawing && (
           <span className={'mg-pb__clock' + (st.clock < 3 ? ' mg-pb__clock--low' : '')}>
-            <span className="mg-pb__clock-label">{t(lang, 'mg.clock')}</span> {st.clock.toFixed(1)}
+            <span className="mg-pb__clock-label">{t(lang, 'mg.clock')}</span> {fmt1(lang, st.clock)}
           </span>
         )}
         {!drawing && (
@@ -325,7 +333,7 @@ export function PlaybookGame({ seed, context, build, age, quarter, league, teamI
 
       <div className="mg-pb__stage">
         <svg ref={svgRef} className="mg-pb__board" viewBox={`0 0 ${W} ${D}`}
-          onPointerDown={onBoardDown} onPointerMove={onBoardMove} onPointerUp={onBoardUp} onPointerCancel={onBoardUp}>
+          onPointerDown={onBoardDown} onPointerMove={onBoardMove} onPointerUp={onBoardUp} onPointerCancel={onBoardCancel}>
           {MAG_FILTER}
           {COURT_LAYERS}
 

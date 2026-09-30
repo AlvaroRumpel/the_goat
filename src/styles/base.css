@@ -268,6 +268,7 @@ button {
 .modal-veil {
   position: fixed;
   inset: 0;
+  overflow-y: auto;   /* viewport baixo: o card rola em vez de cortar os botões */
   background: rgba(20, 18, 14, 0.62);
   z-index: 10;
 }
@@ -275,7 +276,8 @@ button {
   position: absolute;
   left: 20px;
   right: 20px;
-  top: 150px;
+  top: min(150px, 12vh);
+  margin-bottom: 40px;
   background: var(--paper);
   border-top: 6px solid var(--red);
   padding: 24px 22px;
@@ -740,3 +742,9 @@ button {
 /* --- ad slots (ciclo 2: placeholders; ciclo 3 preenche) --- */
 .ad-bar { position: fixed; left: 0; right: 0; bottom: 0; height: var(--ad-h); z-index: 40; }
 .ad-slot:empty { display: none; }
+
+/* foco visível só por teclado (inputs do Setup tinham outline:none) */
+:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}

@@ -14,8 +14,9 @@
 .mg-frame__head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
 .mg-frame__opp { color: var(--dim); }
 .mg-frame__hint { font-size: 12px; line-height: 1.4; color: var(--on-ink-dim); }
-.mg { position: relative; width: 100%; background: var(--paper); color: var(--ink); overflow: hidden;
-  user-select: none; -webkit-user-select: none; touch-action: none; }
+/* rola por dentro quando a altura não cabe (360×640, paisagem): só o palco (svg) trava o toque */
+.mg { position: relative; width: 100%; background: var(--paper); color: var(--ink); overflow: hidden auto;
+  user-select: none; -webkit-user-select: none; touch-action: pan-y; }
 .mg svg { display: block; width: 100%; height: auto; }
 .mg-btn { background: var(--ink-2); color: var(--on-ink); padding: 12px 14px; font-weight: 700;
   font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; border: 0; }

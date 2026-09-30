@@ -703,6 +703,8 @@ async function main() {
     if (await arcadePage.locator('.mg-defense').count() > 0) {
       log('arcade minigame: muralha (duelo 1x1) — holding A/D alternately for ~9s, W every 4th')
       for (let k = 0; k < 20; k++) {
+        // o duelo pode acabar antes dos ~9s (arremesso cedo): para de digitar assim que o desfecho aparece
+        if (await arcadePage.locator('.mg-result').count() > 0) break
         const key = k % 2 === 0 ? 'KeyA' : 'KeyD'
         await arcadePage.keyboard.down(key)
         await arcadePage.waitForTimeout(350)
@@ -727,16 +729,12 @@ async function main() {
       await arcadePage.mouse.up()
     }
 
-    // The `.mg-result` overlay is short-lived (~600-800ms) — wait for it right after the
-    // last input, and accept the arcade having already reached gameResult (PLACAR FINAL)
-    // as an alternative success signal in case the overlay window was missed.
-    let resolved = false
-    try {
-      await arcadePage.waitForSelector('.mg-result', { timeout: 15000 })
-      resolved = true
-    } catch {
-      resolved = await arcadePage.locator('text=PLACAR FINAL').count() > 0
-    }
+    // The `.mg-result` overlay holds for >=1s — right after the last input wait for either
+    // the overlay or the arcade having already reached gameResult (PLACAR FINAL), whichever
+    // renders first, so a missed overlay window does not cost the full timeout.
+    const resolved = await arcadePage.locator('.mg-result')
+      .or(arcadePage.locator('text=PLACAR FINAL')).first()
+      .waitFor({ timeout: 6000 }).then(() => true, () => false)
     console.log(`[assert] modo arcade: first minigame resolved with an outcome overlay (or gameResult): ${resolved}`)
     if (!resolved) exitCode = 1
     await arcadePage.screenshot({ path: `${SHOTS_DIR}/21-arcade-outcome.png` })
@@ -777,6 +775,7 @@ async function main() {
   }
 
   console.log(exitCode === 0 ? '\nPLAYTHROUGH OK' : '\nPLAYTHROUGH FAILED')
+  process.exitCode = exitCode
   process.exit(exitCode)
 }
 

@@ -310,8 +310,8 @@ export function step(state: PlaybookState, dt: number, rng: Rng, input: Playbook
   const closeCount = s.defenders.filter(d => dist(d, holderPos) < 1).length
   s.pressure = closeCount >= 2 ? s.pressure + dt : 0
   if (!s.ball.flying && s.pressure > 0.5) {
-    const chance = 0.06 * (s.scheme === 'press' ? 1.5 : 1) / input.mods.stripResist
-    if (rng.chance(chance)) return endTurnover(s, 'strip', 'mgMid')
+    const perSec = 0.06 * (s.scheme === 'press' ? 1.5 : 1) / input.mods.stripResist
+    if (rng.chance(1 - (1 - perSec) ** dt)) return endTurnover(s, 'strip', 'mgMid')   // 6%/s sob pressão, independente do tick
   }
 
   return s

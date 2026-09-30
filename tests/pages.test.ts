@@ -13,6 +13,10 @@ const PT_PAGES: Array<[string, string, string]> = [
   ['como-jogar.html', '/como-jogar', '/en/how-to-play'],
   ['sobre.html', '/sobre', '/en/about'],
   ['privacidade.html', '/privacidade', '/en/privacy'],
+  ['guia-draft.html', '/guia-draft', '/en/draft-guide'],
+  ['guia-atributos.html', '/guia-atributos', '/en/attributes-guide'],
+  ['guia-modos.html', '/guia-modos', '/en/game-modes'],
+  ['guia-veredito.html', '/guia-veredito', '/en/goat-verdict'],
 ]
 
 describe('páginas estáticas PT', () => {
@@ -37,6 +41,10 @@ const EN_PAGES: Array<[string, string, string]> = [
   ['en/how-to-play.html', '/en/how-to-play', '/como-jogar'],
   ['en/about.html', '/en/about', '/sobre'],
   ['en/privacy.html', '/en/privacy', '/privacidade'],
+  ['en/draft-guide.html', '/en/draft-guide', '/guia-draft'],
+  ['en/attributes-guide.html', '/en/attributes-guide', '/guia-atributos'],
+  ['en/game-modes.html', '/en/game-modes', '/guia-modos'],
+  ['en/goat-verdict.html', '/en/goat-verdict', '/guia-veredito'],
 ]
 
 describe('páginas estáticas EN', () => {
@@ -47,20 +55,25 @@ describe('páginas estáticas EN', () => {
     expect(html).toContain(`hreflang="en" href="${ORIGIN}${path}"`)
     expect(html).toContain(`hreflang="pt-BR" href="${ORIGIN}${ptPath}"`)
     expect(html).toContain('lang="en"')
+    expect(html).toContain('<meta name="description"')
+    expect(html).toContain('href="/?lang=en"') // link de volta pro jogo em EN
   })
 })
 
 describe('sitemap e robots', () => {
-  const ALL_PATHS = ['/', '/como-jogar', '/sobre', '/privacidade', '/en/how-to-play', '/en/about', '/en/privacy']
+  const ALL_PATHS = ['/', ...PT_PAGES.map(p => p[1]), ...EN_PAGES.map(p => p[1])]
 
-  it('sitemap.xml lista as 7 URLs canônicas', () => {
+  it('sitemap.xml lista exatamente as 15 URLs canônicas', () => {
     const xml = readPage('public/sitemap.xml')
-    for (const p of ALL_PATHS) expect(xml).toContain(`<loc>${ORIGIN}${p}</loc>`)
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1])
+    expect(locs.sort()).toEqual(ALL_PATHS.map(p => ORIGIN + p).sort())
   })
 
   it('robots.txt libera tudo e aponta o sitemap', () => {
     const txt = readPage('public/robots.txt')
     expect(txt).toContain('Allow: /')
+    expect(txt).toMatch(/^Disallow: \/lab\.html$/m)
+    expect(txt).toMatch(/^Disallow: \/lab$/m)
     expect(txt).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`)
   })
 })

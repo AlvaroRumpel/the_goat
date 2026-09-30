@@ -1,5 +1,6 @@
 User-agent: *
 Disallow: /lab.html
+Disallow: /lab
 Allow: /
 
 Sitemap: https://thegoatgame.app/sitemap.xml

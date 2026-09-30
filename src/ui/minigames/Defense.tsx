@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import { useRef, type JSX } from 'react'
 import type { MinigameProps } from './types'
 import { t } from '../../i18n'
 import { CONE_HALF, inFront, type DuelState } from '../../engine/minigames/defense'
@@ -130,10 +130,13 @@ export function DefenseGame(props: MinigameProps): JSX.Element {
 function GestBtn({ flow, g, keyLabel, label, on }: { flow: DuelFlow; g: Gesture; keyLabel: string; label: string; on: boolean }): JSX.Element {
   const holds = g === 'left' || g === 'right'
   const release = holds ? () => flow.hold(0) : undefined
+  // click sintético (leitor de tela, Enter em alguns AT) sem pointerdown antes: vale como gesto
+  const viaPointer = useRef(false)
   return (
     <button type="button" className={'mg-btn mg-df-padbtn' + (on ? ' mg-pb__armed' : '')} aria-pressed={g === 'up' ? on : undefined}
       disabled={flow.phase !== 'live'}
-      onPointerDown={() => holds ? flow.hold(g === 'left' ? -1 : 1) : flow.gesture(g)}
+      onPointerDown={() => { viaPointer.current = true; holds ? flow.hold(g === 'left' ? -1 : 1) : flow.gesture(g) }}
+      onClick={() => { if (viaPointer.current) { viaPointer.current = false; return } flow.gesture(g) }}
       onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
       onKeyDown={e => { if (e.key !== ' ' && e.key !== 'Enter') return; e.preventDefault(); e.stopPropagation(); flow.gesture(g) }}>
       <kbd className="mg-df-padbtn__key">{keyLabel}</kbd>

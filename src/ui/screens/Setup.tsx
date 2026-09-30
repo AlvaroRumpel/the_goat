@@ -63,7 +63,7 @@ function IdentityStep({ state, dispatch }: Props) {
           onChange={e => setName(e.target.value)}
           style={{
             display: 'block', width: '100%', marginTop: 8, padding: '4px 0',
-            border: 'none', borderRadius: 0, background: 'transparent', outline: 'none',
+            border: 'none', borderRadius: 0, background: 'transparent',
             borderBottom: '1px solid var(--ink)', fontSize: 24, fontWeight: 700,
           }}
         />
@@ -95,7 +95,7 @@ function IdentityStep({ state, dispatch }: Props) {
             }}
             style={{
               display: 'block', width: '100%', marginTop: 10, padding: '4px 0',
-              border: 'none', borderRadius: 0, background: 'transparent', outline: 'none',
+              border: 'none', borderRadius: 0, background: 'transparent',
               borderBottom: '1px solid var(--ink)', fontSize: 24, fontWeight: 700,
             }}
           />
@@ -162,9 +162,14 @@ function ModeStep({ state, dispatch }: Props) {
       <hr className="rule--double" />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14 }}>
         <span className="mono-label">{t(lang, 'setup.step1')}</span>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <div style={{ width: 22, height: 4, background: 'var(--red)' }} />
-          <div style={{ width: 22, height: 4, background: 'var(--track)' }} />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button type="button" className="topbar__link" onClick={() => dispatch({ type: 'BACK_HOME' })}>
+            {t(lang, 'setup.back')}
+          </button>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ width: 22, height: 4, background: 'var(--red)' }} />
+            <div style={{ width: 22, height: 4, background: 'var(--track)' }} />
+          </div>
         </div>
       </div>
 

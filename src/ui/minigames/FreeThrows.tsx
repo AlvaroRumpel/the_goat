@@ -16,7 +16,7 @@ const PATH_HZ = 60
 // cena sem defensor (reach −1 = mão nunca no caminho); `who` só precisa de `reach` aqui
 const FT_SCENE = { d: FT_D, releaseH: FT_H, gap: 0, who: { reach: -1 }, kind: 'mid', optionId: 'mgMid' } as ShotScene
 const FT_FULL = ballPath(FT_SCENE, simulateShot(FT_SCENE, { angle: rad(55), speed: idealSpeed(rad(55), FT_D, FT_H), spin: SPIN }), true, PATH_HZ)
-const FT_PATH = FT_FULL.slice(0, FT_FULL.findIndex(p => p.y < RIM_H - 0.6) + PATH_HZ / 2)   // até 0.5 s depois da rede
+const FT_PATH = FT_FULL.slice(0, FT_FULL.findIndex(p => p.y < RIM_H - 0.6 && Math.abs(p.x - FT_D) < 0.4) + PATH_HZ / 2)   // até 0.5 s depois da rede (perto do aro: a saída é mais baixa que a rede)
 export const FLIGHT_MS = FT_PATH.length / PATH_HZ * 1000
 
 export function FreeThrows({ lang, build, age, onDone }: { lang: Lang; build: Build; age: number; onDone(q: number): void }) {

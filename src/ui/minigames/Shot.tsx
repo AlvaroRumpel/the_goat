@@ -9,6 +9,7 @@ import {
   type Flight, type PathPoint, type ShotScene,
 } from '../../engine/minigames/shot'
 import { Ball, Figure, Floor, GY, H, Hoop, M, py, STAND_REACH } from './shotScene'
+import { fmtM } from './fmt'
 
 // ARREMESSO estilingue (spec 2026-09-03 arcade-ajustes §2): vista lateral em SVG, papel sépia.
 // Você à esquerda, aro à distância sorteada, defensor PARADO com a mão erguida entre vocês
@@ -19,7 +20,7 @@ import { Ball, Figure, Floor, GY, H, Hoop, M, py, STAND_REACH } from './shotScen
 
 const X0 = 1.4 * M                // sua mão (x = 0 m)
 const W_MIN = 7.4 * M             // bandeja não vira zoom gigante
-const PATH_HZ = 60, SETTLE_MS = 350
+const PATH_HZ = 60, SETTLE_MS = 350, BANNER_MS = 1000
 const GUIDE_STEPS = 16
 const px = (xm: number) => X0 + xm * M
 
@@ -54,37 +55,41 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse())
     return { x: (p.x - X0) / M, y: (GY - p.y) / M }
   }
+  // só o dedo que começou a puxada conta (um 2º toque não sequestra o arrasto)
+  const pid = useRef<number | null>(null)
   const onDown = (e: RPointerEvent<SVGSVGElement>) => {
-    if (phase !== 'aim') return
+    if (phase !== 'aim' || pid.current !== null) return
     const p = toM(e); if (!p) return
+    pid.current = e.pointerId
     svgRef.current?.setPointerCapture(e.pointerId)
     setDrag({ sx: p.x, sy: p.y, cx: p.x, cy: p.y })
   }
   const onMove = (e: RPointerEvent<SVGSVGElement>) => {
-    if (!drag) return
+    if (!drag || e.pointerId !== pid.current) return
     const p = toM(e); if (p) setDrag(d => d && { ...d, cx: p.x, cy: p.y })
   }
-  const onUp = (e: RPointerEvent<SVGSVGElement>) => {
-    if (!drag) return
+  const release = (e: RPointerEvent<SVGSVGElement>) => {
     if (svgRef.current?.hasPointerCapture(e.pointerId)) svgRef.current.releasePointerCapture(e.pointerId)
-    const l = launchFromPull(drag.cx - drag.sx, drag.cy - drag.sy)
+    pid.current = null
     setDrag(null)
+  }
+  // cancelamento (toque perdido, alt-tab): desfaz a puxada sem lançar
+  const onCancel = (e: RPointerEvent<SVGSVGElement>) => { if (e.pointerId === pid.current) release(e) }
+  const onUp = (e: RPointerEvent<SVGSVGElement>) => {
+    if (!drag || e.pointerId !== pid.current) return
+    release(e)
+    const l = launchFromPull(drag.cx - drag.sx, drag.cy - drag.sy)
     if (!l || resolved.current) return
     resolved.current = true
     const f = simulateShot(scene, { ...l, spin: SPIN })
     setFlight(f); t0.current = performance.now(); now.current = t0.current; setPhase('flight')
-    onResolveRef.current({ optionId: scene.optionId, quality: shotQuality(f) })
+    // o pai segura o minigame até a bola parar no pior caso (acerto ou erro) + a faixa do desfecho
+    const longest = Math.max(pathFor(scene, f, true).length, pathFor(scene, f, false).length) / PATH_HZ * 1000
+    onResolveRef.current({ optionId: scene.optionId, quality: shotQuality(f) }, longest + SETTLE_MS + BANNER_MS)
   }
 
   // `outcome` chega um render depois do soltar: até lá toca o voo cru (o começo é igual)
-  const path = useMemo(() => {
-    if (!flight) return null
-    const ok = outcome ? outcome.success : flight.fate === 'in'
-    const p = ballPath(scene, stageFlight(scene, flight, ok), ok, PATH_HZ)
-    // acerto: corta 0.5 s depois de sair pela rede (o erro quica até parar)
-    const out = ok ? p.findIndex(q => q.y < RIM_H - 0.6 && Math.abs(q.x - scene.d) < 0.4) : -1
-    return out > 0 ? p.slice(0, out + PATH_HZ / 2) : p
-  }, [flight, outcome, scene])
+  const path = useMemo(() => flight ? pathFor(scene, flight, outcome ? outcome.success : flight.fate === 'in') : null, [flight, outcome, scene])
   const flightMs = path ? path.length / PATH_HZ * 1000 : 0
   useEffect(() => {
     if (phase !== 'flight') return
@@ -112,7 +117,7 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
     <div className="mg mg-shot">
       <div className="mg-sh-stage">
         <svg ref={svgRef} className="mg-sh-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true"
-          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel}>
           <rect className="mg-sh__paper" x={0} y={0} width={W} height={H} />
           <Floor w={W} />
           <Hoop x={px(scene.d)} />
@@ -124,9 +129,9 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
         <div className="mg-sh-hud">
           <div className="mg-sh-hud__row">
             <span className="mono-label mono-label--red">{t(lang, 'mg.shot.phase.' + (phase === 'aim' ? 'aim' : 'flight'))}</span>
-            <span className="mg-sh-tagline">{t(lang, 'mg.shot.defender')} · {scene.who.short} · {scene.gap.toFixed(1)} m</span>
+            <span className="mg-sh-tagline">{t(lang, 'mg.shot.defender')} · {scene.who.short} · {fmtM(lang, scene.gap)}</span>
           </div>
-          <span className="mg-sh-tagline">{t(lang, 'mg.shot.zone.' + ZONE[scene.kind])} · {scene.d.toFixed(1)} m</span>
+          <span className="mg-sh-tagline">{t(lang, 'mg.shot.zone.' + ZONE[scene.kind])} · {fmtM(lang, scene.d)}</span>
         </div>
       </div>
 
@@ -146,6 +151,13 @@ export function ShotGame({ seed, context, build, age, quarter, league, number, l
       )}
     </div>
   )
+}
+
+// caminho da bola pro desfecho `ok`; acerto: corta 0.5 s depois de sair pela rede (o erro quica até parar)
+function pathFor(scene: ShotScene, flight: Flight, ok: boolean): PathPoint[] {
+  const p = ballPath(scene, stageFlight(scene, flight, ok), ok, PATH_HZ)
+  const out = ok ? p.findIndex(q => q.y < RIM_H - 0.6 && Math.abs(q.x - scene.d) < 0.4) : -1
+  return out > 0 ? p.slice(0, out + PATH_HZ / 2) : p
 }
 
 // guia da mira: arco previsto exato, só a fração `skill` do voo (0.25 → um quarto; 1 → até o aro)

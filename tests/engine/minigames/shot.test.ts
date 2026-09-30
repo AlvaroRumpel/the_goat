@@ -35,7 +35,7 @@ describe('cena', () => {
       expect(s.d).toBeGreaterThanOrEqual(1.2); expect(s.d).toBeLessThan(8.5)
       expect(s.releaseH).toBeGreaterThanOrEqual(1.9); expect(s.releaseH).toBeLessThan(2.6)
       expect(s.gap).toBeGreaterThanOrEqual(0.6); expect(s.gap).toBeLessThanOrEqual(s.d - 0.4)
-      expect(s.kind).toBe(s.d < 1.8 ? (s.d < 1.0 ? 'dunk' : 'layup') : s.d < 7.24 ? 'mid' : 'three')
+      expect(s.kind).toBe(s.d < 1.8 ? 'layup' : s.d < 7.24 ? 'mid' : 'three')
       expect(five.some(p => p.id === s.who.id)).toBe(true)
       kinds.add(s.kind)
     }

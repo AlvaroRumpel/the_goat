@@ -106,6 +106,8 @@ npx wrangler pages deploy dist --project-name=the-goat --branch=master
 
 ## Débitos deferidos (nenhum bloqueante)
 
+- **Auditoria 2026-09-30** (`docs/qa/2026-09-30-auditoria.md`): 46 achados em site/UI/minigames; 43 corrigidos na mesma sessão (seção "Status das correções" no relatório). Mudanças com efeito de contrato: `onResolve(result, holdMs?)` em `ui/minigames/types.ts` (Shot pede hold = voo mais longo + 1,35 s); `playoffGameResults` e `PendingPlayoffs.lastSeriesOpponentId` no state (só UI); `BACK_HOME` (Setup → Home sem apagar save); `?lang=en|pt` na URL manda sobre o save e `<html lang>` acompanha; ErrorBoundary só limpa o save no 2º crash seguido (cópia em `thegoat:v7:crashed`); muralha: re-apertar CONTESTAR renova a postura (antes desarmava) e roubo errado não cancela mais o arremesso/drive do atacante; prancheta: strip por tick virou taxa por segundo. Pendências do dono: custom domain (canonical aponta pra `thegoatgame.app`), mensagem de consentimento do Google no AdSense.
+
 **Revisados com o dono em 2026-07-31 — todos aceitos como estão, nenhum entra em ciclo.** A oferta de fechar o terceiro (hook de pre-commit condicional pra calibração) foi recusada; a disciplina manual do `CLAUDE.md` fica sendo a mitigação.
 
 - Histórico local de runs (spec §4) não implementado — sem UI que o use; juntar com leaderboard na v2.

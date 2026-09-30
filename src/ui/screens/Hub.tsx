@@ -1,4 +1,4 @@
-import type { Dispatch } from 'react'
+import { useEffect, useRef, type Dispatch } from 'react'
 import type { Action, GameState } from '../../state'
 import { t } from '../../i18n'
 import { effectiveOverall } from '../../engine/season'
@@ -27,17 +27,26 @@ export function Hub({ state, dispatch }: Props) {
   const iconics = seasons.flatMap((s, i) => s.iconicMoments.map(id => ({ year: 2026 + i, id })))
 
   const ovr = build ? effectiveOverall(build.overall, age, build.attributes.physical) : 0
+  // overlay modal: foco no fechar ao abrir, Esc fecha (a tela de baixo fica inert no App)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    closeRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') dispatch({ type: 'CLOSE_HUB' }) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dispatch])
+  const finished = state.phase === 'seasonResult' || state.phase === 'verdict'
   const last9 = seasons.slice(-9).map((s, i, arr) => ({
     eov: build ? effectiveOverall(build.overall, s.age, build.attributes.physical) : 0,
     isLast: i === arr.length - 1,
   }))
 
   return (
-    <div className="hub">
+    <div className="hub" role="dialog" aria-modal="true" aria-label={t(lang, 'hub.title')}>
       <div className="screen hub__inner">
         <header className="hub__header">
           <span className="headline" style={{ fontSize: 22 }}>{t(lang, 'hub.title')}</span>
-          <button type="button" className="topbar__link" onClick={() => dispatch({ type: 'CLOSE_HUB' })}>
+          <button ref={closeRef} type="button" className="topbar__link" onClick={() => dispatch({ type: 'CLOSE_HUB' })}>
             {t(lang, 'hub.close')}
           </button>
         </header>
@@ -47,7 +56,7 @@ export function Hub({ state, dispatch }: Props) {
           <section className="hub__status" style={{ gridArea: 'status' }}>
             {teamId && (
               <span className="mono-label">
-                {t(lang, 'bar.meta', { n: seasons.length + 1, age, team: teamId.toUpperCase() })}
+                {t(lang, 'bar.meta', { n: seasons.length + (finished ? 0 : 1), age, team: teamId.toUpperCase() })}
               </span>
             )}
             {team && (
@@ -109,7 +118,7 @@ export function Hub({ state, dispatch }: Props) {
                   <div className="mono-ring hub__monogram">{build.archetype}</div>
                   <span className="mono-label mono-label--red">{t(lang, 'archetype.name.' + build.archetype)}</span>
                 </div>
-                <div className="mono-label">{t(lang, 'hub.attrs', { n: ovr })}</div>
+                <div className="mono-label">{t(lang, 'hub.attrs', { n: ovr, base: build?.overall ?? 0 })}</div>
                 <div className="hub__bars">
                   {SLOT_ORDER.map(slot => {
                     const val = build.attributes[slot]
@@ -188,7 +197,7 @@ export function Hub({ state, dispatch }: Props) {
 
           {/* contrato/fama */}
           <section className="hub__contract" style={{ gridArea: 'contract' }}>
-            <div className="mono-label">{t(lang, 'hub.contract', { n: contractYearsLeft })}</div>
+            <div className="mono-label">{t(lang, contractYearsLeft === 1 ? 'hub.contract1' : 'hub.contract', { n: contractYearsLeft })}</div>
             <div className="mono-label">{t(lang, 'hub.fame', { n: career.fame })}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
               <span className="mono-label">{t(lang, 'settings.timePressure')}</span>

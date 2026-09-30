@@ -71,6 +71,7 @@ export interface PendingPlayoffs {
   winPct: number
   seed: number
   playerOut: boolean                     // lesionado: jogos restantes auto-resolvem
+  lastSeriesOpponentId?: string          // série anterior vencida (UI: cabeçalho do próximo jogo)
   chokes: number
   iconics: IconicMomentId[]
   regular: RegularSeasonResult
@@ -102,6 +103,7 @@ export interface GameState {
   pendingGame: PendingGame | null     // key/playoff game currently being watched
   pendingPlayoffs: PendingPlayoffs | null  // postseason in progress (null outside the playoffGame phase)
   keyGameResults: WatchedGameResult[] // this season's watched games; reset in startSeasonCalendar (after any eventDecision pause)
+  playoffGameResults: WatchedGameResult[] // jogos de playoff assistidos nesta temporada — SÓ UI (balanço); não entra em keyGameEffects
   injuryProne: boolean       // set by injuryEarly choice; consumed (and reset) by next season's roll
   career: Career
   setup: { mode: GameMode | null }
@@ -143,6 +145,7 @@ export type Action =
   | { type: 'CLOSE_HUB' }
   | { type: 'TOGGLE_TIME_PRESSURE' }
   | { type: 'RESUME' }
+  | { type: 'BACK_HOME' }           // setup → home sem apagar o save
   | { type: 'RESET' }
 
 export const STORAGE_KEY = 'thegoat:v7'
@@ -202,6 +205,7 @@ export function initialState(lang: Lang = 'pt'): GameState {
     pendingGame: null,
     pendingPlayoffs: null,
     keyGameResults: [],
+    playoffGameResults: [],
     injuryProne: false,
     career: { seasons: [], fame: 0, mode: null, name: '', number: null, lastName: '' },
     setup: { mode: null },
@@ -291,7 +295,7 @@ function startSeasonCalendar(
     p, effClutch, autoRun: state.career.mode === 'rapido',
   }
   return advanceCalendar({
-    ...state, calendar, keyGameResults: [],
+    ...state, calendar, keyGameResults: [], playoffGameResults: [],
     pendingRegular: regular, pendingFocus: focus, pendingEvents: events,
   }, rng, calls)
 }
@@ -442,6 +446,7 @@ function enterRound(state: GameState, pp: PendingPlayoffs, rng: Rng, calls: () =
   return openPlayoffGame(state, {
     ...pp, bracket: next, opponentTeamId, seriesProb, seriesUs: 0, seriesThem: 0,
     pGame: next.round === 3 ? pGameForSeries(seriesProb) : 0,
+    lastSeriesOpponentId: pp.bracket.round > 0 ? pp.opponentTeamId : undefined,
   }, rng, calls)
 }
 
@@ -512,6 +517,7 @@ function pausePlayoffGame(
     phase: 'gameResult',
     pendingGame: null,
     pendingPlayoffs: next,
+    playoffGameResults: [...state.playoffGameResults, result],
     lastGame: { context: pending.context, result, skipped },
     injuryProne: state.injuryProne || result.injured,
     rngCalls: calls(),
@@ -684,6 +690,7 @@ function reduce(state: GameState, action: Action): GameState {
       return { ...state, currentOffer: action.offer, contractYearsLeft: 4, phase: 'preseason' }
 
     case 'PLAY_SEASON': {
+      if (state.phase !== 'preseason' || !state.currentOffer) return state
       const { rng, calls } = makeCountedRng(state.seed, state.rngCalls)
       const events = rollEvents(rng, action.focus, state.injuryProne)
       const consumed = { ...state, injuryProne: false }
@@ -842,6 +849,7 @@ function reduce(state: GameState, action: Action): GameState {
     case 'RETIRE_DECISION': {
       // Reachable from 'retireDecision' (continue/stop) and 'freeAgency' (stop only,
       // when a contract-expiry year lands at age 31+ — see FreeAgency screen).
+      if (state.phase !== 'retireDecision' && state.phase !== 'freeAgency') return state
       if (!action.retire && state.phase === 'freeAgency') return state
       if (!action.retire) return { ...state, phase: 'preseason' }
       return { ...state, phase: 'verdict', verdict: computeVerdict(state.career) }
@@ -856,6 +864,10 @@ function reduce(state: GameState, action: Action): GameState {
     case 'TOGGLE_TIME_PRESSURE':
       return { ...state, timePressure: !state.timePressure }
 
+    case 'BACK_HOME':
+      if (state.phase !== 'setupMode' && state.phase !== 'setupIdentity') return state
+      return { ...state, phase: 'home', setup: { mode: null } }
+
     case 'RESUME':
       if (!state.resumePhase) return state
       return { ...state, phase: state.resumePhase, resumePhase: null }
@@ -868,7 +880,7 @@ function reduce(state: GameState, action: Action): GameState {
 export function gameReducer(state: GameState, action: Action): GameState {
   if (action.type === 'RESET') {
     clearStorage()
-    return initialState(state.lang)
+    return { ...initialState(state.lang), timePressure: state.timePressure }
   }
   const next = reduce(state, action)
   saveState(next)
@@ -915,6 +927,7 @@ export function loadState(): GameState | null {
     parsed.pendingGame = parsed.pendingGame ?? null
     parsed.pendingPlayoffs = parsed.pendingPlayoffs ?? null
     parsed.keyGameResults = parsed.keyGameResults ?? []
+    parsed.playoffGameResults = parsed.playoffGameResults ?? []
     parsed.calendar = parsed.calendar ?? null
     parsed.lastGame = parsed.lastGame ?? null
     parsed.hubOpen = parsed.hubOpen ?? false

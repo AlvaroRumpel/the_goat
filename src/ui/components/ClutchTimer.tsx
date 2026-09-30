@@ -6,10 +6,17 @@ import { t } from '../../i18n'
 // prefers-reduced-motion NÃO o desliga — só o toggle timePressure desliga.
 export function ClutchTimer({ ms, paused, onExpire, lang }: { ms: number; paused: boolean; onExpire: () => void; lang: Lang }) {
   const [left, setLeft] = useState(ms)
+  const leftRef = useRef(ms)
   const fired = useRef(false)
   useEffect(() => {
     if (paused) return
-    const id = setInterval(() => setLeft(v => Math.max(0, v - 100)), 100)
+    // relógio de parede, não contagem de ticks: aba em background throttla o setInterval
+    const start = performance.now(), base = leftRef.current
+    const id = setInterval(() => {
+      const v = Math.max(0, base - (performance.now() - start))
+      leftRef.current = v
+      setLeft(v)
+    }, 100)
     return () => clearInterval(id)
   }, [paused])
   useEffect(() => {
