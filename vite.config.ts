@@ -23,6 +23,7 @@ export default defineConfig({
         'en/attributes-guide.html',
         'en/game-modes.html',
         'en/goat-verdict.html',
+        '404.html',
       ],
     },
   },

@@ -101,3 +101,17 @@ describe('AdSense (verificação do site)', () => {
     expect(readPage('public/ads.txt')).toContain('google.com, pub-3920668331202711, DIRECT, f08c47fec0942fa0')
   })
 })
+
+describe('indexação', () => {
+  it('404.html existe com noindex (Pages só devolve 404 real se ele existir)', () => {
+    expect(readPage('404.html')).toContain('<meta name="robots" content="noindex" />')
+  })
+
+  it('index não aponta hreflang para /?lang=en (canoniza em /)', () => {
+    expect(readPage('index.html')).not.toContain('?lang=en" />')
+  })
+
+  it('/en redireciona para página EN real', () => {
+    expect(readPage('public/_redirects')).toMatch(/^\/en\s+\/en\/how-to-play\s+301$/m)
+  })
+})
