@@ -27,6 +27,10 @@
       /* Seção estática abaixo do app — indexável, visível ao rolar NA HOME. Em jogo o App
          marca body[data-phase] e a seção some (o crawler vê o HTML inicial, sem o atributo). */
       body[data-phase]:not([data-phase="home"]) .home-static { display: none; }
+      main > #root { min-height: 100vh; min-height: 100dvh; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      .skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; background: var(--ink, #1C1A16); color: var(--on-ink, #EDE6D6); font: 600 12px/1 var(--mono, monospace); letter-spacing: 0.12em; text-transform: uppercase; }
+      .skip-link:focus { top: 12px; }
       .home-static {
         max-width: 430px;
         margin: 0 auto;
@@ -56,6 +60,8 @@
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.12em;
+        display: inline-block;
+        padding: 4px 0;
       }
     </style>
     <script type="application/ld+json">
@@ -78,7 +84,10 @@
      crossorigin="anonymous"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <a class="skip-link" href="#main">Pular para o conteúdo</a>
+    <main id="main">
+    <!-- placeholder até o React montar: reserva a altura da tela (sem CLS) e dá o h1 ao HTML estático -->
+    <div id="root"><h1 class="sr-only">The GOAT</h1></div>
     <section class="home-static">
       <h2>O que é o The GOAT</h2>
       <p>The GOAT é um jogo gratuito de carreira de basquete que roda direto no navegador, sem cadastro e sem download. Você começa no draft roubando atributos das maiores lendas da NBA, e cada roubo cobra um preço. Depois vive uma carreira completa, temporada a temporada, numa liga simulada de 30 times com prêmios, playoffs e trocas.</p>
@@ -105,6 +114,7 @@
         <a href="/en/how-to-play">English</a>
       </nav>
     </section>
+    </main>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",

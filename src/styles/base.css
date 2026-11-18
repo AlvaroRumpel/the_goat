@@ -748,3 +748,24 @@ button {
   outline: 2px solid var(--red);
   outline-offset: 2px;
 }
+
+/* hover com cara de prensa: a tinta vermelha inunda o botão escuro da esquerda pra direita */
+.btn--ink {
+  background: linear-gradient(var(--red), var(--red)) no-repeat left / 0 100% var(--ink);
+  transition: background-size 280ms cubic-bezier(.2,.7,.2,1), transform 90ms ease-out, opacity 120ms;
+}
+.btn--ink:not(:disabled):hover { background-size: 100% 100%; }
+/* chips: alvo de toque >= 24px; o inativo ganha a faixa de tinta por baixo no hover */
+.chip { min-height: 24px; transition: box-shadow 160ms ease-out; }
+.chip:not(.chip--on):hover { box-shadow: inset 0 -3px 0 var(--ink); }
+/* rodapé da home: alvo >= 24px e sublinhado que imprime da esquerda */
+.home-footer a {
+  display: inline-block; padding: 6px 0;
+  background: linear-gradient(currentColor, currentColor) no-repeat left bottom 4px / 0 1px;
+  transition: background-size 220ms cubic-bezier(.2,.7,.2,1), color 160ms;
+}
+.home-footer a { color: var(--dim); }
+.home-footer a:hover { background-size: 100% 1px; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) {
+  .btn--ink, .chip, .home-footer a { transition: none; }
+}

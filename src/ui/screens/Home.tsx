@@ -35,9 +35,9 @@ export function Home({ state, dispatch }: Props) {
       <hr className="rule--double" style={{ marginTop: 14 }} />
 
       <div style={{ paddingTop: 38 }}>
-        <div className="headline headline--red" style={{ fontSize: 66, lineHeight: 0.86, letterSpacing: '-0.035em' }}>
+        <h1 className="headline headline--red" style={{ fontSize: 66, lineHeight: 0.86, letterSpacing: '-0.035em', fontWeight: 'inherit' }}>
           {titleTop}<br />{titleBottom}
-        </div>
+        </h1>
         <hr className="rule" style={{ margin: '18px 0' }} />
         <div style={{ fontSize: 21, fontWeight: 500, maxWidth: 300 }}>{t(lang, 'home.tagline')}</div>
 
@@ -110,7 +110,7 @@ export function Home({ state, dispatch }: Props) {
             ['footer.about', lang === 'pt' ? '/sobre' : '/en/about'],
             ['footer.privacy', lang === 'pt' ? '/privacidade' : '/en/privacy'],
           ] as const).map(([key, href]) => (
-            <a key={key} href={href} className="mono-label" style={{ color: 'var(--dim)', textDecoration: 'none' }}>
+            <a key={key} href={href} className="mono-label" style={{ textDecoration: 'none' }}>
               {t(lang, key)}
             </a>
           ))}
