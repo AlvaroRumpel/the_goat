@@ -15,6 +15,9 @@ interface Props {
   dispatch: Dispatch<Action>
 }
 
+// Link de apoio (Ko-fi, Pix via link de pagamento, etc.). Vazio = botão some.
+const SUPPORT_URL = 'https://ko-fi.com/alvarorumpel'
+
 const AWARDS: Award[] = ['allstar', 'mvp', 'dpoy', 'scoring', 'fmvp', 'ring']
 const TIERS = ['peladeiro', 'rolePlayer', 'starter', 'allstar', 'superstar', 'legend', 'goat'] as const
 
@@ -153,6 +156,11 @@ export function Verdict({ state, dispatch }: Props) {
           <button type="button" className="btn btn--outline" style={{ width: '100%' }} onClick={() => dispatch({ type: 'RESET' })}>
             {t(lang, 'share.again')}
           </button>
+          {SUPPORT_URL && (
+            <a className="btn btn--outline" style={{ width: '100%', textAlign: 'center' }} href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+              {t(lang, 'support.button')}
+            </a>
+          )}
         </div>
       </div>
     </div>
