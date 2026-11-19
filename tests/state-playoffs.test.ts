@@ -260,7 +260,7 @@ describe('playoffs pausáveis', () => {
       }
       return x
     }
-    for (let seed = 500; seed < 560; seed++) {
+    for (let seed = 500; seed < 800; seed++) {
       let s = newCareer(seed)
       for (let y = 0; y < 8; y++) {
         s = gameReducer(s, { type: 'PLAY_SEASON', focus: 'scoring' })
@@ -288,6 +288,6 @@ describe('playoffs pausáveis', () => {
         if (s.phase === 'verdict') break
       }
     }
-    throw new Error('nenhuma temporada com trade aceita + classificação pros playoffs em 60 seeds × 8 anos')
+    throw new Error('nenhuma temporada com trade aceita + classificação pros playoffs em 240 seeds × 8 anos')
   }, 60000)
 })

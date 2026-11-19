@@ -20,13 +20,13 @@ describe('OVR efetivo', () => {
 
 describe('força de time', () => {
   const league = initLeague()
-  test('âncoras: OKC forte, UTA/WAS fracos, média plausível', () => {
+  test('âncoras: OKC forte, MEM/BKN fracos, média plausível', () => {
     const okc = rosterStrength(league, 'okc')
-    const uta = rosterStrength(league, 'uta')
-    const was = rosterStrength(league, 'was')
+    const mem = rosterStrength(league, 'mem')
+    const bkn = rosterStrength(league, 'bkn')
     expect(okc).toBeGreaterThanOrEqual(78)
-    expect(uta).toBeLessThanOrEqual(64)
-    expect(was).toBeLessThanOrEqual(64)
+    expect(mem).toBeLessThanOrEqual(60)
+    expect(bkn).toBeLessThanOrEqual(62)
     const teams = ['atl','bos','bkn','cha','chi','cle','dal','den','det','gsw','hou','ind','lac','lal','mem','mia','mil','min','nop','nyk','okc','orl','phi','phx','por','sac','sas','tor','uta','was']
     const avg = teams.reduce((n, id) => n + rosterStrength(league, id), 0) / 30
     expect(avg).toBeGreaterThanOrEqual(60)

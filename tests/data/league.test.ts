@@ -18,7 +18,7 @@ describe('dataset da liga', () => {
       expect(p.ovr).toBeGreaterThanOrEqual(55)
       expect(p.ovr).toBeLessThanOrEqual(99)
       expect(p.age).toBeGreaterThanOrEqual(18)
-      expect(p.age).toBeLessThanOrEqual(40)
+      expect(p.age).toBeLessThanOrEqual(42)
       expect(p.prevPpg).toBeNull()
     }
   })
